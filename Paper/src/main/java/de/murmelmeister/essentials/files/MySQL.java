@@ -17,7 +17,7 @@ public final class MySQL {
     }
 
     public void connect() {
-        Properties properties = FileUtil.loadProperties(logger, file);
+        Properties properties = FileUtil.loadProperties(file);
         Database.connect(properties.getProperty("DB_DRIVER"), properties.getProperty("DB_HOSTNAME"), properties.getProperty("DB_PORT"), properties.getProperty("DB_DATABASE"), properties.getProperty("DB_USERNAME"), properties.getProperty("DB_PASSWORD"));
         logger.info("Connected to the database.");
     }
