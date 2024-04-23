@@ -1,6 +1,6 @@
 main: de.murmelmeister.essentials.MurmelEssentials
 name: MurmelEssentials
-version: ${project.version}
+version: ${project.parent.version}
 api-version: 1.20
 author: Murmelmeister
 description: MurmelEssentials is a plugin that adds a lot of useful commands to your server.
