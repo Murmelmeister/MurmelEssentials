@@ -6,9 +6,14 @@ import com.velocitypowered.api.permission.PermissionProvider;
 import com.velocitypowered.api.permission.PermissionSubject;
 import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
+import de.murmelmeister.essentials.MurmelEssentials;
+import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
+import de.murmelmeister.murmelapi.user.User;
 
 import java.sql.SQLException;
+import java.util.concurrent.TimeUnit;
 
 public final class CustomPermission implements PermissionProvider, PermissionFunction {
     private final Permission permission;
@@ -32,5 +37,18 @@ public final class CustomPermission implements PermissionProvider, PermissionFun
     public PermissionFunction createFunction(PermissionSubject permissionSubject) {
         Preconditions.checkArgument(permissionSubject == player);
         return this;
+    }
+
+    public static void updatePermissions(ProxyServer server, MurmelEssentials instance) {
+        Group group = instance.getGroup();
+        User user = instance.getUser();
+        server.getScheduler().buildTask(instance, () -> {
+            try {
+                group.loadExpired();
+                user.loadExpired();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }).repeat(10 * 1000L, TimeUnit.MILLISECONDS).schedule();
     }
 }

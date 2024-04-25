@@ -6,6 +6,7 @@ import com.velocitypowered.api.event.permission.PermissionsSetupEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.proxy.Player;
 import de.murmelmeister.essentials.api.CustomPermission;
+import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
 import de.murmelmeister.murmelapi.user.User;
 
@@ -13,10 +14,12 @@ import java.sql.SQLException;
 
 public final class PermissionListener {
     private final Permission permission;
+    private final Group group;
     private final User user;
 
-    public PermissionListener(Permission permission, User user) {
+    public PermissionListener(Permission permission, Group group, User user) {
         this.permission = permission;
+        this.group = group;
         this.user = user;
     }
 
@@ -39,5 +42,7 @@ public final class PermissionListener {
     public void handleConnection(ServerConnectedEvent event) throws SQLException {
         Player player = event.getPlayer();
         user.joinUser(player.getUniqueId(), player.getUsername());
+        var uid = user.getId(player.getUniqueId());
+        user.getParent().addParent(uid, -1, group.getDefaultGroup(), -1);
     }
 }

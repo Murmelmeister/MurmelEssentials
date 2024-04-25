@@ -6,8 +6,15 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
+import de.murmelmeister.essentials.api.CustomPermission;
 import de.murmelmeister.essentials.files.MySQL;
 import de.murmelmeister.essentials.listeners.PermissionListener;
+import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.essentials.manager.ListenerManager;
+import de.murmelmeister.murmelapi.MurmelAPI;
+import de.murmelmeister.murmelapi.group.Group;
+import de.murmelmeister.murmelapi.permission.Permission;
+import de.murmelmeister.murmelapi.user.User;
 import org.slf4j.Logger;
 
 import java.sql.SQLException;
@@ -22,15 +29,28 @@ public final class MurmelEssentials {
     private MySQL mySQL;
 
     @Subscribe
-    public void onEnable(ProxyInitializeEvent event) throws SQLException {
+    public void onEnable(ProxyInitializeEvent event) {
         mySQL = new MySQL(logger);
         mySQL.connect();
-        mySQL.load();
-        proxyServer.getEventManager().register(this, new PermissionListener(mySQL.getPermission(), mySQL.getUser()));
+        CustomPermission.updatePermissions(proxyServer, this);
+        ListenerManager.register(proxyServer, this);
+        CommandManager.register(proxyServer, this);
     }
 
     @Subscribe
     public void onDisable(ProxyShutdownEvent event) {
         mySQL.disconnect();
+    }
+
+    public Group getGroup() {
+        return MurmelAPI.getGroup();
+    }
+
+    public User getUser() {
+        return MurmelAPI.getUser();
+    }
+
+    public Permission getPermission() {
+        return MurmelAPI.getPermission();
     }
 }
