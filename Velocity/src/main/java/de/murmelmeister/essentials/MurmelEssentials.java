@@ -6,6 +6,7 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
+import de.murmelmeister.essentials.api.CustomPermission;
 import de.murmelmeister.essentials.files.MySQL;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.ListenerManager;
@@ -28,6 +29,7 @@ public final class MurmelEssentials {
     public void onEnable(ProxyInitializeEvent event) {
         mySQL = new MySQL(logger);
         mySQL.connect();
+        CustomPermission.updatePermission(proxyServer, this);
         ListenerManager.register(proxyServer, this);
         CommandManager.register(proxyServer, this);
     }

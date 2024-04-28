@@ -196,32 +196,30 @@ public class PermissionCommand implements SimpleCommand {
             }
             case "creator" -> {
                 int creator = groupParent.getCreatorId(groupId, parentId);
-                UUID creatorUUID = user.getUniqueId(creator);
-                String creatorName = user.getUsername(creator);
-                source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                source.sendMessage(Component.text("§3CreatorUUID: §e" + creatorUUID));
-                source.sendMessage(Component.text("§3Creator: §e" + creatorName));
+                sendCreatorMessage(source, creator);
             }
             case "created" ->
                     source.sendMessage(Component.text("§3Created: §e" + groupParent.getExpiredDate(groupId, parentId)));
             case "expired" -> {
+                var expiredDate = groupParent.getExpiredDate(groupId, parentId);
                 if (args.length == 5) {
-                    source.sendMessage(Component.text("§3Expired: §e" + groupParent.getExpiredDate(groupId, parentId)));
+                    source.sendMessage(Component.text("§3Expired: §e" + expiredDate));
                     break;
                 }
-                long time = formatTime(source, args[5]);
+                var time = formatTime(source, args[5]);
+                var text = "§3Expired time for §e" + parentName + " §3is now §e" + expiredDate;
                 switch (args[6]) {
                     case "set" -> {
                         groupParent.setExpiredTime(groupId, parentId, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + groupParent.getExpiredDate(groupId, parentId)));
+                        source.sendMessage(Component.text(text));
                     }
                     case "add" -> {
                         groupParent.addExpiredTime(groupId, parentId, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + groupParent.getExpiredDate(groupId, parentId)));
+                        source.sendMessage(Component.text(text));
                     }
                     case "remove" -> {
                         groupParent.removeExpiredTime(groupId, parentId, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + groupParent.getExpiredDate(groupId, parentId)));
+                        source.sendMessage(Component.text(text));
                     }
                     default -> syntax(source);
                 }
@@ -269,32 +267,30 @@ public class PermissionCommand implements SimpleCommand {
             }
             case "creator" -> {
                 int creator = groupPermission.getCreatorId(groupId, permission);
-                UUID creatorUUID = user.getUniqueId(creator);
-                String creatorName = user.getUsername(creator);
-                source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                source.sendMessage(Component.text("§3CreatorUUID: §e" + creatorUUID));
-                source.sendMessage(Component.text("§3Creator: §e" + creatorName));
+                sendCreatorMessage(source, creator);
             }
             case "created" ->
                     source.sendMessage(Component.text("§3Created: §e" + groupPermission.getCreatedDate(groupId, permission)));
             case "expired" -> {
+                var expiredDate = groupPermission.getExpiredDate(groupId, permission);
                 if (args.length == 5) {
-                    source.sendMessage(Component.text("§3Expired: §e" + groupPermission.getExpiredDate(groupId, permission)));
+                    source.sendMessage(Component.text("§3Expired: §e" + expiredDate));
                     break;
                 }
-                long time = formatTime(source, args[5]);
+                var time = formatTime(source, args[5]);
+                var text = "§3Expired time for §e" + permission + " §3is now §e" + expiredDate;
                 switch (args[6]) {
                     case "set" -> {
                         groupPermission.setExpiredTime(groupId, permission, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + groupPermission.getExpiredDate(groupId, permission)));
+                        source.sendMessage(Component.text(text));
                     }
                     case "add" -> {
                         groupPermission.addExpiredTime(groupId, permission, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + groupPermission.getExpiredDate(groupId, permission)));
+                        source.sendMessage(Component.text(text));
                     }
                     case "remove" -> {
                         groupPermission.removeExpiredTime(groupId, permission, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + groupPermission.getExpiredDate(groupId, permission)));
+                        source.sendMessage(Component.text(text));
                     }
                     default -> syntax(source);
                 }
@@ -320,9 +316,7 @@ public class PermissionCommand implements SimpleCommand {
                 switch (args[4]) {
                     case "prefix" -> {
                         if (args.length == 5) {
-                            source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                            source.sendMessage(Component.text("§3CreatorUUID: §e" + user.getUniqueId(creator)));
-                            source.sendMessage(Component.text("§3Creator: §e" + user.getUsername(creator)));
+                            sendCreatorMessage(source, creator);
                             source.sendMessage(Component.text("§3EditedTime: §e" + groupColorSettings.getEditedDate(groupId)));
                             source.sendMessage(Component.text("§3Prefix: §e" + groupColorSettings.getChatPrefix(groupId)));
                             break;
@@ -332,9 +326,7 @@ public class PermissionCommand implements SimpleCommand {
                     }
                     case "suffix" -> {
                         if (args.length == 5) {
-                            source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                            source.sendMessage(Component.text("§3CreatorUUID: §e" + user.getUniqueId(creator)));
-                            source.sendMessage(Component.text("§3Creator: §e" + user.getUsername(creator)));
+                            sendCreatorMessage(source, creator);
                             source.sendMessage(Component.text("§3EditedTime: §e" + groupColorSettings.getEditedDate(groupId)));
                             source.sendMessage(Component.text("§3Suffix: §e" + groupColorSettings.getChatSuffix(groupId)));
                             break;
@@ -344,9 +336,7 @@ public class PermissionCommand implements SimpleCommand {
                     }
                     case "color" -> {
                         if (args.length == 5) {
-                            source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                            source.sendMessage(Component.text("§3CreatorUUID: §e" + user.getUniqueId(creator)));
-                            source.sendMessage(Component.text("§3Creator: §e" + user.getUsername(creator)));
+                            sendCreatorMessage(source, creator);
                             source.sendMessage(Component.text("§3EditedTime: §e" + groupColorSettings.getEditedDate(groupId)));
                             source.sendMessage(Component.text("§3Color: §e" + groupColorSettings.getChatColor(groupId)));
                             break;
@@ -361,9 +351,7 @@ public class PermissionCommand implements SimpleCommand {
                 switch (args[4]) {
                     case "prefix" -> {
                         if (args.length == 5) {
-                            source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                            source.sendMessage(Component.text("§3CreatorUUID: §e" + user.getUniqueId(creator)));
-                            source.sendMessage(Component.text("§3Creator: §e" + user.getUsername(creator)));
+                            sendCreatorMessage(source, creator);
                             source.sendMessage(Component.text("§3EditedTime: §e" + groupColorSettings.getEditedDate(groupId)));
                             source.sendMessage(Component.text("§3Prefix: §e" + groupColorSettings.getTabPrefix(groupId)));
                             break;
@@ -373,9 +361,7 @@ public class PermissionCommand implements SimpleCommand {
                     }
                     case "suffix" -> {
                         if (args.length == 5) {
-                            source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                            source.sendMessage(Component.text("§3CreatorUUID: §e" + user.getUniqueId(creator)));
-                            source.sendMessage(Component.text("§3Creator: §e" + user.getUsername(creator)));
+                            sendCreatorMessage(source, creator);
                             source.sendMessage(Component.text("§3EditedTime: §e" + groupColorSettings.getEditedDate(groupId)));
                             source.sendMessage(Component.text("§3Suffix: §e" + groupColorSettings.getTabSuffix(groupId)));
                             break;
@@ -385,9 +371,7 @@ public class PermissionCommand implements SimpleCommand {
                     }
                     case "color" -> {
                         if (args.length == 5) {
-                            source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                            source.sendMessage(Component.text("§3CreatorUUID: §e" + user.getUniqueId(creator)));
-                            source.sendMessage(Component.text("§3Creator: §e" + user.getUsername(creator)));
+                            sendCreatorMessage(source, creator);
                             source.sendMessage(Component.text("§3EditedTime: §e" + groupColorSettings.getEditedDate(groupId)));
                             source.sendMessage(Component.text("§3Color: §e" + groupColorSettings.getTabColor(groupId)));
                             break;
@@ -402,9 +386,7 @@ public class PermissionCommand implements SimpleCommand {
                 switch (args[4]) {
                     case "prefix" -> {
                         if (args.length == 5) {
-                            source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                            source.sendMessage(Component.text("§3CreatorUUID: §e" + user.getUniqueId(creator)));
-                            source.sendMessage(Component.text("§3Creator: §e" + user.getUsername(creator)));
+                            sendCreatorMessage(source, creator);
                             source.sendMessage(Component.text("§3EditedTime: §e" + groupColorSettings.getEditedDate(groupId)));
                             source.sendMessage(Component.text("§3Prefix: §e" + groupColorSettings.getTagPrefix(groupId)));
                             break;
@@ -414,9 +396,7 @@ public class PermissionCommand implements SimpleCommand {
                     }
                     case "suffix" -> {
                         if (args.length == 5) {
-                            source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                            source.sendMessage(Component.text("§3CreatorUUID: §e" + user.getUniqueId(creator)));
-                            source.sendMessage(Component.text("§3Creator: §e" + user.getUsername(creator)));
+                            sendCreatorMessage(source, creator);
                             source.sendMessage(Component.text("§3EditedTime: §e" + groupColorSettings.getEditedDate(groupId)));
                             source.sendMessage(Component.text("§3Suffix: §e" + groupColorSettings.getTagSuffix(groupId)));
                             break;
@@ -426,9 +406,7 @@ public class PermissionCommand implements SimpleCommand {
                     }
                     case "color" -> {
                         if (args.length == 5) {
-                            source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                            source.sendMessage(Component.text("§3CreatorUUID: §e" + user.getUniqueId(creator)));
-                            source.sendMessage(Component.text("§3Creator: §e" + user.getUsername(creator)));
+                            sendCreatorMessage(source, creator);
                             source.sendMessage(Component.text("§3EditedTime: §e" + groupColorSettings.getEditedDate(groupId)));
                             source.sendMessage(Component.text("§3Color: §e" + groupColorSettings.getTagColor(groupId)));
                             break;
@@ -493,32 +471,30 @@ public class PermissionCommand implements SimpleCommand {
             }
             case "creator" -> {
                 int creator = userParent.getCreatorId(userId, parentId);
-                UUID creatorUUID = user.getUniqueId(creator);
-                String creatorName = user.getUsername(creator);
-                source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                source.sendMessage(Component.text("§3CreatorUUID: §e" + creatorUUID));
-                source.sendMessage(Component.text("§3Creator: §e" + creatorName));
+                sendCreatorMessage(source, creator);
             }
             case "created" ->
                     source.sendMessage(Component.text("§3Created: §e" + userParent.getCreatedDate(userId, parentId)));
             case "expired" -> {
+                var expiredDate = userParent.getExpiredDate(userId, parentId);
                 if (args.length == 5) {
-                    source.sendMessage(Component.text("§3Expired: §e" + userParent.getExpiredDate(userId, parentId)));
+                    source.sendMessage(Component.text("§3Expired: §e" + expiredDate));
                     break;
                 }
-                long time = formatTime(source, args[5]);
+                var time = formatTime(source, args[5]);
+                var text = "§3Expired time for §e" + parentName + " §3is now §e" + expiredDate;
                 switch (args[6]) {
                     case "set" -> {
                         userParent.setExpiredTime(userId, parentId, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + userParent.getExpiredDate(userId, parentId)));
+                        source.sendMessage(Component.text(text));
                     }
                     case "add" -> {
                         userParent.addExpiredTime(userId, parentId, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + userParent.getExpiredDate(userId, parentId)));
+                        source.sendMessage(Component.text(text));
                     }
                     case "remove" -> {
                         userParent.removeExpiredTime(userId, parentId, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + userParent.getExpiredDate(userId, parentId)));
+                        source.sendMessage(Component.text(text));
                     }
                     default -> syntax(source);
                 }
@@ -566,38 +542,42 @@ public class PermissionCommand implements SimpleCommand {
             }
             case "creator" -> {
                 int creator = userPermission.getCreatorId(userId, permission);
-                UUID creatorUUID = user.getUniqueId(creator);
-                String creatorName = user.getUsername(creator);
-                source.sendMessage(Component.text("§3CreatorID: §e" + creator));
-                source.sendMessage(Component.text("§3CreatorUUID: §e" + creatorUUID));
-                source.sendMessage(Component.text("§3Creator: §e" + creatorName));
+                sendCreatorMessage(source, creator);
             }
             case "created" ->
                     source.sendMessage(Component.text("§3Created: §e" + userPermission.getCreatedDate(userId, permission)));
             case "expired" -> {
+                var expiredDate = userPermission.getExpiredDate(userId, permission);
                 if (args.length == 5) {
-                    source.sendMessage(Component.text("§3Expired: §e" + userPermission.getExpiredDate(userId, permission)));
+                    source.sendMessage(Component.text("§3Expired: §e" + expiredDate));
                     break;
                 }
-                long time = formatTime(source, args[5]);
+                var time = formatTime(source, args[5]);
+                var text = "§3Expired time for §e" + permission + " §3is now §e" + expiredDate;
                 switch (args[6]) {
                     case "set" -> {
                         userPermission.setExpiredTime(userId, permission, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + userPermission.getExpiredDate(userId, permission)));
+                        source.sendMessage(Component.text(text));
                     }
                     case "add" -> {
                         userPermission.addExpiredTime(userId, permission, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + userPermission.getExpiredDate(userId, permission)));
+                        source.sendMessage(Component.text(text));
                     }
                     case "remove" -> {
                         userPermission.removeExpiredTime(userId, permission, time);
-                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + userPermission.getExpiredDate(userId, permission)));
+                        source.sendMessage(Component.text(text));
                     }
                     default -> syntax(source);
                 }
             }
             default -> syntax(source);
         }
+    }
+
+    private void sendCreatorMessage(CommandSource source, int creatorId) throws SQLException {
+        source.sendMessage(Component.text("§3CreatorID: §e" + creatorId));
+        source.sendMessage(Component.text("§3CreatorUUID: §e" + user.getUniqueId(creatorId)));
+        source.sendMessage(Component.text("§3Creator: §e" + user.getUsername(creatorId)));
     }
 
     private long formatTime(CommandSource source, String args) {
