@@ -133,19 +133,18 @@ public class PermissionCommand implements SimpleCommand {
         String groupName = args[1];
         if (!group.existsGroup(groupName)) {
             if (args[2].equals("create")) {
-                try {
-                    group.createNewGroup(groupName, creatorId, Integer.parseInt(args[3]));
-                    source.sendMessage(Component.text("§3Group §e" + groupName + " §3is now created."));
-                } catch (NumberFormatException e) {
-                    source.sendMessage(Component.text("§cInvalid group weight."));
-                }
+                group.createNewGroup(groupName, creatorId);
+                source.sendMessage(Component.text("§3Group §e" + groupName + " §3is now created."));
             } else source.sendMessage(Component.text("§cGroup does not exist."));
             return;
         }
 
         int groupId = group.getUniqueId(groupName);
         switch (args[2]) {
-            case "delete" -> group.deleteGroup(groupId);
+            case "delete" -> {
+                group.deleteGroup(groupId);
+                source.sendMessage(Component.text("§3Group §e" + groupName + " §3is now deleted."));
+            }
             case "rename" -> {
                 if (args.length == 3) {
                     syntax(source);
@@ -174,10 +173,12 @@ public class PermissionCommand implements SimpleCommand {
             return;
         }
 
-        String parentName = args[4];
-        int parentId = group.getUniqueId(parentName);
+        String parentName;
+        int parentId;
         switch (args[3]) {
             case "add" -> {
+                parentName = args[4];
+                parentId = group.getUniqueId(parentName);
                 if (args.length == 5) {
                     groupParent.addParent(groupId, creatorId, parentId, -1);
                     source.sendMessage(Component.text("§3Parent §e" + parentName + " §3is now added."));
@@ -187,6 +188,8 @@ public class PermissionCommand implements SimpleCommand {
                 source.sendMessage(Component.text("§3Parent §e" + parentName + " §3is now added for §e" + groupParent.getExpiredDate(groupId, parentId)));
             }
             case "remove" -> {
+                parentName = args[4];
+                parentId = group.getUniqueId(parentName);
                 groupParent.removeParent(groupId, parentId);
                 source.sendMessage(Component.text("§3Parent §e" + parentName + " §3is now removed."));
             }
@@ -195,31 +198,36 @@ public class PermissionCommand implements SimpleCommand {
                 source.sendMessage(Component.text("§3All parents are now cleared."));
             }
             case "creator" -> {
+                parentName = args[4];
+                parentId = group.getUniqueId(parentName);
                 int creator = groupParent.getCreatorId(groupId, parentId);
                 sendCreatorMessage(source, creator);
             }
-            case "created" ->
-                    source.sendMessage(Component.text("§3Created: §e" + groupParent.getExpiredDate(groupId, parentId)));
+            case "created" -> {
+                parentName = args[4];
+                parentId = group.getUniqueId(parentName);
+                source.sendMessage(Component.text("§3Created: §e" + groupParent.getCreatedDate(groupId, parentId)));
+            }
             case "expired" -> {
-                var expiredDate = groupParent.getExpiredDate(groupId, parentId);
+                parentName = args[4];
+                parentId = group.getUniqueId(parentName);
                 if (args.length == 5) {
-                    source.sendMessage(Component.text("§3Expired: §e" + expiredDate));
+                    source.sendMessage(Component.text("§3Expired: §e" + groupParent.getExpiredDate(groupId, parentId)));
                     break;
                 }
                 var time = formatTime(source, args[5]);
-                var text = "§3Expired time for §e" + parentName + " §3is now §e" + expiredDate;
                 switch (args[6]) {
                     case "set" -> {
                         groupParent.setExpiredTime(groupId, parentId, time);
-                        source.sendMessage(Component.text(text));
+                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + groupParent.getExpiredDate(groupId, parentId)));
                     }
                     case "add" -> {
                         groupParent.addExpiredTime(groupId, parentId, time);
-                        source.sendMessage(Component.text(text));
+                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + groupParent.getExpiredDate(groupId, parentId)));
                     }
                     case "remove" -> {
                         groupParent.removeExpiredTime(groupId, parentId, time);
-                        source.sendMessage(Component.text(text));
+                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + groupParent.getExpiredDate(groupId, parentId)));
                     }
                     default -> syntax(source);
                 }
@@ -241,7 +249,7 @@ public class PermissionCommand implements SimpleCommand {
             return;
         }
 
-        String permission = args[4];
+        String permission;
         switch (args[3]) {
             case "all" -> {
                 source.sendMessage(Component.text("§3All permissions: "));
@@ -249,6 +257,7 @@ public class PermissionCommand implements SimpleCommand {
                     source.sendMessage(Component.text("§7- §e" + all));
             }
             case "add" -> {
+                permission = args[4];
                 if (args.length == 5) {
                     groupPermission.addPermission(groupId, creatorId, permission, -1);
                     source.sendMessage(Component.text("§3Permission §e" + permission + " §3is now added."));
@@ -258,6 +267,7 @@ public class PermissionCommand implements SimpleCommand {
                 source.sendMessage(Component.text("§3Permission §e" + permission + " §3is now added for §e" + groupPermission.getExpiredDate(groupId, permission)));
             }
             case "remove" -> {
+                permission = args[4];
                 groupPermission.removePermission(groupId, permission);
                 source.sendMessage(Component.text("§3Permission §e" + permission + " §3is now removed."));
             }
@@ -266,31 +276,33 @@ public class PermissionCommand implements SimpleCommand {
                 source.sendMessage(Component.text("§3All permissions are now cleared."));
             }
             case "creator" -> {
+                permission = args[4];
                 int creator = groupPermission.getCreatorId(groupId, permission);
                 sendCreatorMessage(source, creator);
             }
-            case "created" ->
-                    source.sendMessage(Component.text("§3Created: §e" + groupPermission.getCreatedDate(groupId, permission)));
+            case "created" -> {
+                permission = args[4];
+                source.sendMessage(Component.text("§3Created: §e" + groupPermission.getCreatedDate(groupId, permission)));
+            }
             case "expired" -> {
-                var expiredDate = groupPermission.getExpiredDate(groupId, permission);
+                permission = args[4];
                 if (args.length == 5) {
-                    source.sendMessage(Component.text("§3Expired: §e" + expiredDate));
+                    source.sendMessage(Component.text("§3Expired: §e" + groupPermission.getExpiredDate(groupId, permission)));
                     break;
                 }
                 var time = formatTime(source, args[5]);
-                var text = "§3Expired time for §e" + permission + " §3is now §e" + expiredDate;
                 switch (args[6]) {
                     case "set" -> {
                         groupPermission.setExpiredTime(groupId, permission, time);
-                        source.sendMessage(Component.text(text));
+                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + groupPermission.getExpiredDate(groupId, permission)));
                     }
                     case "add" -> {
                         groupPermission.addExpiredTime(groupId, permission, time);
-                        source.sendMessage(Component.text(text));
+                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + groupPermission.getExpiredDate(groupId, permission)));
                     }
                     case "remove" -> {
                         groupPermission.removeExpiredTime(groupId, permission, time);
-                        source.sendMessage(Component.text(text));
+                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + groupPermission.getExpiredDate(groupId, permission)));
                     }
                     default -> syntax(source);
                 }
@@ -449,10 +461,12 @@ public class PermissionCommand implements SimpleCommand {
             return;
         }
 
-        String parentName = args[4];
-        int parentId = group.getUniqueId(parentName);
+        String parentName;
+        int parentId;
         switch (args[3]) {
             case "add" -> {
+                parentName = args[4];
+                parentId = group.getUniqueId(parentName);
                 if (args.length == 5) {
                     userParent.addParent(userId, creatorId, parentId, -1);
                     source.sendMessage(Component.text("§3Parent §e" + parentName + " §3is now added."));
@@ -462,6 +476,8 @@ public class PermissionCommand implements SimpleCommand {
                 source.sendMessage(Component.text("§3Parent §e" + parentName + " §3is now added for §e" + userParent.getExpiredDate(userId, parentId)));
             }
             case "remove" -> {
+                parentName = args[4];
+                parentId = group.getUniqueId(parentName);
                 userParent.removeParent(userId, parentId);
                 source.sendMessage(Component.text("§3Parent §e" + parentName + " §3is now removed."));
             }
@@ -470,31 +486,36 @@ public class PermissionCommand implements SimpleCommand {
                 source.sendMessage(Component.text("§3All parents are now cleared."));
             }
             case "creator" -> {
+                parentName = args[4];
+                parentId = group.getUniqueId(parentName);
                 int creator = userParent.getCreatorId(userId, parentId);
                 sendCreatorMessage(source, creator);
             }
-            case "created" ->
-                    source.sendMessage(Component.text("§3Created: §e" + userParent.getCreatedDate(userId, parentId)));
+            case "created" -> {
+                parentName = args[4];
+                parentId = group.getUniqueId(parentName);
+                source.sendMessage(Component.text("§3Created: §e" + userParent.getCreatedDate(userId, parentId)));
+            }
             case "expired" -> {
-                var expiredDate = userParent.getExpiredDate(userId, parentId);
+                parentName = args[4];
+                parentId = group.getUniqueId(parentName);
                 if (args.length == 5) {
-                    source.sendMessage(Component.text("§3Expired: §e" + expiredDate));
+                    source.sendMessage(Component.text("§3Expired: §e" + userParent.getExpiredDate(userId, parentId)));
                     break;
                 }
                 var time = formatTime(source, args[5]);
-                var text = "§3Expired time for §e" + parentName + " §3is now §e" + expiredDate;
                 switch (args[6]) {
                     case "set" -> {
                         userParent.setExpiredTime(userId, parentId, time);
-                        source.sendMessage(Component.text(text));
+                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + userParent.getExpiredDate(userId, parentId)));
                     }
                     case "add" -> {
                         userParent.addExpiredTime(userId, parentId, time);
-                        source.sendMessage(Component.text(text));
+                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + userParent.getExpiredDate(userId, parentId)));
                     }
                     case "remove" -> {
                         userParent.removeExpiredTime(userId, parentId, time);
-                        source.sendMessage(Component.text(text));
+                        source.sendMessage(Component.text("§3Expired time for §e" + parentName + " §3is now §e" + userParent.getExpiredDate(userId, parentId)));
                     }
                     default -> syntax(source);
                 }
@@ -516,7 +537,7 @@ public class PermissionCommand implements SimpleCommand {
             return;
         }
 
-        String permission = args[4];
+        String permission;
         switch (args[3]) {
             case "all" -> {
                 source.sendMessage(Component.text("§3Alle permissions: "));
@@ -524,6 +545,7 @@ public class PermissionCommand implements SimpleCommand {
                     source.sendMessage(Component.text("§7- §e" + all));
             }
             case "add" -> {
+                permission = args[4];
                 if (args.length == 5) {
                     userPermission.addPermission(userId, creatorId, permission, -1);
                     source.sendMessage(Component.text("§3Permission §e" + permission + " §3is now added."));
@@ -533,6 +555,7 @@ public class PermissionCommand implements SimpleCommand {
                 source.sendMessage(Component.text("§3Permission §e" + permission + " §3is now added for §e" + userPermission.getExpiredDate(userId, permission)));
             }
             case "remove" -> {
+                permission = args[4];
                 userPermission.removePermission(userId, permission);
                 source.sendMessage(Component.text("§3Permission §e" + permission + " §3is now removed."));
             }
@@ -541,31 +564,33 @@ public class PermissionCommand implements SimpleCommand {
                 source.sendMessage(Component.text("§3All permissions are now cleared."));
             }
             case "creator" -> {
+                permission = args[4];
                 int creator = userPermission.getCreatorId(userId, permission);
                 sendCreatorMessage(source, creator);
             }
-            case "created" ->
-                    source.sendMessage(Component.text("§3Created: §e" + userPermission.getCreatedDate(userId, permission)));
+            case "created" -> {
+                permission = args[4];
+                source.sendMessage(Component.text("§3Created: §e" + userPermission.getCreatedDate(userId, permission)));
+            }
             case "expired" -> {
-                var expiredDate = userPermission.getExpiredDate(userId, permission);
+                permission = args[4];
                 if (args.length == 5) {
-                    source.sendMessage(Component.text("§3Expired: §e" + expiredDate));
+                    source.sendMessage(Component.text("§3Expired: §e" + userPermission.getExpiredDate(userId, permission)));
                     break;
                 }
                 var time = formatTime(source, args[5]);
-                var text = "§3Expired time for §e" + permission + " §3is now §e" + expiredDate;
                 switch (args[6]) {
                     case "set" -> {
-                        userPermission.setExpiredTime(userId, permission, time);
-                        source.sendMessage(Component.text(text));
+                        userPermission.setExpiredTime(userId, permission, time); // TODO: bei falschen format wird es trotzdem durchgeführt und nicht abgebrochen, sowie die Message wird trotzdem gesendet
+                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + userPermission.getExpiredDate(userId, permission)));
                     }
                     case "add" -> {
                         userPermission.addExpiredTime(userId, permission, time);
-                        source.sendMessage(Component.text(text));
+                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + userPermission.getExpiredDate(userId, permission)));
                     }
                     case "remove" -> {
                         userPermission.removeExpiredTime(userId, permission, time);
-                        source.sendMessage(Component.text(text));
+                        source.sendMessage(Component.text("§3Expired time for §e" + permission + " §3is now §e" + userPermission.getExpiredDate(userId, permission)));
                     }
                     default -> syntax(source);
                 }
@@ -575,12 +600,14 @@ public class PermissionCommand implements SimpleCommand {
     }
 
     private void sendCreatorMessage(CommandSource source, int creatorId) throws SQLException {
-        source.sendMessage(Component.text("§3CreatorID: §e" + creatorId));
-        source.sendMessage(Component.text("§3CreatorUUID: §e" + user.getUniqueId(creatorId)));
-        source.sendMessage(Component.text("§3Creator: §e" + user.getUsername(creatorId)));
+        source.sendMessage(Component.text("§3Creator: "));
+        source.sendMessage(Component.text("§7- §3ID: §e" + creatorId));
+        source.sendMessage(Component.text("§7- §3UUID: §e" + user.getUniqueId(creatorId)));
+        source.sendMessage(Component.text("§7- §3Name: §e" + user.getUsername(creatorId)));
     }
 
     private long formatTime(CommandSource source, String args) {
+        if (args.startsWith("-")) throw new NumberFormatException("No negative value allowed");
         try {
             String format = args.substring(args.length() - 1);
             long duration = Long.parseLong(args.substring(0, args.length() - 1));

@@ -19,7 +19,6 @@ public final class CustomPermission extends PermissibleBase {
 
     @Override
     public boolean hasPermission(@NotNull String perm) {
-        this.player.updateCommands();
         try {
             return this.permission.hasPermission(this.player.getUniqueId(), perm);
         } catch (SQLException e) {

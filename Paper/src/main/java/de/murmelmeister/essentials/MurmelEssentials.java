@@ -21,7 +21,7 @@ public final class MurmelEssentials extends JavaPlugin {
     public void onEnable() {
         mySQL.connect();
         ListenerManager.register(this);
-        Ranks.updatePLayerTeams(this, getServer());
+        Ranks.updatePlayers(this, getServer());
     }
 
     public MurmelEssentials() {
