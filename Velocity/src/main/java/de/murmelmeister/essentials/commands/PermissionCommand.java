@@ -1,8 +1,8 @@
 package de.murmelmeister.essentials.commands;
 
 import com.velocitypowered.api.command.CommandSource;
-import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
+import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.parent.GroupParent;
 import de.murmelmeister.murmelapi.group.permission.GroupPermission;
@@ -21,9 +21,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static de.murmelmeister.essentials.manager.CommandManager.sendSourceMessage;
-
-public class PermissionCommand implements SimpleCommand {
+public class PermissionCommand extends CommandManager {
     private final Permission permission;
     private final Group group;
     private final User user;
@@ -50,13 +48,13 @@ public class PermissionCommand implements SimpleCommand {
         var args = invocation.arguments();
         var source = invocation.source();
 
-        var player = source instanceof Player ? (Player) source : null;
-        var playerId = player != null ? player.getUniqueId() : null;
-
         if (!source.hasPermission("murmelessentials.command.permission")) {
             sendSourceMessage(source, "§cYou do not have permission to use this command.");
             return;
         }
+
+        var player = source instanceof Player ? (Player) source : null;
+        var playerId = player != null ? player.getUniqueId() : null;
 
         try {
             if (args.length == 1) {

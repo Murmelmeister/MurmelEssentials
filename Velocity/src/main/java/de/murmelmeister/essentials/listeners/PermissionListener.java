@@ -40,7 +40,7 @@ public final class PermissionListener {
 
     @Subscribe
     public void handleConnection(ServerConnectedEvent event) throws SQLException {
-        Player player = event.getPlayer();
+        var player = event.getPlayer();
         user.joinUser(player.getUniqueId(), player.getUsername());
         var uid = user.getId(player.getUniqueId());
         user.getParent().addParent(uid, -1, group.getDefaultGroup(), -1);

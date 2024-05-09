@@ -7,12 +7,14 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.api.CustomPermission;
+import de.murmelmeister.essentials.api.PlayTimeUpdater;
 import de.murmelmeister.essentials.files.MySQL;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.ListenerManager;
 import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
+import de.murmelmeister.murmelapi.playtime.PlayTime;
 import de.murmelmeister.murmelapi.user.User;
 import org.slf4j.Logger;
 
@@ -32,6 +34,7 @@ public final class MurmelEssentials {
         CustomPermission.updatePermission(proxyServer, this);
         ListenerManager.register(proxyServer, this);
         CommandManager.register(proxyServer, this);
+        PlayTimeUpdater.startTimer(proxyServer, this);
     }
 
     @Subscribe
@@ -45,6 +48,10 @@ public final class MurmelEssentials {
 
     public User getUser() {
         return MurmelAPI.getUser();
+    }
+
+    public PlayTime getPlayTime() {
+        return MurmelAPI.getPlayTime();
     }
 
     public Permission getPermission() {
