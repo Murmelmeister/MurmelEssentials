@@ -44,10 +44,7 @@ public final class PlayTimeCommand extends CommandManager {
                 sendSourceMessage(source, "§3PlayTime: §e%s", time);
             } else if (args.length == 1) {
                 var username = args[0];
-                if (!user.existsUser(username)) {
-                    sendSourceMessage(source, "§cUser does not exist.");
-                    return;
-                }
+                if (isUserNotExist(source, user, username)) return;
 
                 var userId = user.getId(username);
                 var time = TimeUtil.formatTimeValue(playTime, userId);

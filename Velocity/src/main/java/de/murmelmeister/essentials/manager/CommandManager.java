@@ -7,7 +7,10 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.commands.PermissionCommand;
 import de.murmelmeister.essentials.commands.PlayTimeCommand;
+import de.murmelmeister.murmelapi.user.User;
 import net.kyori.adventure.text.Component;
+
+import java.sql.SQLException;
 
 public abstract class CommandManager implements SimpleCommand {
     public static void register(ProxyServer server, MurmelEssentials instance) {
@@ -23,7 +26,21 @@ public abstract class CommandManager implements SimpleCommand {
         server.getCommandManager().register(name, (Command) clazz);
     }
 
-    public void sendSourceMessage(CommandSource source, String message, Object... objects) {
+    public static void sendSourceMessage(CommandSource source, String message, Object... objects) {
         source.sendMessage(Component.text(String.format(message, objects)));
+    }
+
+    public boolean isUserNotExist(CommandSource source, User user, String username) throws SQLException {
+        if (!user.existsUser(username)) {
+            sendSourceMessage(source, "§cUser does not exist.");
+            return true;
+        } else return false;
+    }
+
+    public void sendCreatorMessage(CommandSource source, User user, int creatorId) throws SQLException {
+        sendSourceMessage(source, "§3Creator: ");
+        sendSourceMessage(source, "§7- §3ID: §e%s", creatorId);
+        sendSourceMessage(source, "§7- §3UUID: §e%s", user.getUniqueId(creatorId));
+        sendSourceMessage(source, "§7- §3Name: §e%s", user.getUsername(creatorId));
     }
 }
