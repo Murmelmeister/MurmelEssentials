@@ -29,23 +29,18 @@ public final class Ranks {
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
-        }, 20L, 3 * 20L);
+        }, 10L, 2 * 20L);
     }
 
     @SuppressWarnings("deprecation")
     public static void setChatFormat(AsyncPlayerChatEvent event, Group group, User user) throws SQLException {
         var userId = user.getId(event.getPlayer().getUniqueId());
-        List<Integer> sortIdList = new ArrayList<>();
-        for (var groupId : user.getParent().getParentIds(userId)) {
-            var sortId = group.getSettings().getSortId(groupId);
-            sortIdList.add(sortId);
-        }
-        var highestSortId = Collections.max(sortIdList);
+        var highestSortId = getSortId(group, user, userId);
         for (var groupId : user.getParent().getParentIds(userId)) {
             var sortId = group.getSettings().getSortId(groupId);
             var colorSettings = group.getColorSettings();
             var chat = GroupColorType.CHAT;
-            if (highestSortId.equals(sortId))
+            if (highestSortId == sortId)
                 event.setFormat(HexColor.format(colorSettings.getPrefix(chat, groupId) + "%s" + colorSettings.getSuffix(chat, groupId) + " : " + colorSettings.getColor(chat, groupId) + "%s"));
         }
     }
@@ -53,17 +48,12 @@ public final class Ranks {
     @SuppressWarnings("deprecation")
     private static void setPlayerListName(Group group, User user, Player player) throws SQLException {
         var userId = user.getId(player.getUniqueId());
-        List<Integer> sortIdList = new ArrayList<>();
-        for (var groupId : user.getParent().getParentIds(userId)) {
-            var sortId = group.getSettings().getSortId(groupId);
-            sortIdList.add(sortId);
-        }
-        var highestSortId = Collections.max(sortIdList);
+        var highestSortId = getSortId(group, user, userId);
         for (var groupId : user.getParent().getParentIds(userId)) {
             var sortId = group.getSettings().getSortId(groupId);
             var colorSettings = group.getColorSettings();
             var tab = GroupColorType.TAB;
-            if (highestSortId.equals(sortId))
+            if (highestSortId == sortId)
                 player.setPlayerListName(HexColor.format(colorSettings.getPrefix(tab, groupId) + colorSettings.getColor(tab, groupId) + player.getName() + colorSettings.getSuffix(tab, groupId)));
         }
     }
@@ -90,12 +80,7 @@ public final class Ranks {
             Map<Player, Integer> playerSortIds = new HashMap<>();
             for (var target : player.getServer().getOnlinePlayers()) {
                 var userId = user.getId(target.getUniqueId());
-                List<Integer> sortIdList = new ArrayList<>();
-                for (var gId : user.getParent().getParentIds(userId)) {
-                    var sortId = group.getSettings().getSortId(gId);
-                    sortIdList.add(sortId);
-                }
-                var highestSortId = Collections.max(sortIdList);
+                var highestSortId = getSortId(group, user, userId);
                 playerSortIds.put(target, highestSortId);
             }
 
@@ -108,5 +93,14 @@ public final class Ranks {
                     team.addEntry(playerEntry.getKey().getName());
             }
         }
+    }
+
+    private static int getSortId(Group group, User user, int userId) throws SQLException {
+        List<Integer> sortIdList = new ArrayList<>();
+        for (var groupId : user.getParent().getParentIds(userId)) {
+            var sortId = group.getSettings().getSortId(groupId);
+            sortIdList.add(sortId);
+        }
+        return Collections.max(sortIdList);
     }
 }
