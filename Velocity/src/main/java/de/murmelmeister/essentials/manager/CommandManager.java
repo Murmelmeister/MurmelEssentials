@@ -9,6 +9,7 @@ import de.murmelmeister.essentials.commands.PermissionCommand;
 import de.murmelmeister.essentials.commands.PlayTimeCommand;
 import de.murmelmeister.murmelapi.user.User;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.sql.SQLException;
 
@@ -19,7 +20,8 @@ public abstract class CommandManager implements SimpleCommand {
         var permission = instance.getPermission();
         var playTime = instance.getPlayTime();
         addCommand(server, "permission", new PermissionCommand(permission, group, user));
-        addCommand(server, "playtime", new PlayTimeCommand(user, playTime));
+        //addCommand(server, "playtime", new PlayTimeCommand(user, playTime));
+        server.getCommandManager().register(PlayTimeCommand.createBrigadierCommand(user, playTime));
     }
 
     private static void addCommand(ProxyServer server, String name, Object clazz) {
@@ -30,7 +32,11 @@ public abstract class CommandManager implements SimpleCommand {
         source.sendMessage(Component.text(String.format(message, objects)));
     }
 
-    public boolean isUserNotExist(CommandSource source, User user, String username) throws SQLException {
+    public static void sendHexColorMessage(CommandSource source, String message, Object... objects) {
+        source.sendMessage(MiniMessage.miniMessage().deserialize(String.format(message, objects)));
+    }
+
+    public static boolean isUserNotExist(CommandSource source, User user, String username) throws SQLException {
         if (!user.existsUser(username)) {
             sendSourceMessage(source, "§cUser does not exist.");
             return true;
