@@ -5,10 +5,12 @@ import de.murmelmeister.essentials.utils.HexColor;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.settings.GroupColorType;
 import de.murmelmeister.murmelapi.user.User;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
@@ -16,6 +18,7 @@ import java.sql.SQLException;
 import java.util.*;
 
 public final class Ranks {
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     public static void updatePlayers(MurmelEssentials instance, Server server) {
         server.getScheduler().runTaskTimerAsynchronously(instance, () -> {
             try {
@@ -29,23 +32,35 @@ public final class Ranks {
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
-        }, 10L, 2 * 20L);
+        }, 10L, 3 * 20L);
     }
 
     @SuppressWarnings("deprecation")
-    public static void setChatFormat(AsyncPlayerChatEvent event, Group group, User user) throws SQLException {
-        var userId = user.getId(event.getPlayer().getUniqueId());
+    public static void setChatFormat(AsyncChatEvent event, Group group, User user) throws SQLException {
+        var player = event.getPlayer();
+        var userId = user.getId(player.getUniqueId());
         var highestSortId = getSortId(group, user, userId);
         for (var groupId : user.getParent().getParentIds(userId)) {
             var sortId = group.getSettings().getSortId(groupId);
             var colorSettings = group.getColorSettings();
             var chat = GroupColorType.CHAT;
-            if (highestSortId == sortId)
-                event.setFormat(HexColor.format(colorSettings.getPrefix(chat, groupId) + "%s" + colorSettings.getSuffix(chat, groupId) + " : " + colorSettings.getColor(chat, groupId) + "%s"));
+            if (highestSortId == sortId) {
+                var serializer = LegacyComponentSerializer.builder().hexColors().build();
+                var originalMessage = serializer.serialize(event.message());
+
+                if (player.hasPermission("murmelessentials.chat.color")) originalMessage = net.md_5.bungee.api.ChatColor.translateAlternateColorCodes('&', originalMessage);
+                if (player.hasPermission("murmelessentials.chat.hex")) originalMessage = HexColor.format(originalMessage);
+
+                var format = colorSettings.getPrefix(chat, groupId) + player.getName() + colorSettings.getSuffix(chat, groupId) + " : ";
+                var chatMessage = serializer.deserialize(HexColor.format(colorSettings.getColor(chat, groupId)) + originalMessage);
+                var parsedMessage = MINI_MESSAGE.deserialize(format).append(chatMessage);
+
+                event.viewers().forEach(audience -> audience.sendMessage(parsedMessage));
+                event.setCancelled(true);
+            }
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static void setPlayerListName(Group group, User user, Player player) throws SQLException {
         var userId = user.getId(player.getUniqueId());
         var highestSortId = getSortId(group, user, userId);
@@ -53,8 +68,9 @@ public final class Ranks {
             var sortId = group.getSettings().getSortId(groupId);
             var colorSettings = group.getColorSettings();
             var tab = GroupColorType.TAB;
-            if (highestSortId == sortId)
-                player.setPlayerListName(HexColor.format(colorSettings.getPrefix(tab, groupId) + colorSettings.getColor(tab, groupId) + player.getName() + colorSettings.getSuffix(tab, groupId)));
+            if (highestSortId == sortId) {
+                player.playerListName(MINI_MESSAGE.deserialize(colorSettings.getPrefix(tab, groupId) + colorSettings.getColor(tab, groupId) + player.getName() + colorSettings.getSuffix(tab, groupId)));
+            }
         }
     }
 
@@ -72,9 +88,12 @@ public final class Ranks {
 
             Team team = scoreboard.getTeam(name);
             if (team == null) team = scoreboard.registerNewTeam(name);
-            team.setPrefix(HexColor.format(group.getColorSettings().getPrefix(tag, groupId)));
-            team.setSuffix(HexColor.format(group.getColorSettings().getSuffix(tag, groupId)));
-            team.setColor(Objects.requireNonNull(ChatColor.getByChar(group.getColorSettings().getColor(tag, groupId).replace("&", "").replace("§", ""))));
+            var prefix = group.getColorSettings().getPrefix(tag, groupId);
+            var suffix = group.getColorSettings().getSuffix(tag, groupId);
+            var color = group.getColorSettings().getColor(tag, groupId);
+            team.setPrefix(HexColor.format(prefix));
+            team.setSuffix(HexColor.format(suffix));
+            team.setColor(Objects.requireNonNull(ChatColor.getByChar(color.replace("&", "").replace("§", ""))));
 
             // Create a map of players and their highest SortID
             Map<Player, Integer> playerSortIds = new HashMap<>();
