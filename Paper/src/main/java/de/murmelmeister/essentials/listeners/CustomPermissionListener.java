@@ -17,7 +17,7 @@ public final class CustomPermissionListener extends ListenerManager{
     @EventHandler
     public void handlePlayerLogin(PlayerLoginEvent event) throws ClassNotFoundException, NoSuchFieldException, IllegalAccessException {
         Player player = event.getPlayer();
-        Field field = Class.forName("org.bukkit.craftbukkit." + this.instance.getServer().getClass().getName().replace(".", ",").split(",")[3] + ".entity.CraftHumanEntity").getDeclaredField("perm");
+        Field field = Class.forName("org.bukkit.craftbukkit.entity.CraftHumanEntity").getDeclaredField("perm");
         field.setAccessible(true);
         field.set(player, new CustomPermission(player, this.permission));
         field.setAccessible(false);

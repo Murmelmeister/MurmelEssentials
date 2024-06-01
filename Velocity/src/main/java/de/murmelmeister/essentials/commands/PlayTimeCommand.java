@@ -1,15 +1,24 @@
 package de.murmelmeister.essentials.commands;
 
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.tree.LiteralCommandNode;
+import com.velocitypowered.api.command.BrigadierCommand;
+import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import com.velocitypowered.api.proxy.Player;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.murmelapi.playtime.PlayTime;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.utils.StringUtil;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 public final class PlayTimeCommand extends CommandManager {
@@ -19,6 +28,54 @@ public final class PlayTimeCommand extends CommandManager {
     public PlayTimeCommand(User user, PlayTime playTime) {
         this.user = user;
         this.playTime = playTime;
+    }
+
+    public static BrigadierCommand createBrigadierCommand(User user, PlayTime playTime) {
+        LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("playtime")
+                .requires(source -> source.hasPermission("murmelessentials.command.playtime"))
+                .executes(context -> {
+                    var source = context.getSource();
+                    var player = source instanceof Player ? (Player) source : null;
+
+                    if (player == null) {
+                        sendSourceMessage(source, "§cThis command does not work in the console.");
+                        return 0;
+                    }
+
+                    try {
+                        var time = TimeUtil.formatTimeValue(playTime, user.getId(player.getUniqueId()));
+                        sendHexColorMessage(source, "<rainbow>PlayTime: %s", time);
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                    return Command.SINGLE_SUCCESS;
+                })
+                .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
+                        .suggests((context, builder) -> {
+                            try {
+                                user.getUsernames().stream().sorted().toList().forEach(username -> builder.suggest(username,
+                                        VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<rainbow>" + username))));
+                            } catch (SQLException e) {
+                                throw new RuntimeException(e);
+                            }
+                            return builder.buildFuture();
+                        })
+                        .executes(context -> {
+                            try {
+                                var source = context.getSource();
+                                var username = context.getArgument("player", String.class);
+                                if (isUserNotExist(source, user, username)) return 0;
+
+                                var userId = user.getId(username);
+                                var time = TimeUtil.formatTimeValue(playTime, userId);
+                                sendHexColorMessage(source, "<rainbow>PlayTime from %s: %s", username, time);
+                            } catch (SQLException e) {
+                                throw new RuntimeException(e);
+                            }
+                            return 1;
+                        }))
+                .build();
+        return new BrigadierCommand(node);
     }
 
     @Override
@@ -55,7 +112,7 @@ public final class PlayTimeCommand extends CommandManager {
         }
     }
 
-    @Override
+    /*@Override
     public List<String> suggest(Invocation invocation) {
         var args = invocation.arguments();
         if (args.length == 1) {
@@ -66,5 +123,20 @@ public final class PlayTimeCommand extends CommandManager {
             }
         }
         return Collections.emptyList();
+    }*/
+
+    @Override
+    public CompletableFuture<List<String>> suggestAsync(Invocation invocation) {
+        return CompletableFuture.supplyAsync(() -> {
+            var args = invocation.arguments();
+            if (args.length == 1) {
+                try {
+                    return user.getUsernames().stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return Collections.emptyList();
+        });
     }
 }
