@@ -11,8 +11,6 @@ import de.murmelmeister.murmelapi.user.User;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
-import java.sql.SQLException;
-
 public abstract class CommandManager implements SimpleCommand {
     public static void register(ProxyServer server, MurmelEssentials instance) {
         var group = instance.getGroup();
@@ -36,14 +34,14 @@ public abstract class CommandManager implements SimpleCommand {
         source.sendMessage(MiniMessage.miniMessage().deserialize(String.format(message, objects)));
     }
 
-    public static boolean isUserNotExist(CommandSource source, User user, String username) throws SQLException {
+    public static boolean isUserNotExist(CommandSource source, User user, String username) {
         if (!user.existsUser(username)) {
             sendSourceMessage(source, "§cUser does not exist.");
             return true;
         } else return false;
     }
 
-    public void sendCreatorMessage(CommandSource source, User user, int creatorId) throws SQLException {
+    public void sendCreatorMessage(CommandSource source, User user, int creatorId) {
         sendSourceMessage(source, "§3Creator: ");
         sendSourceMessage(source, "§7- §3ID: §e%s", creatorId);
         sendSourceMessage(source, "§7- §3UUID: §e%s", user.getUniqueId(creatorId));

@@ -10,8 +10,6 @@ import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.permission.UserPermission;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
 
-import java.sql.SQLException;
-
 import static de.murmelmeister.essentials.manager.CommandManager.sendSourceMessage;
 
 public final class SubPermission {
@@ -31,7 +29,7 @@ public final class SubPermission {
         this.userPermission = userPermission;
     }
 
-    public void permission(CommandSource source, boolean isUser, int id, int creatorId, String[] args) throws SQLException {
+    public void permission(CommandSource source, boolean isUser, int id, int creatorId, String[] args) {
         if (args.length == 3) {
             sendSourceMessage(source, "§3Permissions: ");
             var permissions = isUser ? userPermission.getPermissions(id) : groupPermission.getPermissions(id);
@@ -46,24 +44,24 @@ public final class SubPermission {
         }
 
         switch (args[3]) {
-            case "all" -> allPermission(source, isUser, id, args);
+            case "all" -> allPermission(source, isUser, id);
             case "add" -> addPermission(source, isUser, id, creatorId, args);
             case "remove" -> removePermission(source, isUser, id, args);
-            case "clear" -> clearPermission(source, isUser, id, args);
+            case "clear" -> clearPermission(source, isUser, id);
             case "info" -> infoPermission(source, isUser, id, args);
             case "time" -> timePermission(source, isUser, id, args);
             default -> PermissionSyntaxUtil.syntaxPermission(source, isUser);
         }
     }
 
-    private void allPermission(CommandSource source, boolean isUser, int id, String[] args) throws SQLException {
+    private void allPermission(CommandSource source, boolean isUser, int id) {
         var permissions = isUser ? this.permission.getPermissions(id) : groupPermission.getAllPermissions(groupParent, id);
         sendSourceMessage(source, "§3All permissions: ");
         for (var all : permissions)
             sendSourceMessage(source, "§7- §e%s", all);
     }
 
-    private void addPermission(CommandSource source, boolean isUser, int id, int creatorId, String[] args) throws SQLException {
+    private void addPermission(CommandSource source, boolean isUser, int id, int creatorId, String[] args) {
         var permission = args[4];
         if (args.length == 5) {
             if (isUser) userPermission.addPermission(id, creatorId, permission, -1);
@@ -85,7 +83,7 @@ public final class SubPermission {
         sendSourceMessage(source, "§3Permission §e%s §3is now added for §e%s", permission, getPermissionExpiredDate(isUser, id, permission));
     }
 
-    private void removePermission(CommandSource source, boolean isUser, int id, String[] args) throws SQLException {
+    private void removePermission(CommandSource source, boolean isUser, int id, String[] args) {
         if (args.length < 5) {
             PermissionSyntaxUtil.syntaxPermission(source, isUser);
             return;
@@ -98,13 +96,13 @@ public final class SubPermission {
         sendSourceMessage(source, "§3Permission §e%s §3is now removed.", permission);
     }
 
-    private void clearPermission(CommandSource source, boolean isUser, int id, String[] args) throws SQLException {
+    private void clearPermission(CommandSource source, boolean isUser, int id) {
         if (isUser) userPermission.clearPermission(id);
         else groupPermission.clearPermission(id);
         sendSourceMessage(source, "§3All permissions are now cleared.");
     }
 
-    private void infoPermission(CommandSource source, boolean isUser, int id, String[] args) throws SQLException {
+    private void infoPermission(CommandSource source, boolean isUser, int id, String[] args) {
         if (args.length < 5) {
             PermissionSyntaxUtil.syntaxPermission(source, isUser);
             return;
@@ -122,7 +120,7 @@ public final class SubPermission {
         sendSourceMessage(source, "§3Expired date: §e%s", getPermissionExpiredDate(isUser, id, permission));
     }
 
-    private void timePermission(CommandSource source, boolean isUser, int id, String[] args) throws SQLException {
+    private void timePermission(CommandSource source, boolean isUser, int id, String[] args) {
         if (args.length < 6) {
             PermissionSyntaxUtil.syntaxPermission(source, isUser);
             return;
@@ -157,11 +155,11 @@ public final class SubPermission {
         }
     }
 
-    private String getPermissionExpiredDate(boolean isUser, int id, String permission) throws SQLException {
+    private String getPermissionExpiredDate(boolean isUser, int id, String permission) {
         return isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
     }
 
-    private boolean isPermissionNotExist(CommandSource source, boolean isUser, int id, String permission) throws SQLException {
+    private boolean isPermissionNotExist(CommandSource source, boolean isUser, int id, String permission) {
         var exist = isUser ? userPermission.existsPermission(id, permission) : groupPermission.existsPermission(id, permission);
         if (!exist) {
             sendSourceMessage(source, "§cPermission does not exist.");

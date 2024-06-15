@@ -5,7 +5,6 @@ import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.murmelapi.playtime.PlayTime;
 import de.murmelmeister.murmelapi.user.User;
 
-import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 
 public final class PlayTimeUpdater {
@@ -16,12 +15,9 @@ public final class PlayTimeUpdater {
     }
 
     private static void updateTimer(ProxyServer server, User user, PlayTime playTime) {
-        for (var player : server.getAllPlayers())
-            try {
-                var userId = user.getId(player.getUniqueId());
-                playTime.timer(userId);
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
+        for (var player : server.getAllPlayers()) {
+            var userId = user.getId(player.getUniqueId());
+            playTime.timer(userId);
+        }
     }
 }

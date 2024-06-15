@@ -18,9 +18,9 @@ import de.murmelmeister.murmelapi.user.parent.UserParent;
 import de.murmelmeister.murmelapi.user.permission.UserPermission;
 import de.murmelmeister.murmelapi.utils.StringUtil;
 
-import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -62,43 +62,39 @@ public class PermissionCommand extends CommandManager {
             return;
         }
 
-        try {
-            if (args.length == 1) {
-                switch (args[0]) {
-                    case "groups" -> {
-                        sendSourceMessage(source, "§3Groups: ");
-                        for (var name : group.getNames())
-                            sendSourceMessage(source, "§7- §e" + name);
-                    }
-                    case "users" -> {
-                        sendSourceMessage(source, "§3Users: ");
-                        for (var name : user.getUsernames())
-                            sendSourceMessage(source, "§7- §e" + name);
-                    }
-                    default -> PermissionSyntaxUtil.syntax(source);
+        if (args.length == 1) {
+            switch (args[0]) {
+                case "groups" -> {
+                    sendSourceMessage(source, "§3Groups: ");
+                    for (var name : group.getNames())
+                        sendSourceMessage(source, "§7- §e" + name);
                 }
-                return;
+                case "users" -> {
+                    sendSourceMessage(source, "§3Users: ");
+                    for (var name : user.getUsernames())
+                        sendSourceMessage(source, "§7- §e" + name);
+                }
+                default -> PermissionSyntaxUtil.syntax(source);
             }
-
-            var player = source instanceof Player ? (Player) source : null;
-            var playerId = player != null ? player.getUniqueId() : null;
-            var creatorId = playerId == null ? -1 : user.getId(playerId);
-            if (args.length >= 3) {
-                switch (args[0]) {
-                    case "group" -> groups(source, creatorId, args);
-                    case "user" -> users(source, creatorId, args);
-                    default -> PermissionSyntaxUtil.syntax(source);
-                }
-            } else PermissionSyntaxUtil.syntax(source);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+            return;
         }
+
+        var player = source instanceof Player ? (Player) source : null;
+        var playerId = player != null ? player.getUniqueId() : null;
+        var creatorId = playerId == null ? -1 : user.getId(playerId);
+        if (args.length >= 3) {
+            switch (args[0]) {
+                case "group" -> groups(source, creatorId, args);
+                case "user" -> users(source, creatorId, args);
+                default -> PermissionSyntaxUtil.syntax(source);
+            }
+        } else PermissionSyntaxUtil.syntax(source);
     }
 
     @Override
-    public List<String> suggest(Invocation invocation) {
-        var args = invocation.arguments();
-        try {
+    public CompletableFuture<List<String>> suggestAsync(Invocation invocation) {
+        return CompletableFuture.supplyAsync(() -> {
+            var args = invocation.arguments();
             if (args.length == 1)
                 return Stream.of("user", "users", "group", "groups").filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
             if (args.length == 2 && args[0].equals("group")) // Show all group names
@@ -131,13 +127,11 @@ public class PermissionCommand extends CommandManager {
                 return userPermission.getPermissions(user.getId(args[1])).stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
             if (args.length == 7 && (args[0].equals("group") || args[0].equals("user")) && (args[2].equals("parent") || args[2].equals("permission")) && args[3].equals("time")) // Set/Remove/Expired time
                 return Stream.of("set", "add", "remove").filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-        return Collections.emptyList();
+            return Collections.emptyList();
+        });
     }
 
-    private void groups(CommandSource source, int creatorId, String[] args) throws SQLException {
+    private void groups(CommandSource source, int creatorId, String[] args) {
         var groupName = args[1];
         if (!group.existsGroup(groupName)) {
             if (args[2].equals("create")) createGroup(source, groupName, creatorId, args);
@@ -157,7 +151,7 @@ public class PermissionCommand extends CommandManager {
         }
     }
 
-    private void users(CommandSource source, int creatorId, String[] args) throws SQLException {
+    private void users(CommandSource source, int creatorId, String[] args) {
         var username = args[1];
         if (isUserNotExist(source, user, username)) return;
 
@@ -169,7 +163,7 @@ public class PermissionCommand extends CommandManager {
         }
     }
 
-    private void createGroup(CommandSource source, String groupName, int creatorId, String[] args) throws SQLException {
+    private void createGroup(CommandSource source, String groupName, int creatorId, String[] args) {
         if (args.length == 3) {
             PermissionSyntaxUtil.syntax(source, false);
             return;
@@ -194,7 +188,7 @@ public class PermissionCommand extends CommandManager {
         sendSourceMessage(source, "§3Group §e%s §3is now created.", groupName);
     }
 
-    private void deleteGroup(CommandSource source, int groupId, String groupName) throws SQLException {
+    private void deleteGroup(CommandSource source, int groupId, String groupName) {
         if (groupId == group.getDefaultGroup()) {
             sendSourceMessage(source, "§cYou can not delete the default group.");
             return;
@@ -203,7 +197,7 @@ public class PermissionCommand extends CommandManager {
         sendSourceMessage(source, "§3Group §e%s §3is now deleted.", groupName);
     }
 
-    private void renameGroup(CommandSource source, int groupId, String[] args) throws SQLException {
+    private void renameGroup(CommandSource source, int groupId, String[] args) {
         if (args.length == 3) {
             PermissionSyntaxUtil.syntax(source, false);
             return;

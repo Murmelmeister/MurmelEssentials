@@ -10,8 +10,6 @@ import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
 import de.murmelmeister.murmelapi.user.User;
 
-import java.sql.SQLException;
-
 public final class PermissionListener {
     private final Permission permission;
     private final Group group;
@@ -39,7 +37,7 @@ public final class PermissionListener {
     }
 
     @Subscribe
-    public void handleConnection(ServerConnectedEvent event) throws SQLException {
+    public void handleConnection(ServerConnectedEvent event) {
         var player = event.getPlayer();
         user.joinUser(player.getUniqueId(), player.getUsername());
         var uid = user.getId(player.getUniqueId());

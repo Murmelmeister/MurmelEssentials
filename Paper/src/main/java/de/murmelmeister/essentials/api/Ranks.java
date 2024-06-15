@@ -8,77 +8,86 @@ import de.murmelmeister.murmelapi.user.User;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.bukkit.ChatColor;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
-import java.sql.SQLException;
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public final class Ranks {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+
+    private static final String PERMISSION_CHAT_COLOR = "murmelessentials.chat.color";
+    private static final String PERMISSION_CHAT_HEX = "murmelessentials.chat.hex";
+
     public static void updatePlayers(MurmelEssentials instance, Server server) {
         server.getScheduler().runTaskTimerAsynchronously(instance, () -> {
-            try {
-                var group = instance.getGroup();
-                var user = instance.getUser();
-                for (var player : server.getOnlinePlayers()) {
-                    setPlayerTeams(group, user, player);
-                    setPlayerListName(group, user, player);
-                    player.updateCommands(); // Update the player commands
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
+            var group = instance.getGroup();
+            var user = instance.getUser();
+            for (var player : server.getOnlinePlayers()) {
+                setPlayerTeams(group, user, player);
+                setPlayerListName(group, user, player);
+                player.updateCommands(); // Update the player commands
             }
         }, 10L, 3 * 20L);
     }
 
     @SuppressWarnings("deprecation")
-    public static void setChatFormat(AsyncChatEvent event, Group group, User user) throws SQLException {
+    public static void setChatFormat(AsyncChatEvent event, Group group, User user) {
         var player = event.getPlayer();
-        var userId = user.getId(player.getUniqueId());
-        var highestSortId = getSortId(group, user, userId);
-        for (var groupId : user.getParent().getParentIds(userId)) {
-            var sortId = group.getSettings().getSortId(groupId);
-            var colorSettings = group.getColorSettings();
-            var chat = GroupColorType.CHAT;
-            if (highestSortId == sortId) {
-                var serializer = LegacyComponentSerializer.builder().hexColors().build();
-                var originalMessage = serializer.serialize(event.message());
+        var idAndSortId = getUserIdAndSortId(group, user, player);
+        var userId = idAndSortId.getKey();
+        var highestSortId = idAndSortId.getValue();
+        var colorSettings = group.getColorSettings();
+        var chat = GroupColorType.CHAT;
 
-                if (player.hasPermission("murmelessentials.chat.color")) originalMessage = net.md_5.bungee.api.ChatColor.translateAlternateColorCodes('&', originalMessage);
-                if (player.hasPermission("murmelessentials.chat.hex")) originalMessage = HexColor.format(originalMessage);
+        var serializer = LegacyComponentSerializer.builder().hexColors().build();
+        var originalMessage = serializer.serialize(event.message());
 
-                var format = colorSettings.getPrefix(chat, groupId) + player.getName() + colorSettings.getSuffix(chat, groupId) + " : ";
-                var chatMessage = serializer.deserialize(HexColor.format(colorSettings.getColor(chat, groupId)) + originalMessage);
-                var parsedMessage = MINI_MESSAGE.deserialize(format).append(chatMessage);
+        if (player.hasPermission(PERMISSION_CHAT_COLOR))
+            originalMessage = net.md_5.bungee.api.ChatColor.translateAlternateColorCodes('&', originalMessage);
+        if (player.hasPermission(PERMISSION_CHAT_HEX)) originalMessage = HexColor.format(originalMessage);
 
-                event.viewers().forEach(audience -> audience.sendMessage(parsedMessage));
-                event.setCancelled(true);
-            }
-        }
+        final var finalMessage = originalMessage;
+        event.renderer((source, sourceDisplayName, message, viewer) -> {
+            var groupId = user.getParent().getParentIds(userId).stream()
+                    .filter(id -> highestSortId.equals(group.getSettings().getSortId(id)))
+                    .findFirst();
+
+            if (groupId.isPresent()) {
+                int id = groupId.get();
+                var format = colorSettings.getPrefix(chat, id) + player.getName() + colorSettings.getSuffix(chat, id) + " : ";
+                var chatMessage = serializer.deserialize(HexColor.format(colorSettings.getColor(chat, id)) + finalMessage);
+
+                return MINI_MESSAGE.deserialize(format).append(chatMessage);
+            } else return message;
+        });
     }
 
-    private static void setPlayerListName(Group group, User user, Player player) throws SQLException {
-        var userId = user.getId(player.getUniqueId());
-        var highestSortId = getSortId(group, user, userId);
-        for (var groupId : user.getParent().getParentIds(userId)) {
-            var sortId = group.getSettings().getSortId(groupId);
-            var colorSettings = group.getColorSettings();
-            var tab = GroupColorType.TAB;
-            if (highestSortId == sortId) {
-                player.playerListName(MINI_MESSAGE.deserialize(colorSettings.getPrefix(tab, groupId) + colorSettings.getColor(tab, groupId) + player.getName() + colorSettings.getSuffix(tab, groupId)));
-            }
-        }
+    private static void setPlayerListName(Group group, User user, Player player) {
+        var idAndSortId = getUserIdAndSortId(group, user, player);
+        var userId = idAndSortId.getKey();
+        var highestSortId = idAndSortId.getValue();
+        var colorSettings = group.getColorSettings();
+        var tab = GroupColorType.TAB;
+
+        user.getParent().getParentIds(userId).stream()
+                .filter(groupId -> highestSortId.equals(group.getSettings().getSortId(groupId)))
+                .forEach(groupId -> player.playerListName(MINI_MESSAGE.deserialize(
+                        colorSettings.getPrefix(tab, groupId) + colorSettings.getColor(tab, groupId) + player.getName() + colorSettings.getSuffix(tab, groupId))));
     }
 
     @SuppressWarnings("deprecation")
-    private static void setPlayerTeams(Group group, User user, Player player) throws SQLException {
+    private static void setPlayerTeams(Group group, User user, Player player) {
         Scoreboard scoreboard = player.getScoreboard();
 
-        for (var team : scoreboard.getTeams()) team.unregister();
+        scoreboard.getTeams().forEach(Team::unregister);
 
         for (var groupName : group.getNames()) {
             var tag = GroupColorType.TAG;
@@ -88,38 +97,35 @@ public final class Ranks {
 
             Team team = scoreboard.getTeam(name);
             if (team == null) team = scoreboard.registerNewTeam(name);
-            var prefix = group.getColorSettings().getPrefix(tag, groupId);
-            var suffix = group.getColorSettings().getSuffix(tag, groupId);
-            var color = group.getColorSettings().getColor(tag, groupId);
+            var colorSettings = group.getColorSettings();
+            var prefix = colorSettings.getPrefix(tag, groupId);
+            var suffix = colorSettings.getSuffix(tag, groupId);
+            var color = colorSettings.getColor(tag, groupId);
             team.setPrefix(HexColor.format(prefix));
             team.setSuffix(HexColor.format(suffix));
-            team.setColor(Objects.requireNonNull(ChatColor.getByChar(color.replace("&", "").replace("§", ""))));
+            team.setColor(Objects.requireNonNull(ChatColor.getByChar(color.replaceAll("[&§]", ""))));
 
             // Create a map of players and their highest SortID
-            Map<Player, Integer> playerSortIds = new HashMap<>();
-            for (var target : player.getServer().getOnlinePlayers()) {
-                var userId = user.getId(target.getUniqueId());
-                var highestSortId = getSortId(group, user, userId);
-                playerSortIds.put(target, highestSortId);
-            }
+            Map<Player, Integer> playerSortIds = player.getServer().getOnlinePlayers().stream()
+                    .collect(Collectors.toMap(Function.identity(), target -> getHighestSortId(group, user, user.getId(target.getUniqueId()))));
 
-            List<Map.Entry<Player, Integer>> sortedEntries = new ArrayList<>(playerSortIds.entrySet());
-            sortedEntries.sort(Map.Entry.comparingByValue(Comparator.reverseOrder()));
-
-            for (var playerEntry : team.getEntries()) team.removeEntry(playerEntry);
-            for (var playerEntry : sortedEntries) {
-                if (groupSortId == playerEntry.getValue())
-                    team.addEntry(playerEntry.getKey().getName());
-            }
+            playerSortIds.entrySet().stream()
+                    .filter(entry -> groupSortId == entry.getValue())
+                    .map(entry -> entry.getKey().getName())
+                    .forEach(team::addEntry);
         }
     }
 
-    private static int getSortId(Group group, User user, int userId) throws SQLException {
-        List<Integer> sortIdList = new ArrayList<>();
-        for (var groupId : user.getParent().getParentIds(userId)) {
-            var sortId = group.getSettings().getSortId(groupId);
-            sortIdList.add(sortId);
-        }
-        return Collections.max(sortIdList);
+    private static Pair<Integer, Integer> getUserIdAndSortId(Group group, User user, Player player) {
+        var userId = user.getId(player.getUniqueId());
+        var highestSortId = getHighestSortId(group, user, userId);
+        return new ImmutablePair<>(userId, highestSortId);
+    }
+
+    private static int getHighestSortId(Group group, User user, int userId) {
+        return user.getParent().getParentIds(userId).stream()
+                .map(groupId -> group.getSettings().getSortId(groupId))
+                .collect(Collectors.summarizingInt(Integer::intValue))
+                .getMax();
     }
 }

@@ -9,8 +9,6 @@ import de.murmelmeister.murmelapi.group.settings.GroupColorType;
 import de.murmelmeister.murmelapi.group.settings.GroupSettings;
 import de.murmelmeister.murmelapi.user.User;
 
-import java.sql.SQLException;
-
 import static de.murmelmeister.essentials.manager.CommandManager.sendSourceMessage;
 
 public final class SubGroupEdit {
@@ -28,7 +26,7 @@ public final class SubGroupEdit {
         this.groupColorSettings = groupColorSettings;
     }
 
-    public void groupEdit(CommandSource source, int groupId, int creatorId, String[] args) throws SQLException {
+    public void groupEdit(CommandSource source, int groupId, int creatorId, String[] args) {
         if (args.length == 3) {
             PermissionSyntaxUtil.syntax(source, false);
             return;
@@ -49,7 +47,7 @@ public final class SubGroupEdit {
         }
     }
 
-    private void groupColor(GroupColorType type, CommandSource source, int groupId, int creatorId, String message, String[] args) throws SQLException {
+    private void groupColor(GroupColorType type, CommandSource source, int groupId, int creatorId, String message, String[] args) {
         var creator = groupColorSettings.getCreatorId(groupId) == -2 ? creatorId : groupColorSettings.getCreatorId(groupId);
         if (args.length == 4) {
             PermissionSyntaxUtil.syntaxGroupEdit(source);
@@ -90,7 +88,7 @@ public final class SubGroupEdit {
         }
     }
 
-    private void sortId(CommandSource source, int groupId, String[] args) throws SQLException {
+    private void sortId(CommandSource source, int groupId, String[] args) {
         if (args.length == 4) {
             sendSourceMessage(source, "§3SortID: §e%s", groupSettings.getSortId(groupId));
             return;
@@ -103,7 +101,7 @@ public final class SubGroupEdit {
         }
     }
 
-    private void teamId(CommandSource source, int groupId, String[] args) throws SQLException {
+    private void teamId(CommandSource source, int groupId, String[] args) {
         if (args.length == 4) {
             sendSourceMessage(source, "§3TeamID: §e%s", groupSettings.getTeamId(groupId));
             return;

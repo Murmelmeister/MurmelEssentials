@@ -12,10 +12,8 @@ import de.murmelmeister.murmelapi.playtime.PlayTime;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.utils.StringUtil;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
-import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -42,36 +40,24 @@ public final class PlayTimeCommand extends CommandManager {
                         return 0;
                     }
 
-                    try {
-                        var time = TimeUtil.formatTimeValue(playTime, user.getId(player.getUniqueId()));
-                        sendHexColorMessage(source, "<rainbow>PlayTime: %s", time);
-                    } catch (SQLException e) {
-                        throw new RuntimeException(e);
-                    }
+                    var time = TimeUtil.formatTimeValue(playTime, user.getId(player.getUniqueId()));
+                    sendHexColorMessage(source, "<rainbow>PlayTime: %s", time);
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
                         .suggests((context, builder) -> {
-                            try {
-                                user.getUsernames().stream().sorted().toList().forEach(username -> builder.suggest(username,
-                                        VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<rainbow>" + username))));
-                            } catch (SQLException e) {
-                                throw new RuntimeException(e);
-                            }
+                            user.getUsernames().stream().sorted().toList().forEach(username -> builder.suggest(username,
+                                    VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<rainbow>" + username))));
                             return builder.buildFuture();
                         })
                         .executes(context -> {
-                            try {
-                                var source = context.getSource();
-                                var username = context.getArgument("player", String.class);
-                                if (isUserNotExist(source, user, username)) return 0;
+                            var source = context.getSource();
+                            var username = context.getArgument("player", String.class);
+                            if (isUserNotExist(source, user, username)) return 0;
 
-                                var userId = user.getId(username);
-                                var time = TimeUtil.formatTimeValue(playTime, userId);
-                                sendHexColorMessage(source, "<rainbow>PlayTime from %s: %s", username, time);
-                            } catch (SQLException e) {
-                                throw new RuntimeException(e);
-                            }
+                            var userId = user.getId(username);
+                            var time = TimeUtil.formatTimeValue(playTime, userId);
+                            sendHexColorMessage(source, "<rainbow>PlayTime from %s: %s", username, time);
                             return 1;
                         }))
                 .build();
@@ -88,54 +74,32 @@ public final class PlayTimeCommand extends CommandManager {
             return;
         }
 
-        try {
-            if (args.length == 0) {
-                var player = source instanceof Player ? (Player) source : null;
+        if (args.length == 0) {
+            var player = source instanceof Player ? (Player) source : null;
 
-                if (player == null) {
-                    sendSourceMessage(source, "§cThis command does not work in the console.");
-                    return;
-                }
-
-                var time = TimeUtil.formatTimeValue(playTime, user.getId(player.getUniqueId()));
-                sendSourceMessage(source, "§3PlayTime: §e%s", time);
-            } else if (args.length == 1) {
-                var username = args[0];
-                if (isUserNotExist(source, user, username)) return;
-
-                var userId = user.getId(username);
-                var time = TimeUtil.formatTimeValue(playTime, userId);
-                sendSourceMessage(source, "§3PlayTime from §a%s§3: §e%s", username, time);
-            } else sendSourceMessage(source, "§7Syntax: §c/playtime [PLAYER]");
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    /*@Override
-    public List<String> suggest(Invocation invocation) {
-        var args = invocation.arguments();
-        if (args.length == 1) {
-            try {
-                return user.getUsernames().stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
+            if (player == null) {
+                sendSourceMessage(source, "§cThis command does not work in the console.");
+                return;
             }
-        }
-        return Collections.emptyList();
-    }*/
+
+            var time = TimeUtil.formatTimeValue(playTime, user.getId(player.getUniqueId()));
+            sendSourceMessage(source, "§3PlayTime: §e%s", time);
+        } else if (args.length == 1) {
+            var username = args[0];
+            if (isUserNotExist(source, user, username)) return;
+
+            var userId = user.getId(username);
+            var time = TimeUtil.formatTimeValue(playTime, userId);
+            sendSourceMessage(source, "§3PlayTime from §a%s§3: §e%s", username, time);
+        } else sendSourceMessage(source, "§7Syntax: §c/playtime [PLAYER]");
+    }
 
     @Override
     public CompletableFuture<List<String>> suggestAsync(Invocation invocation) {
         return CompletableFuture.supplyAsync(() -> {
             var args = invocation.arguments();
-            if (args.length == 1) {
-                try {
-                    return user.getUsernames().stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-                } catch (SQLException e) {
-                    throw new RuntimeException(e);
-                }
-            }
+            if (args.length == 1)
+                return user.getUsernames().stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
             return Collections.emptyList();
         });
     }

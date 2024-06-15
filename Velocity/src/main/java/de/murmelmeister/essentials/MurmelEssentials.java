@@ -20,12 +20,16 @@ import org.slf4j.Logger;
 
 @Plugin(id = "murmelessentials", name = "MurmelEssentials", version = "0.0.1", description = "MurmelEssentials is a plugin that adds a lot of useful commands to your server.", authors = {"Murmelmeister"}, url = "https://www.youtube.com/Murmelmeister")
 public final class MurmelEssentials {
-    @Inject
-    private Logger logger;
-    @Inject
-    private ProxyServer proxyServer;
+    private final Logger logger;
+    private final ProxyServer proxyServer;
 
     private MySQL mySQL;
+
+    @Inject
+    public MurmelEssentials(Logger logger, ProxyServer proxyServer) {
+        this.logger = logger;
+        this.proxyServer = proxyServer;
+    }
 
     @Subscribe
     public void onEnable(ProxyInitializeEvent event) {

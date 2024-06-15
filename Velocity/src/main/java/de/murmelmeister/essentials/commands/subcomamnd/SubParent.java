@@ -9,8 +9,6 @@ import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.parent.UserParent;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
 
-import java.sql.SQLException;
-
 import static de.murmelmeister.essentials.manager.CommandManager.sendSourceMessage;
 
 public final class SubParent {
@@ -28,7 +26,7 @@ public final class SubParent {
         this.userParent = userParent;
     }
 
-    public void parent(CommandSource source, boolean isUser, int id, int creatorId, String[] args) throws SQLException {
+    public void parent(CommandSource source, boolean isUser, int id, int creatorId, String[] args) {
         if (args.length == 3) {
             sendSourceMessage(source, "§3Parents: ");
             var parents = isUser ? userParent.getParentIds(id) : groupParent.getParentIds(id);
@@ -52,7 +50,7 @@ public final class SubParent {
         }
     }
 
-    private void addParent(CommandSource source, boolean isUser, int id, int creatorId, String[] args) throws SQLException {
+    private void addParent(CommandSource source, boolean isUser, int id, int creatorId, String[] args) {
         var parentName = args[4];
         if (isGroupNotExist(source, parentName)) return;
         var parentId = group.getUniqueId(parentName);
@@ -76,7 +74,7 @@ public final class SubParent {
         sendSourceMessage(source, "§3Parent §e%s §3is now added for §e%s", parentName, getParentExpiredDate(isUser, id, parentId));
     }
 
-    private void removeParent(CommandSource source, boolean isUser, int id, String[] args) throws SQLException {
+    private void removeParent(CommandSource source, boolean isUser, int id, String[] args) {
         if (args.length < 5) {
             PermissionSyntaxUtil.syntaxParent(source, isUser);
             return;
@@ -96,7 +94,7 @@ public final class SubParent {
         sendSourceMessage(source, "§3Parent §e%s §3is now removed.", parentName);
     }
 
-    private void clearParent(CommandSource source, boolean isUser, int id) throws SQLException {
+    private void clearParent(CommandSource source, boolean isUser, int id) {
         if (isUser) {
             userParent.clearParent(id);
             userParent.addParent(id, -1, group.getDefaultGroup(), -1);
@@ -104,7 +102,7 @@ public final class SubParent {
         sendSourceMessage(source, "§3All parents are now cleared.");
     }
 
-    private void infoParent(CommandSource source, boolean isUser, int id, String[] args) throws SQLException {
+    private void infoParent(CommandSource source, boolean isUser, int id, String[] args) {
         if (args.length < 5) {
             PermissionSyntaxUtil.syntaxParent(source, isUser);
             return;
@@ -124,7 +122,7 @@ public final class SubParent {
         sendSourceMessage(source, "§3Expired date: §e%s", getParentExpiredDate(isUser, id, parentId));
     }
 
-    private void timeParent(CommandSource source, boolean isUser, int id, String[] args) throws SQLException {
+    private void timeParent(CommandSource source, boolean isUser, int id, String[] args) {
         if (args.length < 6) {
             PermissionSyntaxUtil.syntax(source, isUser);
             return;
@@ -167,14 +165,14 @@ public final class SubParent {
         }
     }
 
-    private boolean isGroupNotExist(CommandSource source, String groupName) throws SQLException {
+    private boolean isGroupNotExist(CommandSource source, String groupName) {
         if (!group.existsGroup(groupName)) {
             sendSourceMessage(source, "§cGroup does not exist.");
             return true;
         } else return false;
     }
 
-    private boolean isParentNotExist(CommandSource source, boolean isUser, int id, int parentId) throws SQLException {
+    private boolean isParentNotExist(CommandSource source, boolean isUser, int id, int parentId) {
         var exist = isUser ? userParent.existsParent(id, parentId) : groupParent.existsParent(id, parentId);
         if (!exist) {
             sendSourceMessage(source, "§cParent does not exist.");
@@ -182,7 +180,7 @@ public final class SubParent {
         } else return false;
     }
 
-    private String getParentExpiredDate(boolean isUser, int id, int parentId) throws SQLException {
+    private String getParentExpiredDate(boolean isUser, int id, int parentId) {
         return isUser ? userParent.getExpiredDate(id, parentId) : groupParent.getExpiredDate(id, parentId);
     }
 }

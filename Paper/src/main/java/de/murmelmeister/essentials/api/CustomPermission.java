@@ -5,8 +5,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.permissions.PermissibleBase;
 import org.jetbrains.annotations.NotNull;
 
-import java.sql.SQLException;
-
 public final class CustomPermission extends PermissibleBase {
     private final Player player;
     private final Permission permission;
@@ -19,10 +17,6 @@ public final class CustomPermission extends PermissibleBase {
 
     @Override
     public boolean hasPermission(@NotNull String perm) {
-        try {
-            return this.permission.hasPermission(this.player.getUniqueId(), perm);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        return this.permission.hasPermission(this.player.getUniqueId(), perm);
     }
 }
