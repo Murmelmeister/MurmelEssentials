@@ -62,33 +62,37 @@ public class PermissionCommand extends CommandManager {
             return;
         }
 
-        if (args.length == 1) {
-            switch (args[0]) {
-                case "groups" -> {
-                    sendSourceMessage(source, "§3Groups: ");
-                    for (var name : group.getNames())
-                        sendSourceMessage(source, "§7- §e" + name);
+        try {
+            if (args.length == 1) {
+                switch (args[0]) {
+                    case "groups" -> {
+                        sendSourceMessage(source, "§3Groups: ");
+                        for (var name : group.getNames())
+                            sendSourceMessage(source, "§7- §e" + name);
+                    }
+                    case "users" -> {
+                        sendSourceMessage(source, "§3Users: ");
+                        for (var name : user.getUsernames())
+                            sendSourceMessage(source, "§7- §e" + name);
+                    }
+                    default -> PermissionSyntaxUtil.syntax(source);
                 }
-                case "users" -> {
-                    sendSourceMessage(source, "§3Users: ");
-                    for (var name : user.getUsernames())
-                        sendSourceMessage(source, "§7- §e" + name);
-                }
-                default -> PermissionSyntaxUtil.syntax(source);
+                return;
             }
-            return;
-        }
 
-        var player = source instanceof Player ? (Player) source : null;
-        var playerId = player != null ? player.getUniqueId() : null;
-        var creatorId = playerId == null ? -1 : user.getId(playerId);
-        if (args.length >= 3) {
-            switch (args[0]) {
-                case "group" -> groups(source, creatorId, args);
-                case "user" -> users(source, creatorId, args);
-                default -> PermissionSyntaxUtil.syntax(source);
-            }
-        } else PermissionSyntaxUtil.syntax(source);
+            var player = source instanceof Player ? (Player) source : null;
+            var playerId = player != null ? player.getUniqueId() : null;
+            var creatorId = playerId == null ? -1 : user.getId(playerId);
+            if (args.length >= 3) {
+                switch (args[0]) {
+                    case "group" -> groups(source, creatorId, args);
+                    case "user" -> users(source, creatorId, args);
+                    default -> PermissionSyntaxUtil.syntax(source);
+                }
+            } else PermissionSyntaxUtil.syntax(source);
+        } catch (IllegalArgumentException e) {
+            sendSourceMessage(source, "§cError: " + e.getMessage());
+        }
     }
 
     @Override

@@ -53,12 +53,17 @@ public final class PlayTimeCommand extends CommandManager {
                         .executes(context -> {
                             var source = context.getSource();
                             var username = context.getArgument("player", String.class);
-                            if (isUserNotExist(source, user, username)) return 0;
+                            try {
+                                if (isUserNotExist(source, user, username)) return 0;
 
-                            var userId = user.getId(username);
-                            var time = TimeUtil.formatTimeValue(playTime, userId);
-                            sendHexColorMessage(source, "<rainbow>PlayTime from %s: %s", username, time);
-                            return 1;
+                                var userId = user.getId(username);
+                                var time = TimeUtil.formatTimeValue(playTime, userId);
+                                sendHexColorMessage(source, "<rainbow>PlayTime from %s: %s", username, time);
+                                return 1;
+                            } catch (IllegalArgumentException e) {
+                                sendSourceMessage(source, "§cError: " + e.getMessage());
+                                return 0;
+                            }
                         }))
                 .build();
         return new BrigadierCommand(node);
@@ -74,24 +79,28 @@ public final class PlayTimeCommand extends CommandManager {
             return;
         }
 
-        if (args.length == 0) {
-            var player = source instanceof Player ? (Player) source : null;
+        try {
+            if (args.length == 0) {
+                var player = source instanceof Player ? (Player) source : null;
 
-            if (player == null) {
-                sendSourceMessage(source, "§cThis command does not work in the console.");
-                return;
-            }
+                if (player == null) {
+                    sendSourceMessage(source, "§cThis command does not work in the console.");
+                    return;
+                }
 
-            var time = TimeUtil.formatTimeValue(playTime, user.getId(player.getUniqueId()));
-            sendSourceMessage(source, "§3PlayTime: §e%s", time);
-        } else if (args.length == 1) {
-            var username = args[0];
-            if (isUserNotExist(source, user, username)) return;
+                var time = TimeUtil.formatTimeValue(playTime, user.getId(player.getUniqueId()));
+                sendSourceMessage(source, "§3PlayTime: §e%s", time);
+            } else if (args.length == 1) {
+                var username = args[0];
+                if (isUserNotExist(source, user, username)) return;
 
-            var userId = user.getId(username);
-            var time = TimeUtil.formatTimeValue(playTime, userId);
-            sendSourceMessage(source, "§3PlayTime from §a%s§3: §e%s", username, time);
-        } else sendSourceMessage(source, "§7Syntax: §c/playtime [PLAYER]");
+                var userId = user.getId(username);
+                var time = TimeUtil.formatTimeValue(playTime, userId);
+                sendSourceMessage(source, "§3PlayTime from §a%s§3: §e%s", username, time);
+            } else sendSourceMessage(source, "§7Syntax: §c/playtime [PLAYER]");
+        } catch (IllegalArgumentException e) {
+            sendSourceMessage(source, "&c" + e.getMessage());
+        }
     }
 
     @Override
