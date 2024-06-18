@@ -35,7 +35,7 @@ public final class Ranks {
                 setPlayerListName(group, user, player);
                 player.updateCommands(); // Update the player commands
             }
-        }, 10L, 3 * 20L);
+        }, 10L, 5 * 20L);
     }
 
     @SuppressWarnings("deprecation")
@@ -101,9 +101,9 @@ public final class Ranks {
             var prefix = colorSettings.getPrefix(tag, groupId);
             var suffix = colorSettings.getSuffix(tag, groupId);
             var color = colorSettings.getColor(tag, groupId);
-            team.setPrefix(HexColor.format(prefix));
-            team.setSuffix(HexColor.format(suffix));
-            team.setColor(Objects.requireNonNull(ChatColor.getByChar(color.replaceAll("[&§]", ""))));
+            team.prefix(MINI_MESSAGE.deserialize(prefix));
+            team.suffix(MINI_MESSAGE.deserialize(suffix));
+            team.setColor(Objects.requireNonNull(ChatColor.getByChar(color.replace("§", "").replace("&", ""))));
 
             // Create a map of players and their highest SortID
             Map<Player, Integer> playerSortIds = player.getServer().getOnlinePlayers().stream()
