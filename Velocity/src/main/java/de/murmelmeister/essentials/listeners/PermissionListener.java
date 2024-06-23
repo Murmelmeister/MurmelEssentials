@@ -5,6 +5,7 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.permission.PermissionsSetupEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.proxy.Player;
+import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.api.CustomPermission;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
@@ -42,5 +43,6 @@ public final class PermissionListener {
         user.joinUser(player.getUniqueId(), player.getUsername());
         var uid = user.getId(player.getUniqueId());
         user.getParent().addParent(uid, -1, group.getDefaultGroup(), -1);
+        MurmelEssentials.playerSendRefreshMessage(player);
     }
 }

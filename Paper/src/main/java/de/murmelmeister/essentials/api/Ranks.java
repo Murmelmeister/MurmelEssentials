@@ -5,6 +5,7 @@ import de.murmelmeister.essentials.utils.HexColor;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.settings.GroupColorType;
 import de.murmelmeister.murmelapi.user.User;
+import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -17,6 +18,7 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -27,15 +29,22 @@ public final class Ranks {
     private static final String PERMISSION_CHAT_HEX = "murmelessentials.chat.hex";
 
     public static void updatePlayers(MurmelEssentials instance, Server server) {
+        var hasUpdateOccurred = new AtomicBoolean(false);
+
+        RefreshUtil.setRefreshListener(() -> hasUpdateOccurred.set(true));
+
         server.getScheduler().runTaskTimerAsynchronously(instance, () -> {
-            var group = instance.getGroup();
-            var user = instance.getUser();
-            for (var player : server.getOnlinePlayers()) {
-                setPlayerTeams(group, user, player);
-                setPlayerListName(group, user, player);
-                player.updateCommands(); // Update the player commands
+            if (hasUpdateOccurred.get()) {
+                var group = instance.getGroup();
+                var user = instance.getUser();
+                for (var player : server.getOnlinePlayers()) {
+                    setPlayerTeams(group, user, player);
+                    setPlayerListName(group, user, player);
+                    player.updateCommands(); // Update the player commands
+                }
+                hasUpdateOccurred.set(false);
             }
-        }, 10L, 5 * 20L);
+        }, 10L, 2 * 20L);
     }
 
     @SuppressWarnings("deprecation")

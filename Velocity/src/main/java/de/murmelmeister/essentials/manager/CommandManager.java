@@ -17,7 +17,7 @@ public abstract class CommandManager implements SimpleCommand {
         var user = instance.getUser();
         var permission = instance.getPermission();
         var playTime = instance.getPlayTime();
-        addCommand(server, "permission", new PermissionCommand(permission, group, user));
+        addCommand(server, "permission", new PermissionCommand(server, permission, group, user));
         //addCommand(server, "playtime", new PlayTimeCommand(user, playTime));
         server.getCommandManager().register(PlayTimeCommand.createBrigadierCommand(user, playTime));
     }
