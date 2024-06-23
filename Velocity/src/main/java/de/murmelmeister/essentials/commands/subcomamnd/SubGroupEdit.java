@@ -1,6 +1,8 @@
 package de.murmelmeister.essentials.commands.subcomamnd;
 
 import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.proxy.ProxyServer;
+import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.utils.PermissionSyntaxUtil;
 import de.murmelmeister.murmelapi.group.Group;
@@ -12,13 +14,15 @@ import de.murmelmeister.murmelapi.user.User;
 import static de.murmelmeister.essentials.manager.CommandManager.sendSourceMessage;
 
 public final class SubGroupEdit {
+    private final ProxyServer server;
     private final CommandManager commandManager;
     private final Group group;
     private final User user;
     private final GroupSettings groupSettings;
     private final GroupColorSettings groupColorSettings;
 
-    public SubGroupEdit(CommandManager commandManager, Group group, User user, GroupSettings groupSettings, GroupColorSettings groupColorSettings) {
+    public SubGroupEdit(ProxyServer server, CommandManager commandManager, Group group, User user, GroupSettings groupSettings, GroupColorSettings groupColorSettings) {
+        this.server = server;
         this.commandManager = commandManager;
         this.group = group;
         this.user = user;
@@ -62,6 +66,7 @@ public final class SubGroupEdit {
                     break;
                 }
                 groupColorSettings.setPrefix(type, groupId, creator, message);
+                MurmelEssentials.serverSendRefreshMessage(server);
                 sendSourceMessage(source, "§3Prefix is now §e%s", message);
             }
             case "suffix" -> {
@@ -72,6 +77,7 @@ public final class SubGroupEdit {
                     break;
                 }
                 groupColorSettings.setSuffix(type, groupId, creator, message);
+                MurmelEssentials.serverSendRefreshMessage(server);
                 sendSourceMessage(source, "§3Suffix is now §e%s", message);
             }
             case "color" -> {
@@ -82,6 +88,7 @@ public final class SubGroupEdit {
                     break;
                 }
                 groupColorSettings.setColor(type, groupId, creator, message);
+                MurmelEssentials.serverSendRefreshMessage(server);
                 sendSourceMessage(source, "§3Color is now §e%s", message);
             }
             default -> PermissionSyntaxUtil.syntaxGroupEdit(source);
@@ -95,6 +102,7 @@ public final class SubGroupEdit {
         }
         try {
             groupSettings.setSortId(groupId, Integer.parseInt(args[4]));
+            MurmelEssentials.serverSendRefreshMessage(server);
             sendSourceMessage(source, "§3Sort id is now set to §e%s", args[4]);
         } catch (NumberFormatException e) {
             sendSourceMessage(source, "§cInvalid sort id");
@@ -110,6 +118,7 @@ public final class SubGroupEdit {
             var id = Integer.parseInt(args[4]);
             var teamId = id + group.getName(groupId);
             groupSettings.setTeamId(groupId, teamId);
+            MurmelEssentials.serverSendRefreshMessage(server);
             sendSourceMessage(source, "§3Team id is now set to §e%s", teamId);
         } catch (NumberFormatException e) {
             sendSourceMessage(source, "§cInvalid team id");

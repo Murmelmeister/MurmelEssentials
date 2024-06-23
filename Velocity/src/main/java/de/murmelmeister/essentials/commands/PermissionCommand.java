@@ -2,6 +2,8 @@ package de.murmelmeister.essentials.commands;
 
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
+import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.commands.subcomamnd.SubGroupEdit;
 import de.murmelmeister.essentials.commands.subcomamnd.SubParent;
 import de.murmelmeister.essentials.commands.subcomamnd.SubPermission;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class PermissionCommand extends CommandManager {
+    private final ProxyServer server;
     private final Group group;
     private final User user;
 
@@ -38,7 +41,8 @@ public class PermissionCommand extends CommandManager {
     private final SubParent subParent;
     private final SubPermission subPermission;
 
-    public PermissionCommand(Permission permission, Group group, User user) {
+    public PermissionCommand(ProxyServer server, Permission permission, Group group, User user) {
+        this.server = server;
         this.group = group;
         this.user = user;
         this.groupSettings = group.getSettings();
@@ -47,9 +51,9 @@ public class PermissionCommand extends CommandManager {
         this.groupPermission = group.getPermission();
         this.userParent = user.getParent();
         this.userPermission = user.getPermission();
-        this.subGroupEdit = new SubGroupEdit(this, group, user, groupSettings, groupColorSettings);
-        this.subParent = new SubParent(this, group, user, groupParent, userParent);
-        this.subPermission = new SubPermission(this, permission, user, groupParent, groupPermission, userPermission);
+        this.subGroupEdit = new SubGroupEdit(server, this, group, user, groupSettings, groupColorSettings);
+        this.subParent = new SubParent(server, this, group, user, groupParent, userParent);
+        this.subPermission = new SubPermission(server, this, permission, user, groupParent, groupPermission, userPermission);
     }
 
     @Override
@@ -189,6 +193,7 @@ public class PermissionCommand extends CommandManager {
             return;
         }
         group.createNewGroup(groupName, creatorId, Integer.parseInt(args[3]), args[4]);
+        MurmelEssentials.serverSendRefreshMessage(server);
         sendSourceMessage(source, "§3Group §e%s §3is now created.", groupName);
     }
 
@@ -198,6 +203,7 @@ public class PermissionCommand extends CommandManager {
             return;
         }
         group.deleteGroup(groupId);
+        MurmelEssentials.serverSendRefreshMessage(server);
         sendSourceMessage(source, "§3Group §e%s §3is now deleted.", groupName);
     }
 
@@ -211,6 +217,7 @@ public class PermissionCommand extends CommandManager {
         var teamId = groupSettings.getTeamId(groupId);
         group.rename(groupId, newName);
         groupSettings.setTeamId(groupId, teamId.replace(oldName, newName));
+        MurmelEssentials.serverSendRefreshMessage(server);
         sendSourceMessage(source, "§3Group is now renamed to §e%s", args[3]);
     }
 }

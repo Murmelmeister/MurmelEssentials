@@ -1,6 +1,8 @@
 package de.murmelmeister.essentials.commands.subcomamnd;
 
 import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.proxy.ProxyServer;
+import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.utils.PermissionSyntaxUtil;
 import de.murmelmeister.murmelapi.group.parent.GroupParent;
@@ -13,6 +15,7 @@ import de.murmelmeister.murmelapi.utils.TimeUtil;
 import static de.murmelmeister.essentials.manager.CommandManager.sendSourceMessage;
 
 public final class SubPermission {
+    private final ProxyServer server;
     private final CommandManager commandManager;
     private final Permission permission;
     private final User user;
@@ -20,7 +23,8 @@ public final class SubPermission {
     private final GroupPermission groupPermission;
     private final UserPermission userPermission;
 
-    public SubPermission(CommandManager commandManager, Permission permission, User user, GroupParent groupParent, GroupPermission groupPermission, UserPermission userPermission) {
+    public SubPermission(ProxyServer server, CommandManager commandManager, Permission permission, User user, GroupParent groupParent, GroupPermission groupPermission, UserPermission userPermission) {
+        this.server = server;
         this.commandManager = commandManager;
         this.permission = permission;
         this.user = user;
@@ -66,6 +70,7 @@ public final class SubPermission {
         if (args.length == 5) {
             if (isUser) userPermission.addPermission(id, creatorId, permission, -1);
             else groupPermission.addPermission(id, creatorId, permission, -1);
+            MurmelEssentials.serverSendRefreshMessage(server);
             sendSourceMessage(source, "§3Permission §e%s §3is now added.", permission);
             return;
         }
@@ -80,6 +85,7 @@ public final class SubPermission {
         }
         if (isUser) userPermission.addPermission(id, creatorId, permission, time);
         else groupPermission.addPermission(id, creatorId, permission, time);
+        MurmelEssentials.serverSendRefreshMessage(server);
         sendSourceMessage(source, "§3Permission §e%s §3is now added for §e%s", permission, getPermissionExpiredDate(isUser, id, permission));
     }
 
@@ -93,12 +99,14 @@ public final class SubPermission {
 
         if (isUser) userPermission.removePermission(id, permission);
         else groupPermission.removePermission(id, permission);
+        MurmelEssentials.serverSendRefreshMessage(server);
         sendSourceMessage(source, "§3Permission §e%s §3is now removed.", permission);
     }
 
     private void clearPermission(CommandSource source, boolean isUser, int id) {
         if (isUser) userPermission.clearPermission(id);
         else groupPermission.clearPermission(id);
+        MurmelEssentials.serverSendRefreshMessage(server);
         sendSourceMessage(source, "§3All permissions are now cleared.");
     }
 
@@ -141,14 +149,17 @@ public final class SubPermission {
         switch (args[6]) {
             case "set" -> {
                 var expiredDate = isUser ? userPermission.setExpiredTime(id, permission, time) : groupPermission.setExpiredTime(id, permission, time);
+                MurmelEssentials.serverSendRefreshMessage(server);
                 sendSourceMessage(source, "§3Expired time for §e%s §3is now §e%s", permission, expiredDate);
             }
             case "add" -> {
                 var expiredDate = isUser ? userPermission.addExpiredTime(id, permission, time) : groupPermission.addExpiredTime(id, permission, time);
+                MurmelEssentials.serverSendRefreshMessage(server);
                 sendSourceMessage(source, "§3Expired time for §e%s §3is now §e%s", permission, expiredDate);
             }
             case "remove" -> {
                 var expiredDate = isUser ? userPermission.removeExpiredTime(id, permission, time) : groupPermission.removeExpiredTime(id, permission, time);
+                MurmelEssentials.serverSendRefreshMessage(server);
                 sendSourceMessage(source, "§3Expired time for §e%s §3is now §e%s", permission, expiredDate);
             }
             default -> PermissionSyntaxUtil.syntaxPermission(source, isUser);

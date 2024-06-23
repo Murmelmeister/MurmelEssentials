@@ -1,6 +1,8 @@
 package de.murmelmeister.essentials.commands.subcomamnd;
 
 import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.proxy.ProxyServer;
+import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.utils.PermissionSyntaxUtil;
 import de.murmelmeister.murmelapi.group.Group;
@@ -12,13 +14,15 @@ import de.murmelmeister.murmelapi.utils.TimeUtil;
 import static de.murmelmeister.essentials.manager.CommandManager.sendSourceMessage;
 
 public final class SubParent {
+    private final ProxyServer server;
     private final CommandManager commandManager;
     private final Group group;
     private final User user;
     private final GroupParent groupParent;
     private final UserParent userParent;
 
-    public SubParent(CommandManager commandManager, Group group, User user, GroupParent groupParent, UserParent userParent) {
+    public SubParent(ProxyServer server, CommandManager commandManager, Group group, User user, GroupParent groupParent, UserParent userParent) {
+        this.server = server;
         this.commandManager = commandManager;
         this.group = group;
         this.user = user;
@@ -57,6 +61,7 @@ public final class SubParent {
         if (args.length == 5) {
             if (isUser) userParent.addParent(id, creatorId, parentId, -1);
             else groupParent.addParent(id, creatorId, parentId, -1);
+            MurmelEssentials.serverSendRefreshMessage(server);
             sendSourceMessage(source, "§3Parent §e%s §3is now added.", parentName);
             return;
         }
@@ -71,6 +76,7 @@ public final class SubParent {
         }
         if (isUser) userParent.addParent(id, creatorId, parentId, time);
         else groupParent.addParent(id, creatorId, parentId, time);
+        MurmelEssentials.serverSendRefreshMessage(server);
         sendSourceMessage(source, "§3Parent §e%s §3is now added for §e%s", parentName, getParentExpiredDate(isUser, id, parentId));
     }
 
@@ -91,6 +97,7 @@ public final class SubParent {
             }
             userParent.removeParent(id, parentId);
         } else groupParent.removeParent(id, parentId);
+        MurmelEssentials.serverSendRefreshMessage(server);
         sendSourceMessage(source, "§3Parent §e%s §3is now removed.", parentName);
     }
 
@@ -99,6 +106,7 @@ public final class SubParent {
             userParent.clearParent(id);
             userParent.addParent(id, -1, group.getDefaultGroup(), -1);
         } else groupParent.clearParent(id);
+        MurmelEssentials.serverSendRefreshMessage(server);
         sendSourceMessage(source, "§3All parents are now cleared.");
     }
 
@@ -151,14 +159,17 @@ public final class SubParent {
         switch (args[6]) {
             case "set" -> {
                 var expiredDate = isUser ? userParent.setExpiredTime(id, parentId, time) : groupParent.setExpiredTime(id, parentId, time);
+                MurmelEssentials.serverSendRefreshMessage(server);
                 sendSourceMessage(source, "§3Expired time for §e%s §3is now §e%s", parentName, expiredDate);
             }
             case "add" -> {
                 var expiredDate = isUser ? userParent.addExpiredTime(id, parentId, time) : groupParent.addExpiredTime(id, parentId, time);
+                MurmelEssentials.serverSendRefreshMessage(server);
                 sendSourceMessage(source, "§3Expired time for §e%s §3is now §e%s", parentName, expiredDate);
             }
             case "remove" -> {
                 var expiredDate = isUser ? userParent.removeExpiredTime(id, parentId, time) : groupParent.removeExpiredTime(id, parentId, time);
+                MurmelEssentials.serverSendRefreshMessage(server);
                 sendSourceMessage(source, "§3Expired time for §e%s §3is now §e%s", parentName, expiredDate);
             }
             default -> PermissionSyntaxUtil.syntaxParent(source, isUser);
