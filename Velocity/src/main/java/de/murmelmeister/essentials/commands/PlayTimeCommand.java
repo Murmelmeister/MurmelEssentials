@@ -40,7 +40,8 @@ public final class PlayTimeCommand extends CommandManager {
                         return 0;
                     }
 
-                    var time = TimeUtil.formatTimeValue(playTime, user.getId(player.getUniqueId()));
+                    var uid = user.getId(player.getUniqueId());
+                    var time = TimeUtil.formatTimeValue(playTime, uid);
                     sendHexColorMessage(source, "<rainbow>PlayTime: %s", time);
                     return Command.SINGLE_SUCCESS;
                 })
@@ -57,7 +58,10 @@ public final class PlayTimeCommand extends CommandManager {
                                 if (isUserNotExist(source, user, username)) return 0;
 
                                 var userId = user.getId(username);
+                                var settings = user.getSettings();
+                                var online = settings.getOnline(userId) == 1 ? "<green>Online" : "<red>" + settings.getLastQuitDate(userId);
                                 var time = TimeUtil.formatTimeValue(playTime, userId);
+                                sendHexColorMessage(source, "<yellow>%s <gray>online mode: %s", username, online);
                                 sendHexColorMessage(source, "<rainbow>PlayTime from %s: %s", username, time);
                                 return 1;
                             } catch (IllegalArgumentException e) {
