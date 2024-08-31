@@ -14,6 +14,8 @@ import de.murmelmeister.essentials.files.MySQL;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.ListenerManager;
 import de.murmelmeister.murmelapi.MurmelAPI;
+import de.murmelmeister.murmelapi.bansystem.ban.Ban;
+import de.murmelmeister.murmelapi.bansystem.mute.Mute;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
 import de.murmelmeister.murmelapi.playtime.PlayTime;
@@ -22,7 +24,23 @@ import org.slf4j.Logger;
 
 import java.nio.charset.StandardCharsets;
 
-@Plugin(id = "murmelessentials", name = "MurmelEssentials", version = "0.0.1", description = "MurmelEssentials is a plugin that adds a lot of useful commands to your server.", authors = {"Murmelmeister"}, url = "https://www.youtube.com/Murmelmeister")
+/*
+
+Colors:
+RED = #cc0099
+GREEN = #00cc88
+YELLOW = #e6c200
+GRAY = #999999
+
+ */
+@Plugin(
+        id = "murmelessentials",
+        name = "MurmelEssentials",
+        version = "0.0.1",
+        description = "MurmelEssentials is a plugin that adds a lot of useful commands to your server.",
+        authors = {"Murmelmeister"},
+        url = "https://www.youtube.com/Murmelmeister"
+)
 public final class MurmelEssentials {
     private final Logger logger;
     private final ProxyServer proxyServer;
@@ -66,6 +84,14 @@ public final class MurmelEssentials {
 
     public Permission getPermission() {
         return MurmelAPI.getPermission();
+    }
+
+    public Mute getMute() {
+        return MurmelAPI.getMute();
+    }
+
+    public Ban getBan() {
+        return MurmelAPI.getBan();
     }
 
     public static void playerSendRefreshMessage(Player player) {

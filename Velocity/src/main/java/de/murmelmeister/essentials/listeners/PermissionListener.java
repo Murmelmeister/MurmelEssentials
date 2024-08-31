@@ -11,6 +11,7 @@ import de.murmelmeister.essentials.api.CustomPermission;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
 import de.murmelmeister.murmelapi.user.User;
+import de.murmelmeister.murmelapi.user.settings.UserSettings;
 
 public final class PermissionListener {
     private final Permission permission;
@@ -40,10 +41,10 @@ public final class PermissionListener {
 
     @Subscribe
     public void handleConnection(ServerConnectedEvent event) {
-        var player = event.getPlayer();
+        Player player = event.getPlayer();
         user.joinUser(player.getUniqueId(), player.getUsername());
-        var uid = user.getId(player.getUniqueId());
-        var settings = user.getSettings();
+        int uid = user.getId(player.getUniqueId());
+        UserSettings settings = user.getSettings();
         settings.setOnline(uid, 1);
         user.getParent().addParent(uid, -1, group.getDefaultGroup(), -1);
         MurmelEssentials.playerSendRefreshMessage(player);
@@ -51,9 +52,9 @@ public final class PermissionListener {
 
     @Subscribe
     public void handleDisconnect(DisconnectEvent event) {
-        var player = event.getPlayer();
-        var uid = user.getId(player.getUniqueId());
-        var settings = user.getSettings();
+        Player player = event.getPlayer();
+        int uid = user.getId(player.getUniqueId());
+        UserSettings settings = user.getSettings();
         settings.setLastQuitTime(uid, System.currentTimeMillis());
         settings.setOnline(uid, 0);
     }
