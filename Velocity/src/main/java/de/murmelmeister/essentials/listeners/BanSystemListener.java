@@ -1,6 +1,7 @@
 package de.murmelmeister.essentials.listeners;
 
 import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.event.player.PlayerChatEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.proxy.Player;
 import de.murmelmeister.murmelapi.bansystem.ban.Ban;
@@ -24,5 +25,14 @@ public final class BanSystemListener {
         int uid = user.getId(player.getUniqueId());
         mute.isMuted(uid);
         ban.isBanned(uid);
+    }
+
+    @Subscribe
+    public void handleMuteChat(PlayerChatEvent event) {
+        Player player = event.getPlayer();
+        int uid = user.getId(player.getUniqueId());
+        if (mute.isMuted(uid)) {
+            event.setResult(PlayerChatEvent.ChatResult.denied());
+        }
     }
 }

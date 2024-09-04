@@ -36,7 +36,7 @@ GRAY = #999999
 @Plugin(
         id = "murmelessentials",
         name = "MurmelEssentials",
-        version = "0.0.1",
+        version = "0.0.2",
         description = "MurmelEssentials is a plugin that adds a lot of useful commands to your server.",
         authors = {"Murmelmeister"},
         url = "https://www.youtube.com/Murmelmeister"
@@ -45,7 +45,7 @@ public final class MurmelEssentials {
     private final Logger logger;
     private final ProxyServer proxyServer;
 
-    private MySQL mySQL;
+    private  MySQL mySQL;
     private static final MinecraftChannelIdentifier CHANNEL = MinecraftChannelIdentifier.create("permission", "refresh");
 
     @Inject

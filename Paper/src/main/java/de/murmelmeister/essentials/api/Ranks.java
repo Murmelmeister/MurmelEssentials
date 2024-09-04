@@ -14,6 +14,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.bukkit.ChatColor;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
@@ -28,12 +29,15 @@ public final class Ranks {
     private static final String PERMISSION_CHAT_COLOR = "murmelessentials.chat.color";
     private static final String PERMISSION_CHAT_HEX = "murmelessentials.chat.hex";
 
+    private static BukkitTask task;
+
     public static void updatePlayers(MurmelEssentials instance, Server server) {
+        if (task != null && task.isCancelled()) task.cancel();
         var hasUpdateOccurred = new AtomicBoolean(false);
 
         RefreshUtil.setRefreshListener(() -> hasUpdateOccurred.set(true));
 
-        server.getScheduler().runTaskTimerAsynchronously(instance, () -> {
+        task = server.getScheduler().runTaskTimerAsynchronously(instance, () -> {
             if (hasUpdateOccurred.get()) {
                 var group = instance.getGroup();
                 var user = instance.getUser();
@@ -44,7 +48,7 @@ public final class Ranks {
                 }
                 hasUpdateOccurred.set(false);
             }
-        }, 10L, 2 * 20L);
+        }, 1L, 5L);
     }
 
     @SuppressWarnings("deprecation")

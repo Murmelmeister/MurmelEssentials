@@ -18,6 +18,7 @@ public abstract class CommandManager {
         var playTime = instance.getPlayTime();
         addCommand(server, "permission", new PermissionCommand(server, permission, group, user));
         server.getCommandManager().register(PlayTimeCommand.createBrigadierCommand(user, playTime));
+        //server.getCommandManager().register(PermissionCommand.createBrigadierCommand(group, user));
     }
 
     private static void addCommand(ProxyServer server, String name, Object clazz) {

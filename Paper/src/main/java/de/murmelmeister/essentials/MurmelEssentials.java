@@ -11,29 +11,24 @@ import de.murmelmeister.murmelapi.user.User;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class MurmelEssentials extends JavaPlugin {
-    private final MySQL mySQL;
     private static final PluginMessageRefresh PLUGIN_MESSAGE_REFRESH = new PluginMessageRefresh();
 
     @Override
     public void onDisable() {
-        mySQL.disconnect();
+        MySQL.disconnect();
         getServer().getMessenger().unregisterIncomingPluginChannel(this, "permission:refresh", PLUGIN_MESSAGE_REFRESH);
     }
 
     @Override
     public void onEnable() {
-        mySQL.connect();
+        MySQL.connect();
         ListenerManager.register(this);
         Ranks.updatePlayers(this, getServer());
         getServer().getMessenger().registerIncomingPluginChannel(this, "permission:refresh", PLUGIN_MESSAGE_REFRESH);
     }
 
-    public MurmelEssentials() {
-        this.mySQL = new MySQL(getSLF4JLogger());
-    }
-
-    public MurmelEssentials getInstance() {
-        return this;
+    public static MurmelEssentials getInstance() {
+        return getPlugin(MurmelEssentials.class);
     }
 
     public Group getGroup() {
