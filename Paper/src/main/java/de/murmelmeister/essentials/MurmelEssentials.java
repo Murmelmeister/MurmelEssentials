@@ -12,16 +12,18 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class MurmelEssentials extends JavaPlugin {
     private static final PluginMessageRefresh PLUGIN_MESSAGE_REFRESH = new PluginMessageRefresh();
+    private MySQL mySQL;
 
     @Override
     public void onDisable() {
-        MySQL.disconnect();
+        mySQL.disconnect();
         getServer().getMessenger().unregisterIncomingPluginChannel(this, "permission:refresh", PLUGIN_MESSAGE_REFRESH);
     }
 
     @Override
     public void onEnable() {
-        MySQL.connect();
+        this.mySQL = new MySQL(getSLF4JLogger());
+        mySQL.connect();
         ListenerManager.register(this);
         Ranks.updatePlayers(this, getServer());
         getServer().getMessenger().registerIncomingPluginChannel(this, "permission:refresh", PLUGIN_MESSAGE_REFRESH);
