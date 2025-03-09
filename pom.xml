@@ -6,7 +6,7 @@
 
     <groupId>de.murmelmeister.essentials</groupId>
     <artifactId>MurmelEssentials</artifactId>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>0.0.3-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
         <module>Paper</module>
@@ -22,9 +22,8 @@
     <dependencies>
         <dependency>
             <groupId>de.murmelmeister.murmelapi</groupId>
-            <artifactId>MurmelAPI</artifactId>
-            <version>0.0.3-SNAPSHOT</version>
-            <scope>compile</scope>
+            <artifactId>MurmelAPI-Main</artifactId>
+            <version>0.0.5-SNAPSHOT</version>
         </dependency>
     </dependencies>
 

@@ -6,7 +6,7 @@
     <parent>
         <groupId>de.murmelmeister.essentials</groupId>
         <artifactId>MurmelEssentials</artifactId>
-        <version>0.0.2-SNAPSHOT</version>
+        <version>0.0.3-SNAPSHOT</version>
     </parent>
 
     <artifactId>Velocity</artifactId>
@@ -28,7 +28,7 @@
         <dependency>
             <groupId>com.velocitypowered</groupId>
             <artifactId>velocity-api</artifactId>
-            <version>3.3.0-SNAPSHOT</version>
+            <version>3.4.0-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
@@ -57,7 +57,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.10.0</version>
+                <version>3.11.2</version>
                 <executions>
                     <execution>
                         <phase>package</phase>

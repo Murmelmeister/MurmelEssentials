@@ -2,16 +2,16 @@ package de.murmelmeister.essentials.manager;
 
 import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.MurmelEssentials;
-import de.murmelmeister.essentials.listeners.BanSystemListener;
+import de.murmelmeister.essentials.listeners.ConnectionListener;
 import de.murmelmeister.essentials.listeners.PermissionListener;
 
 public final class ListenerManager {
-    public static void register(ProxyServer server, MurmelEssentials instance) {
-        addListener(server, instance, new PermissionListener(instance.getPermission(), instance.getGroup(), instance.getUser()));
-        addListener(server, instance, new BanSystemListener(instance.getMute(), instance.getBan(), instance.getUser()));
+    public static void register(MurmelEssentials plugin, ProxyServer server) {
+        addListener(plugin, server, new PermissionListener(plugin.getPermission()));
+        addListener(plugin, server, new ConnectionListener(plugin.getUser(), plugin.getGroup(), plugin.getPlayTime(), plugin.getActiveSession(), plugin.getPunishmentIP(), plugin.getPunishmentUser()));
     }
 
-    private static void addListener(ProxyServer server, MurmelEssentials instance, Object clazz) {
-        server.getEventManager().register(instance, clazz);
+    private static void addListener(MurmelEssentials plugin, ProxyServer server, Object clazz) {
+        server.getEventManager().register(plugin, clazz);
     }
 }
