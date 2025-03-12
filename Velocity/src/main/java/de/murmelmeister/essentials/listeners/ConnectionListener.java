@@ -47,6 +47,20 @@ public final class ConnectionListener {
         String ipAddress = inetAddress.getHostAddress();
         activeSession.startSession(userId, inetAddress, player.getClientBrand(), player.getProtocolVersion() + "");
 
+        // maybe a type list of punishment types
+
+        if (punishmentUser.exists(userId, PunishmentType.BAN.getId())) {
+
+            if (punishmentUser.isPunished(userId, PunishmentType.BAN.getId())) {
+                // Auto kick if banned + auto ban if banned <- ip checked
+                //punishedMessage(player, userId, PunishmentType.BAN.getId(), false);
+            } else {
+                punishmentUser.unpunished(userId, PunishmentType.BAN.getId());
+            }
+        } /* else if (punishmentIp.exists(ipAddress, PunishmentType.BAN.getId())) {
+            punishedMessage(player, userId, PunishmentType.BAN.getId(), true);
+        } */
+
         /*int banTypeId = punishment.getTypes().getTypeId(PunishmentType.BAN.getName());
         if (punishment.exists(ipAddress, banTypeId) && !punishment.exists(userId, banTypeId)) {
             punishment.punishedUser(-1, userId, ipAddress, banTypeId, 99);
