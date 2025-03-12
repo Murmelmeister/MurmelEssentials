@@ -3,7 +3,7 @@ package de.murmelmeister.essentials.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
@@ -59,73 +59,98 @@ public final class PunishedCommand extends CommandManager {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(getPunishmentId())
-                // TODO: Add IP punishment
                 .build();
         return new BrigadierCommand(rootNode);
     }
 
-    private LiteralArgumentBuilder<CommandSource> getPunishmentId() {
-        return BrigadierCommand.literalArgumentBuilder("id")
+    private RequiredArgumentBuilder<CommandSource, String> getPunishmentId() {
+        return BrigadierCommand.requiredArgumentBuilder("type", StringArgumentType.word())
+                .suggests(this::getPunishTypes)
                 .executes(context -> {
                     syntax(context.getSource());
                     return Command.SINGLE_SUCCESS;
                 })
-                .then(BrigadierCommand.requiredArgumentBuilder("type", StringArgumentType.word())
-                        .suggests(this::getPunishTypes)
-                        .then(BrigadierCommand.requiredArgumentBuilder("id", IntegerArgumentType.integer())
-                                .suggests((this::getPunishIds))
-                                .then(BrigadierCommand.requiredArgumentBuilder("user", StringArgumentType.word())
-                                        .suggests(this::getUsernames)
-                                        .executes(context -> {
-                                            CommandSource source = context.getSource();
-                                            String input = StringArgumentType.getString(context, "type");
-                                            PunishmentType type = PunishmentType.fromString(input.toUpperCase());
+                .then(BrigadierCommand.requiredArgumentBuilder("id", IntegerArgumentType.integer())
+                        .suggests((this::getPunishIds))
+                        .then(BrigadierCommand.requiredArgumentBuilder("target", StringArgumentType.word()) // TODO: user and ip argument, check if type a ip type or user type
+                                .suggests(this::getUsernames)
+                                .executes(context -> {
+                                    CommandSource source = context.getSource();
+                                    String input = StringArgumentType.getString(context, "type");
+                                    PunishmentType type = PunishmentType.fromString(input.toUpperCase());
 
-                                            if (!PunishmentType.exists(type)) {
-                                                sendMessage(source, "<#990000>The type %s does not exist.", type.getName());
-                                                return -1;
+                                    if (!PunishmentType.exists(type)) {
+                                        sendMessage(source, "<#990000>The type %s does not exist.", type.getName());
+                                        return -1;
+                                    }
+
+                                    int typeId = type.getId();
+                                    int reasonId = IntegerArgumentType.getInteger(context, "id");
+
+                                    if (!punishmentReason.exists(reasonId, typeId)) {
+                                        sendMessage(source, "<#990000>A reason with the ID %s does not exist.", reasonId);
+                                        return -2;
+                                    }
+
+                                    int executorId = getExecutorId(context, user);
+
+                                    if (!permission.hasPermission(executorId, MurmelEssentials.PERMISSION_PUNISHMENT_REASON + type.getName() + "." + reasonId)) {
+                                        sendMessage(source, "<#990000>You do not have permission to use this reason.");
+                                        return -3;
+                                    }
+
+                                    String target = StringArgumentType.getString(context, "target");
+                                    if (type.isTypeIp()) {
+                                        // IP-Punishment
+                                        InetAddress inetAddress;
+                                        try {
+                                            inetAddress = InetAddress.getByName(target);
+                                        } catch (UnknownHostException e) {
+                                            sendMessage(source, "<#cc0088>Invalid ip address. Input: <#009999>%s", target);
+                                            return -4;
+                                        }
+
+                                        if (punishmentIP.exists(inetAddress, typeId)) {
+                                            sendMessage(source, "<#990000>The user is already punished with this type.");
+                                            return -5;
+                                        }
+
+                                        punishmentIP.punish(inetAddress, typeId, executorId, reasonId);
+                                        server.getAllPlayers().forEach(player -> {
+                                            if (player.getRemoteAddress().getAddress().equals(inetAddress)) {
+                                                player.disconnect(MiniMessage.miniMessage().deserialize("<#990000>You have been punished."));
                                             }
+                                        });
+                                        sendMessage(source, "<#009999>IP-Address <#999900>%s <#009999>has been punished with the reason <#999900>%s<#009999>.",
+                                                target, punishmentReason.getReason(reasonId, typeId));
+                                        return Command.SINGLE_SUCCESS;
+                                    } else {
+                                        // User-Punishment
+                                        if (isUserNotExist(source, user, target)) return -4;
 
-                                            int typeId = type.getId();
-                                            int reasonId = IntegerArgumentType.getInteger(context, "id");
+                                        int userId = user.getId(target);
+                                        String ip = session.isOnline(userId) ? session.getIpAddress(userId) : login.getIPAddress(login.getLastLoginId(userId));
+                                        InetAddress inetAddress;
 
-                                            if (!punishmentReason.exists(reasonId, typeId)) {
-                                                sendMessage(source, "<#990000>A reason with the ID %s does not exist.", reasonId);
-                                                return -2;
-                                            }
+                                        try {
+                                            inetAddress = InetAddress.getByName(ip);
+                                        } catch (UnknownHostException e) {
+                                            sendMessage(source, "<#cc0088>Invalid ip address. Input: <#009999>%s", ip);
+                                            return -5;
+                                        }
 
-                                            String username = StringArgumentType.getString(context, "user");
-                                            if (isUserNotExist(source, user, username)) return -3;
+                                        if (punishmentUser.exists(userId, typeId)) {
+                                            sendMessage(source, "<#990000>The user is already punished with this type.");
+                                            return -6;
+                                        }
 
-                                            int executorId = getExecutorId(context, user);
-                                            int userId = user.getId(username);
-                                            String ip = session.isOnline(userId) ? session.getIpAddress(userId) : login.getIPAddress(login.getLastLoginId(userId));
-
-                                            if (!permission.hasPermission(executorId, MurmelEssentials.PERMISSION_PUNISHMENT_REASON + type.getName() + "." + reasonId)) {
-                                                sendMessage(source, "<#990000>You do not have permission to use this reason.");
-                                                return -4;
-                                            }
-
-                                            InetAddress inetAddress;
-                                            try {
-                                                inetAddress = InetAddress.getByName(ip);
-                                            } catch (UnknownHostException e) {
-                                                sendMessage(source, "<#cc0088>Invalid ip address. Input: <#009999>%s", ip);
-                                                return -5;
-                                            }
-
-                                            if (punishmentUser.exists(userId, typeId)) {
-                                                sendMessage(source, "<#990000>The user is already punished with this type.");
-                                                return -6;
-                                            }
-
-                                            punishmentUser.punish(userId, typeId, executorId, inetAddress, reasonId);
-                                            server.getPlayer(username).ifPresent(player -> player.disconnect(MiniMessage.miniMessage().deserialize("<#990000>You have been punished.")));
-                                            sendMessage(source, "<#009999>User <#999900>%s <#009999>has been punished with the reason <#999900>%s<#009999>.",
-                                                    username, punishmentReason.getReason(reasonId, typeId));
-                                            return Command.SINGLE_SUCCESS;
-                                        })
-                                )
+                                        punishmentUser.punish(userId, typeId, executorId, inetAddress, reasonId);
+                                        server.getPlayer(target).ifPresent(player -> player.disconnect(MiniMessage.miniMessage().deserialize("<#990000>You have been punished.")));
+                                        sendMessage(source, "<#009999>User <#999900>%s <#009999>has been punished with the reason <#999900>%s<#009999>.",
+                                                target, punishmentReason.getReason(reasonId, typeId));
+                                        return Command.SINGLE_SUCCESS;
+                                    }
+                                })
                         )
                 );
     }
@@ -164,7 +189,6 @@ public final class PunishedCommand extends CommandManager {
     private void syntax(CommandSource source) {
         sendMessage(source, """
                 <#009999>Syntax:
-                <#454545>- <#999999>/punishment <#999900>id</#999900> <type> <id> <user> <reset>- Punish a user with a punishment id
-                <#454545>- <#999999>/punishment <#999900>custom</#999900> <type> <user> <reason> [time] <reset>- Punish a user with a normal reason and time""");
+                <#454545>- <#999999>/punishment <type> <id> <user|ip> <reset>- Punish a user or ip address with a punishment id""");
     }
 }
