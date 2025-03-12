@@ -189,6 +189,6 @@ public final class PunishedCommand extends CommandManager {
     private void syntax(CommandSource source) {
         sendMessage(source, """
                 <#009999>Syntax:
-                <#454545>- <#999999>/punishment <type> <id> <user|ip> <reset>- Punish a user or ip address with a punishment id""");
+                <#454545>- <#999999>/punished <type> <id> <user|ip> <reset>- Punish a user or ip address with a punishment id""");
     }
 }
