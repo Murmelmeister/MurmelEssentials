@@ -56,6 +56,11 @@ public abstract class CommandManager {
         server.getCommandManager().register(meta, command);
     }
 
+    private static void addCommand(ProxyServer server, BrigadierCommand command, String... aliases) {
+        CommandMeta meta = server.getCommandManager().metaBuilder(command).aliases(aliases).build();
+        server.getCommandManager().register(meta, command);
+    }
+
     protected void sendMessage(CommandSource source, String message, Object... objects) {
         source.sendMessage(MiniMessage.miniMessage().deserialize(String.format(message, objects)));
     }
