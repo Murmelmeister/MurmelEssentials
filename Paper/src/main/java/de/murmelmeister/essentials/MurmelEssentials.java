@@ -6,6 +6,9 @@ import de.murmelmeister.essentials.manager.ListenerManager;
 import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
+import de.murmelmeister.murmelapi.punishment.PunishmentIP;
+import de.murmelmeister.murmelapi.punishment.PunishmentUser;
+import de.murmelmeister.murmelapi.punishment.reason.PunishmentReason;
 import de.murmelmeister.murmelapi.user.User;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -52,5 +55,17 @@ public final class MurmelEssentials extends JavaPlugin {
 
     public Permission getPermission() {
         return MurmelAPI.getPermission();
+    }
+
+    public PunishmentReason getPunishmentReason() {
+        return MurmelAPI.getPunishmentReason();
+    }
+
+    public PunishmentIP getPunishmentIP() {
+        return MurmelAPI.getPunishmentIP();
+    }
+
+    public PunishmentUser getPunishmentUser() {
+        return MurmelAPI.getPunishmentUser();
     }
 }

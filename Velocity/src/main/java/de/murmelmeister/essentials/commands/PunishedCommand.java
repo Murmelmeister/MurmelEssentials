@@ -123,7 +123,6 @@ public final class PunishedCommand extends CommandManager {
                                         });
                                         sendMessage(source, "<#009999>IP-Address <#999900>%s <#009999>has been punished with the reason <#999900>%s<#009999>.",
                                                 target, punishmentReason.getReason(reasonId, typeId));
-                                        return Command.SINGLE_SUCCESS;
                                     } else {
                                         // User-Punishment
                                         if (isUserNotExist(source, user, target)) return -4;
@@ -145,11 +144,14 @@ public final class PunishedCommand extends CommandManager {
                                         }
 
                                         punishmentUser.punish(userId, typeId, executorId, inetAddress, reasonId);
+                                        if (punishmentReason.getAutoFlagIP(reasonId, typeId)) {
+                                            punishmentIP.punish(inetAddress, typeId, executorId, reasonId);
+                                        }
                                         server.getPlayer(target).ifPresent(player -> player.disconnect(MiniMessage.miniMessage().deserialize("<#990000>You have been punished.")));
                                         sendMessage(source, "<#009999>User <#999900>%s <#009999>has been punished with the reason <#999900>%s<#009999>.",
                                                 target, punishmentReason.getReason(reasonId, typeId));
-                                        return Command.SINGLE_SUCCESS;
                                     }
+                                    return Command.SINGLE_SUCCESS;
                                 })
                         )
                 );
