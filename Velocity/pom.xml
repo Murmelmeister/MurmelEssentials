@@ -48,7 +48,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <finalName>${project.parent.artifactId}</finalName>
+                    <finalName>${project.parent.artifactId}-${project.name}-${project.parent.version}</finalName>
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
