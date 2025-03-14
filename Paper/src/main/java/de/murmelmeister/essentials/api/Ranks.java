@@ -7,15 +7,20 @@ import de.murmelmeister.murmelapi.group.color.GroupColor;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
 import de.murmelmeister.murmelapi.user.User;
 import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
+import java.awt.*;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,6 +70,14 @@ public final class Ranks {
             TextColor.fromHexString("#ee00aa"),
             TextColor.fromHexString("#ff00aa")
     );
+
+    private static final Map<Integer, String> animatedPrefixStarts = new HashMap<>();
+    private static final Map<Integer, String> animatedPrefixEnds = new HashMap<>();
+
+    static {
+        animatedPrefixStarts.put(1, "#ff00ff");
+        animatedPrefixEnds.put(1, "#00ff00");
+    }
 
     /*public static void updatePlayers(MurmelEssentials instance, Server server) {
         if (task != null && task.isCancelled()) task.cancel();
@@ -127,18 +140,43 @@ public final class Ranks {
 
     private static void setPlayerListName(Group group, User user, Player player) {
         //var idAndSortId = getUserIdAndSortId(group, user, player);
-        var userId = user.getId(player.getUniqueId());
-        var highestSortId = user.getParent().getHighestPriority(group, userId);
-        var colorSettings = group.getColor();
-        var tab = GroupColorType.TAB;
+        int userId = user.getId(player.getUniqueId());
+        int highestSortId = user.getParent().getHighestPriority(group, userId);
+        GroupColor colorSettings = group.getColor();
+        GroupColorType tab = GroupColorType.TAB;
+        boolean animated = true; // TODO: Get from database if the prefix is animated
 
-        user.getParent().getParentIds(userId).stream()
+        Optional<Integer> optionalGroupId = user.getParent().getParentIds(userId).stream()
+                .filter(groupId -> highestSortId == group.getPriority(groupId))
+                .findFirst();
+
+        if (optionalGroupId.isPresent()) {
+            int groupId = optionalGroupId.get();
+            String prefix = colorSettings.getPrefix(groupId, tab);
+            String color = colorSettings.getColor(groupId, tab);
+            String suffix = colorSettings.getSuffix(groupId, tab);
+
+            Component baseComponent = MINI_MESSAGE.deserialize(prefix + color + player.getName() + suffix);
+
+            if (animated) {
+                String animatedStartHex = getAnimatedPrefixStart(groupId);
+                String animatedEndHex = getAnimatedPrefixEnd(groupId);
+                TextColor startColor = TextColor.fromHexString(animatedStartHex);
+                TextColor endColor = TextColor.fromHexString(animatedEndHex);
+
+                animateGradient(player, baseComponent, startColor, endColor, MurmelEssentials.getInstance());
+            } else {
+                player.playerListName(baseComponent);
+            }
+        }
+
+        /*user.getParent().getParentIds(userId).stream()
                 .filter(groupId -> highestSortId == group.getPriority(groupId))
                 .forEach(groupId -> {
                     var playerListName = MINI_MESSAGE.deserialize(
                             colorSettings.getPrefix(groupId, tab) + colorSettings.getColor(groupId, tab) + player.getName() + colorSettings.getSuffix(groupId, tab));
                     player.playerListName(playerListName);
-                }); // TODO: Add prefix colors
+                });*/
     }
 
     @SuppressWarnings("deprecation")
@@ -188,20 +226,69 @@ public final class Ranks {
         }
     }
 
-    /*private static Pair<Integer, Integer> getUserIdAndSortId(Group group, User user, Player player) {
-        var userId = user.getId(player.getUniqueId());
-        var highestSortId = getHighestSortId(group, user, userId);
-        return new ImmutablePair<>(userId, highestSortId);
+    public static String getAnimatedPrefixStart(int groupId) {
+        return animatedPrefixStarts.getOrDefault(groupId, "#ffffff");
     }
 
-    private static int getHighestSortId(Group group, User user, int userId) {
-        return user.getParent().getParentIds(userId).stream()
-                .map(group::getPriority)
-                .collect(Collectors.summarizingInt(Integer::intValue))
-                .getMax();
-    }*/
+    public static String getAnimatedPrefixEnd(int groupId) {
+        return animatedPrefixEnds.getOrDefault(groupId, "#ffffff");
+    }
 
-    /*private static List<TextColor> createGradient(String startHexColor, String endHexColor, int steps) {
+    private static void animateGradient(Player player, Component component, TextColor startHexColor, TextColor endHexColor, Plugin plugin) {
+        Component plainComponent = removeColors(component);
+        String plainText = MINI_MESSAGE.serialize(plainComponent);
+        //int length = plainText.length();
+        //List<List<TextColor>> states = new ArrayList<>();
+        List<TextColor> gradient = createGradient(startHexColor.asHexString(), endHexColor.asHexString(), 10);
+        //List<List<TextColor>> patterns = createRotatingGradient(startHexColor, endHexColor, length);
+        //final int totalSteps = gradient.size();
+
+        cancelExistingTask(player);
+        //counts.put(player, 0);
+
+        BukkitTask task = new BukkitRunnable() {
+            int tick = 0;
+
+            @Override
+            public void run() {
+                Component finalComponent = Component.empty();
+                for (int i = 0; i < plainText.length(); i++) {
+                    int colorIndex = (tick + i) % gradient.size();
+                    TextColor letterColor = gradient.get(colorIndex);
+                    finalComponent = finalComponent.append(Component.text(String.valueOf(plainText.charAt(i))).color(letterColor));
+                }
+                /*for (int i = 0; i < pattern.size(); i++) {
+                    Collections.rotate(pattern, i);
+                    states.add(pattern);
+                }*/
+
+                //List<TextColor> currentPattern = createGradient(startHexColor, endHexColor, length, offset);
+                //TextComponent animatedComponent = formatGradientText(plainText, currentGradient);
+
+                player.playerListName(finalComponent);
+
+                /*counts.put(player, counts.get(player) + 1);
+                if (counts.get(player) >= pattern.size()) counts.put(player, 0);*/
+                //offset = (offset + 1) % totalSteps;
+                //counts.put(player, offset);
+                tick++;
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
+        animationTasks.put(player, task);
+    }
+
+    private static Component removeColors(Component component) {
+        if (component instanceof TextComponent textComponent) {
+            TextComponent newComponent = Component.text(textComponent.content());
+
+            for (Component child : textComponent.children())
+                newComponent = newComponent.append(removeColors(child));
+            return newComponent;
+        }
+        return component;
+    }
+
+    private static List<TextColor> createGradient(String startHexColor, String endHexColor, int steps) {
         Color startColor = Color.decode(startHexColor);
         Color endColor = Color.decode(endHexColor);
         List<TextColor> gradient = new ArrayList<>();
@@ -216,6 +303,49 @@ public final class Ranks {
         }
         return gradient;
     }
+
+    public static void cancelExistingTask(Player player) {
+        if (animationTasks.containsKey(player)) {
+            BukkitTask existingTask = animationTasks.get(player);
+            existingTask.cancel();
+            animationTasks.remove(player);
+            counts.remove(player);
+        }
+        BukkitTask existingTask = animationTasks.get(player);
+        if (existingTask != null && !existingTask.isCancelled()) {
+            existingTask.cancel();
+            animationTasks.remove(player);
+            counts.remove(player);
+        }
+    }
+
+    private static TextComponent formatGradientText(String input, List<TextColor> gradient) {
+        TextComponent component = Component.empty();
+        char[] chars = input.toCharArray();
+        int count = 0;
+
+        for (char character : chars) {
+            if (count >= gradient.size()) count = 0;
+            component = component.append(Component.text(character).color(gradient.get(count)));
+            count++;
+        }
+        return component;
+    }
+
+    /*private static Pair<Integer, Integer> getUserIdAndSortId(Group group, User user, Player player) {
+        var userId = user.getId(player.getUniqueId());
+        var highestSortId = getHighestSortId(group, user, userId);
+        return new ImmutablePair<>(userId, highestSortId);
+    }
+
+    private static int getHighestSortId(Group group, User user, int userId) {
+        return user.getParent().getParentIds(userId).stream()
+                .map(group::getPriority)
+                .collect(Collectors.summarizingInt(Integer::intValue))
+                .getMax();
+    }*/
+
+    /*
 
     private static List<TextColor> createGradient(String startHexColor, String endHexColor, int steps, float offset) {
         Color startColor = Color.decode(startHexColor);
@@ -269,79 +399,10 @@ public final class Ranks {
         return component;
     }
 
-    private static TextComponent formatGradientText(String input, List<TextColor> gradient) {
-        TextComponent component = Component.empty();
-        char[] chars = input.toCharArray();
-        int count = 0;
-
-        for (char character : chars) {
-            if (count >= gradient.size()) count = 0;
-            component = component.append(Component.text(character).color(gradient.get(count)));
-            count++;
-        }
-        return component;
-    }
-
-    private static Component removeColors(Component component) {
-        if (component instanceof TextComponent textComponent) {
-            TextComponent newComponent = Component.text(textComponent.content());
-
-            for (Component child : textComponent.children())
-                newComponent = newComponent.append(removeColors(child));
-            return newComponent;
-        }
-        return component;
-    }
-
     private static TextComponent applyGradientToComponent(Component component, String startHexColor, String endHexColor, int steps) {
         Component plainComponent = removeColors(component);
         String plainText = MINI_MESSAGE.serialize(plainComponent);
         return formatGradientText(plainText, startHexColor, endHexColor, steps);
-    }
-
-    public static void cancelExistingTask(Player player) {
-        if (animationTasks.containsKey(player)) {
-            BukkitTask existingTask = animationTasks.get(player);
-            existingTask.cancel();
-            animationTasks.remove(player);
-            counts.remove(player);
-        }
-        BukkitTask existingTask = animationTasks.get(player);
-        if (existingTask != null && !existingTask.isCancelled()) {
-            existingTask.cancel();
-            animationTasks.remove(player);
-            counts.remove(player);
-        }
-    }
-
-    private static void animateGradient(Player player, Component component, TextColor startHexColor, TextColor endHexColor, Plugin plugin) {
-        Component plainComponent = removeColors(component);
-        String plainText = MINI_MESSAGE.serialize(plainComponent);
-        int length = plainText.length();
-        List<List<TextColor>> states = new ArrayList<>();
-        List<TextColor> pattern = createGradient(startHexColor.asHexString(), endHexColor.asHexString(), 100);
-        //List<List<TextColor>> patterns = createRotatingGradient(startHexColor, endHexColor, length);
-        cancelExistingTask(player);
-        counts.put(player, 0);
-
-        BukkitTask task = new BukkitRunnable() {
-            @Override
-            public void run() {
-                for (int i = 0; i < pattern.size(); i++) {
-                    Collections.rotate(pattern, i);
-                    states.add(pattern);
-                }
-
-                //List<TextColor> currentPattern = createGradient(startHexColor, endHexColor, length, offset);
-                TextComponent animatedComponent = formatGradientText(plainText, states.get(counts.get(player)));
-
-                player.playerListName(animatedComponent);
-
-                counts.put(player, counts.get(player) + 1);
-                if (counts.get(player) >= pattern.size()) counts.put(player, 0);
-            }
-        }.runTaskTimer(plugin, 0L, 2L);
-        animationTasks.put(player, task);
     }
 
     private static List<TextColor> createGradient(TextColor startColor, TextColor endColor, int steps) {
