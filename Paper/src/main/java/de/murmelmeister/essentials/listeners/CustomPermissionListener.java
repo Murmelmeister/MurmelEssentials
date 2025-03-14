@@ -5,7 +5,6 @@ import de.murmelmeister.essentials.api.CustomPermission;
 import de.murmelmeister.essentials.manager.ListenerManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.player.PlayerCommandSendEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 
 import java.lang.reflect.Field;
@@ -24,9 +23,9 @@ public final class CustomPermissionListener extends ListenerManager{
         field.setAccessible(false);
     }
 
-    @EventHandler
+    /*@EventHandler
     public void handleCommandExecute(PlayerCommandSendEvent event) {
-        permission.loadExpired();
+        // permission.loadExpired();
         event.getPlayer().updateCommands();
-    }
+    }*/
 }

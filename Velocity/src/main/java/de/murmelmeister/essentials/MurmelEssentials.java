@@ -50,6 +50,8 @@ public final class MurmelEssentials {
     public static final String PERMISSION_PUNISHMENT_TYPE = "murmelessentials.punishment.type.";
     public static final String PERMISSION_PUNISHMENT_REASON = "murmelessentials.punishment.reason.";
     public static final String PERMISSION_IP_ADDRESS_SHOW = "murmelessentials.ipaddress.show";
+    public static final String PERMISSION_SHOW_PUNISHMENT_MESSAGE = "murmelessentials.punishment.message.show";
+    public static final String PERMISSION_PUNISH_IMMUNE = "murmelessentials.punishment.immune";
 
     @Inject
     public MurmelEssentials(Logger logger, ProxyServer server) {

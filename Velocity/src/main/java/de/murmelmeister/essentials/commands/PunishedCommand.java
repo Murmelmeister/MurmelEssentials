@@ -14,6 +14,7 @@ import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.essentials.utils.PunishmentUtil;
 import de.murmelmeister.murmelapi.logging.ActiveSession;
 import de.murmelmeister.murmelapi.logging.LoginHistory;
 import de.murmelmeister.murmelapi.permission.Permission;
@@ -99,6 +100,11 @@ public final class PunishedCommand extends CommandManager {
                                         return -3;
                                     }
 
+                                    if (permission.hasPermission(executorId, MurmelEssentials.PERMISSION_PUNISH_IMMUNE)) {
+                                        sendMessage(source, "<#990000>You are immune to punishment.");
+                                        return -4;
+                                    }
+
                                     String target = StringArgumentType.getString(context, "target");
                                     if (type.isTypeIp()) {
                                         // IP-Punishment
@@ -107,18 +113,18 @@ public final class PunishedCommand extends CommandManager {
                                             inetAddress = InetAddress.getByName(target);
                                         } catch (UnknownHostException e) {
                                             sendMessage(source, "<#cc0088>Invalid ip address. Input: <#009999>%s", target);
-                                            return -4;
+                                            return -5;
                                         }
 
                                         if (punishmentIP.exists(inetAddress, typeId)) {
                                             sendMessage(source, "<#990000>The user is already punished with this type.");
-                                            return -5;
+                                            return -6;
                                         }
 
                                         punishmentIP.punish(inetAddress, typeId, executorId, reasonId);
                                         server.getAllPlayers().forEach(player -> {
                                             if (player.getRemoteAddress().getAddress().equals(inetAddress)) {
-                                                player.disconnect(MiniMessage.miniMessage().deserialize("<#990000>You have been punished."));
+                                                player.disconnect(MiniMessage.miniMessage().deserialize("<#990000>You have been punished.")); // TODO: Change the message
                                             }
                                         });
                                         sendMessage(source, "<#009999>IP-Address <#999900>%s <#009999>has been punished with the reason <#999900>%s<#009999>.",
@@ -128,6 +134,12 @@ public final class PunishedCommand extends CommandManager {
                                         if (isUserNotExist(source, user, target)) return -4;
 
                                         int userId = user.getId(target);
+
+                                        if (permission.hasPermission(userId, MurmelEssentials.PERMISSION_PUNISH_IMMUNE)) {
+                                            sendMessage(source, "<#990000>The user is immune to punishment.");
+                                            return -5;
+                                        }
+
                                         String ip = session.isOnline(userId) ? session.getIpAddress(userId) : login.getIPAddress(login.getLastLoginId(userId));
                                         InetAddress inetAddress;
 
@@ -135,19 +147,33 @@ public final class PunishedCommand extends CommandManager {
                                             inetAddress = InetAddress.getByName(ip);
                                         } catch (UnknownHostException e) {
                                             sendMessage(source, "<#cc0088>Invalid ip address. Input: <#009999>%s", ip);
-                                            return -5;
+                                            return -6;
                                         }
 
                                         if (punishmentUser.exists(userId, typeId)) {
                                             sendMessage(source, "<#990000>The user is already punished with this type.");
-                                            return -6;
+                                            return -7;
                                         }
 
+                                        boolean autoFlag = punishmentReason.getAutoFlagIP(reasonId, typeId);
+                                        boolean autoPunish = punishmentReason.getAutoPunish(reasonId, typeId);
                                         punishmentUser.punish(userId, typeId, executorId, inetAddress, reasonId);
-                                        if (punishmentReason.getAutoFlagIP(reasonId, typeId)) {
-                                            punishmentIP.punish(inetAddress, typeId, executorId, reasonId);
-                                        }
-                                        server.getPlayer(target).ifPresent(player -> player.disconnect(MiniMessage.miniMessage().deserialize("<#990000>You have been punished.")));
+                                        if (autoFlag) punishmentIP.punish(inetAddress, typeId, executorId, reasonId);
+
+                                        // Punish the user if he is online
+                                        server.getPlayer(target).ifPresent(player ->
+                                                PunishmentUtil.disconnectPunishMessage(player, userId, typeId, autoFlag, autoPunish));
+
+                                        server.getAllPlayers().forEach(player -> {
+                                            // Punish double account of the user if they are online
+                                            if (autoFlag && player.getRemoteAddress().getAddress().equals(inetAddress))
+                                                PunishmentUtil.disconnectPunishMessage(player, userId, typeId, true, autoPunish); // TODO: Maybe another message
+
+                                            // Send a message to all players if they have the permission to see the punishment message
+                                            if (permission.hasPermission(player.getUniqueId(), MurmelEssentials.PERMISSION_SHOW_PUNISHMENT_MESSAGE))
+                                                sendMessage(player, PunishmentUtil.punishMessage(player, userId, typeId, true, autoPunish).
+                                                        replace("You are punished from the network.", "User <#999900>%s</#999900> is punished from the network."));
+                                        });
                                         sendMessage(source, "<#009999>User <#999900>%s <#009999>has been punished with the reason <#999900>%s<#009999>.",
                                                 target, punishmentReason.getReason(reasonId, typeId));
                                     }

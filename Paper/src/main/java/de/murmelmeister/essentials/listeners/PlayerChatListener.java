@@ -82,7 +82,7 @@ public final class PlayerChatListener extends ListenerManager {
 
         boolean status = !autoPunish;
         String message = String.format("""
-                <#990000>You are muted from the network.
+                <#990000>You are punished from the network.
                 <#999999>Reason: <#009999>%s
                 <#999999>Punisher: <#009999>%s
                 <#999999>Start: <#009999>%s

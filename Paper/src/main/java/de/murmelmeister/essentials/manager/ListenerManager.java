@@ -1,6 +1,7 @@
 package de.murmelmeister.essentials.manager;
 
 import de.murmelmeister.essentials.MurmelEssentials;
+import de.murmelmeister.essentials.listeners.ConnectListener;
 import de.murmelmeister.essentials.listeners.CustomPermissionListener;
 import de.murmelmeister.essentials.listeners.PlayerChatListener;
 import de.murmelmeister.murmelapi.permission.Permission;
@@ -29,6 +30,7 @@ public class ListenerManager implements Listener {
 
     public static void register(MurmelEssentials instance) {
         addListener(instance, new CustomPermissionListener(instance));
+        addListener(instance, new ConnectListener(instance));
         addListener(instance, new PlayerChatListener(instance));
     }
 
