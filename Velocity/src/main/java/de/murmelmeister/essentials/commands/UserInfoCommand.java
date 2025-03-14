@@ -87,6 +87,7 @@ public final class UserInfoCommand extends CommandManager {
                             String maybeSameUser = login.getUserIdsByIP(ipAddress).stream()
                                     .filter(id -> id != userId)
                                     .map(user::getUsername)
+                                    .distinct()
                                     .collect(Collectors.joining("<#999999>,</#999999> "));
                             String online = isOnline ? "<#00cc88>online</#00cc88>" : "<#cc0088>offline</#cc0088>";
                             String time = TimeUtil.formatTimeValue(playTime, userId);
