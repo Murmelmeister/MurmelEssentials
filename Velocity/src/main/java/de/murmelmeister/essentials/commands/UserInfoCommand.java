@@ -123,8 +123,9 @@ public final class UserInfoCommand extends CommandManager {
                                             <#999999>Muted: %s""",
                                     username, userId, uuid.toString(), ipAddress, showMoreUser, user.getFirstJoinDate(userId), login.getLastQuit(userId),
                                     online, time, teamMember, banCount, isBanned, muteCount, isMuted);
-                            login.getSortedLogins(userId)
-                                    .forEach(login -> sendMessage(source, "LoginID: " + login.toString() + "; <rainbow>Login date: " + this.login.getLoginTime(login).toString()));
+                            // TODO: Add this as a debug message
+                            /*login.getSortedLogins(userId)
+                                    .forEach(login -> sendMessage(source, "LoginID: " + login.toString() + "; <rainbow>Login date: " + this.login.getLoginTime(login).toString()));*/
                             return Command.SINGLE_SUCCESS;
                         })
                         .then(BrigadierCommand.requiredArgumentBuilder("loginId", StringArgumentType.word())

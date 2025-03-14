@@ -160,6 +160,8 @@ public final class PunishedCommand extends CommandManager {
                                         punishmentUser.punish(userId, typeId, executorId, inetAddress, reasonId);
                                         if (autoFlag) punishmentIP.punish(inetAddress, typeId, executorId, reasonId);
 
+                                        // TODO: Add loggers
+
                                         // Punish the user if he is online
                                         server.getPlayer(target).ifPresent(player ->
                                                 PunishmentUtil.disconnectPunishMessage(player, userId, typeId, autoFlag, autoPunish));

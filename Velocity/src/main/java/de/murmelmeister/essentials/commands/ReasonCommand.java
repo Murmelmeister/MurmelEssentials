@@ -28,6 +28,8 @@ public final class ReasonCommand extends CommandManager {
     private final PunishmentReason reason;
     private final Permission permission;
 
+    // TODO: Add loggers
+
     public ReasonCommand(User user, PunishmentReason reason, Permission permission) {
         this.user = user;
         this.reason = reason;

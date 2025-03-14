@@ -110,6 +110,8 @@ public final class UnpunishedCommand extends CommandManager {
                             }
 
                             punishIP.unpunished(inetAddress, typeId);
+
+                            // TODO: Add loggers and show a unpunished message to online players with permissions
                             sendMessage(source, "<#009999>%s has been unpunished.", inputIp);
                             return Command.SINGLE_SUCCESS;
                         })
