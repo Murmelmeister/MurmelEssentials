@@ -70,13 +70,47 @@ public final class Ranks {
             TextColor.fromHexString("#ee00aa"),
             TextColor.fromHexString("#ff00aa")
     );
+    private static final List<String> colors = Arrays.asList(
+            "#ff00aa",
+            "#ee00aa",
+            "#dd00aa",
+            "#cc00aa",
+            "#bb00aa",
+            "#aa00aa",
+            "#9900aa",
+            "#8800aa",
+            "#7700aa",
+            "#6600aa",
+            "#5500aa",
+            "#4400aa",
+            "#3300aa",
+            "#2200aa",
+            "#1100aa",
+            "#0000aa",
+            "#0000aa",
+            "#1100aa",
+            "#2200aa",
+            "#3300aa",
+            "#4400aa",
+            "#5500aa",
+            "#6600aa",
+            "#7700aa",
+            "#8800aa",
+            "#9900aa",
+            "#aa00aa",
+            "#bb00aa",
+            "#cc00aa",
+            "#dd00aa",
+            "#ee00aa",
+            "#ff00aa"
+    );
 
-    private static final Map<Integer, String> animatedPrefixStarts = new HashMap<>();
-    private static final Map<Integer, String> animatedPrefixEnds = new HashMap<>();
+    private static final Map<Integer, List<String>> animatedPrefixStarts = new HashMap<>();
+    private static final Map<Integer, List<String>> animatedPrefixEnds = new HashMap<>();
 
     static {
-        animatedPrefixStarts.put(1, "#ff00ff");
-        animatedPrefixEnds.put(1, "#00ff00");
+        //animatedPrefixStarts.put(1, Arrays.asList("#ff0000", "#ffff00"));
+        //animatedPrefixEnds.put(1, Arrays.asList("#ffff00", "#00ff00"));
     }
 
     /*public static void updatePlayers(MurmelEssentials instance, Server server) {
@@ -144,7 +178,7 @@ public final class Ranks {
         int highestSortId = user.getParent().getHighestPriority(group, userId);
         GroupColor colorSettings = group.getColor();
         GroupColorType tab = GroupColorType.TAB;
-        boolean animated = true; // TODO: Get from database if the prefix is animated
+        boolean animated = false; // TODO: Get from database if the prefix is animated
 
         Optional<Integer> optionalGroupId = user.getParent().getParentIds(userId).stream()
                 .filter(groupId -> highestSortId == group.getPriority(groupId))
@@ -159,12 +193,22 @@ public final class Ranks {
             Component baseComponent = MINI_MESSAGE.deserialize(prefix + color + player.getName() + suffix);
 
             if (animated) {
-                String animatedStartHex = getAnimatedPrefixStart(groupId);
+                /*List<String> starts = animatedPrefixStarts.getOrDefault(groupId, Arrays.asList("#ff00aa", "#ee00aa", "#dd00aa", "#cc00aa", "#bb00aa", "#aa00a",
+                        "#9900aa", "#8800aa", "#7700aa", "#6600aa", "#5500aa", "#4400aa", "#3300aa", "#2200aa", "#1100aa", "#0000aa"));
+                List<String> ends = animatedPrefixEnds.getOrDefault(groupId, Arrays.asList("#0000aa", "#1100aa", "#2200aa", "#3300aa", "#4400aa", "#5500aa",
+                        "#6600aa", "#7700aa", "#8800aa", "#9900aa", "#aa00aa", "#bb00aa", "#cc00aa", "#dd00aa", "#ee00aa", "#ff00aa"));*/
+
+                List<TextColor> bigGradient = createMultiGradient(colors, 30);
+                // System.out.println("bigGradient = " + bigGradient.size());
+
+                if (bigGradient.isEmpty()) System.out.println("bigGradient is empty");
+                else animateGradientLettersMulti(player, baseComponent, bigGradient, MurmelEssentials.getInstance());
+                /*String animatedStartHex = getAnimatedPrefixStart(groupId);
                 String animatedEndHex = getAnimatedPrefixEnd(groupId);
                 TextColor startColor = TextColor.fromHexString(animatedStartHex);
-                TextColor endColor = TextColor.fromHexString(animatedEndHex);
+                TextColor endColor = TextColor.fromHexString(animatedEndHex);*/
 
-                animateGradient(player, baseComponent, startColor, endColor, MurmelEssentials.getInstance());
+                //animateGradient(player, baseComponent, startColor, endColor, MurmelEssentials.getInstance());
             } else {
                 player.playerListName(baseComponent);
             }
@@ -186,14 +230,23 @@ public final class Ranks {
         GroupColor colorSettings = group.getColor();
 
         synchronized (scoreboard) {
-            Map<String, Team> existingTeams = scoreboard.getTeams().stream().collect(Collectors.toMap(Team::getName, Function.identity()));
+            //Map<String, Team> existingTeams = scoreboard.getTeams().stream().collect(Collectors.toMap(Team::getName, Function.identity()));
+            Map<String, Team> existingTeams = new HashMap<>();
+            for (Team team : scoreboard.getTeams())
+                existingTeams.put(team.getName(), team);
 
             // Create a map of players and their highest SortID
-            Map<Integer, List<String>> playersBySortId = player.getServer().getOnlinePlayers().stream()
+            /*Map<Integer, List<String>> playersBySortId = player.getServer().getOnlinePlayers().stream()
                     .collect(Collectors.groupingBy(
                             target -> user.getParent().getHighestPriority(group, user.getId(target.getUniqueId())),
                             Collectors.mapping(Player::getName, Collectors.toList())
-                    ));
+                    ));*/
+            Map<Integer, List<String>> playersBySortId = new HashMap<>();
+            for (Player target : player.getServer().getOnlinePlayers()) {
+                int userId = user.getId(target.getUniqueId());
+                int highestSortId = user.getParent().getHighestPriority(group, userId);
+                playersBySortId.computeIfAbsent(highestSortId, k -> new ArrayList<>()).add(target.getName());
+            }
 
             for (String groupName : group.getNames()) {
                 int groupId = group.getUniqueId(groupName);
@@ -226,13 +279,110 @@ public final class Ranks {
         }
     }
 
-    public static String getAnimatedPrefixStart(int groupId) {
+    private static void animateGradientLettersMulti(Player player, Component baseComponent, List<TextColor> colorList, Plugin plugin) {
+        Component plainComponent = removeColors(baseComponent);
+        String plainText = MINI_MESSAGE.serialize(plainComponent);
+
+        cancelExistingTask(player);
+
+        BukkitTask task = new BukkitRunnable() {
+
+            @Override
+            public void run() {
+                List<TextColor> rotated = new ArrayList<>(colorList);
+                Collections.rotate(rotated, 1);
+
+                Component animatedName = Component.empty();
+                int size = rotated.size();
+
+                for (int i = 0; i < plainText.length(); i++) {
+                    TextColor color = colorList.get(i % size);
+
+                    animatedName = animatedName.append(
+                            Component.text(String.valueOf(plainText.charAt(i))).color(color)
+                    );
+                }
+
+                player.playerListName(animatedName);
+
+                colorList.clear();
+                colorList.addAll(rotated);
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
+        animationTasks.put(player, task);
+    }
+
+    private static List<TextColor> createMultiGradient(List<String> hexList, int stepsPerSegment) {
+        if (hexList.size() < 2)
+            throw new IllegalArgumentException("Hex list must contain at least two colors");
+
+        List<TextColor> finalGradient = new ArrayList<>();
+
+        for (int i = 0; i < hexList.size() - 1; i++) {
+            List<TextColor> segment = createGradient(hexList.get(i), hexList.get(i + 1), stepsPerSegment);
+            if (i > 0 && !segment.isEmpty()) segment.removeFirst();
+            finalGradient.addAll(segment);
+        }
+        return finalGradient;
+    }
+
+    private static List<TextColor> createMultiGradient(List<String> startHexList, List<String> endHexList, int stepsPerSegment) {
+        if (startHexList.size() != endHexList.size())
+            throw new IllegalArgumentException("Start and end hex lists must be the same size");
+
+        List<TextColor> finalGradient = new ArrayList<>();
+
+        for (int i = 0; i < startHexList.size(); i++) {
+            List<TextColor> segment = createGradient(startHexList.get(i), endHexList.get(i), stepsPerSegment);
+            if (i > 0 && !segment.isEmpty()) segment.removeFirst();
+            finalGradient.addAll(segment);
+        }
+        return finalGradient;
+    }
+
+    private static List<TextColor> createGradient(String startHexColor, String endHexColor, int steps) {
+        Color startColor = Color.decode(startHexColor);
+        Color endColor = Color.decode(endHexColor);
+        List<TextColor> gradient = new ArrayList<>();
+
+        for (int i = 0; i < steps; i++) {
+            float ratio = (float) i / (steps - 1);
+            int red = (int) (startColor.getRed() * (1 - ratio) + endColor.getRed() * ratio);
+            int green = (int) (startColor.getGreen() * (1 - ratio) + endColor.getGreen() * ratio);
+            int blue = (int) (startColor.getBlue() * (1 - ratio) + endColor.getBlue() * ratio);
+
+            gradient.add(TextColor.color(red, green, blue));
+        }
+        return gradient;
+    }
+
+    private static void animateGradientLetters(Player player, String playerName, Component prefixComponent, Component suffixComponent, List<TextColor> colorList, Plugin plugin) {
+        cancelExistingTask(player);
+        BukkitTask task = new BukkitRunnable() {
+            int tick = 0;
+            @Override
+            public void run() {
+                Component animatedName = Component.empty();
+                for (int i = 0; i < playerName.length(); i++) {
+                    int index = (tick + i) % colorList.size();
+                    TextColor letterColor = colorList.get(index);
+                    animatedName = animatedName.append(Component.text(String.valueOf(playerName.charAt(i))).color(letterColor));
+                }
+                Component finalComponent = prefixComponent.append(animatedName).append(suffixComponent);
+                player.playerListName(finalComponent);
+                tick++;
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
+        animationTasks.put(player, task);
+    }
+
+    /*public static String getAnimatedPrefixStart(int groupId) {
         return animatedPrefixStarts.getOrDefault(groupId, "#ffffff");
     }
 
     public static String getAnimatedPrefixEnd(int groupId) {
         return animatedPrefixEnds.getOrDefault(groupId, "#ffffff");
-    }
+    }*/
 
     private static void animateGradient(Player player, Component component, TextColor startHexColor, TextColor endHexColor, Plugin plugin) {
         Component plainComponent = removeColors(component);
@@ -286,22 +436,6 @@ public final class Ranks {
             return newComponent;
         }
         return component;
-    }
-
-    private static List<TextColor> createGradient(String startHexColor, String endHexColor, int steps) {
-        Color startColor = Color.decode(startHexColor);
-        Color endColor = Color.decode(endHexColor);
-        List<TextColor> gradient = new ArrayList<>();
-
-        for (int i = 0; i < steps; i++) {
-            float ratio = (float) i / (steps - 1);
-            int red = (int) (startColor.getRed() * (1 - ratio) + endColor.getRed() * ratio);
-            int green = (int) (startColor.getGreen() * (1 - ratio) + endColor.getGreen() * ratio);
-            int blue = (int) (startColor.getBlue() * (1 - ratio) + endColor.getBlue() * ratio);
-
-            gradient.add(TextColor.color(red, green, blue));
-        }
-        return gradient;
     }
 
     public static void cancelExistingTask(Player player) {
