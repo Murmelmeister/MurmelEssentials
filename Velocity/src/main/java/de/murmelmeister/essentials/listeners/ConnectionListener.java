@@ -57,6 +57,7 @@ public final class ConnectionListener {
 
     private void processSessionStart(Player player, int userId) {
         InetAddress inetAddress = player.getRemoteAddress().getAddress();
+        if (activeSession.existsSession(userId)) activeSession.closeSession(userId); // Or maybe kick the player and send a message with reconnect
         activeSession.startSession(userId, inetAddress, player.getClientBrand(), player.getProtocolVersion() + "");
     }
 
