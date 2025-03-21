@@ -100,11 +100,6 @@ public final class PunishedCommand extends CommandManager {
                                         return -3;
                                     }
 
-                                    if (permission.hasPermission(executorId, MurmelEssentials.PERMISSION_PUNISH_IMMUNE)) {
-                                        sendMessage(source, "<#990000>You are immune to punishment.");
-                                        return -4;
-                                    }
-
                                     String target = StringArgumentType.getString(context, "target");
                                     if (type.isTypeIp()) {
                                         // IP-Punishment
@@ -123,7 +118,7 @@ public final class PunishedCommand extends CommandManager {
 
                                         punishmentIP.punish(inetAddress, typeId, executorId, reasonId);
                                         server.getAllPlayers().forEach(player -> {
-                                            if (player.getRemoteAddress().getAddress().equals(inetAddress)) {
+                                            if (player.getRemoteAddress().getAddress().equals(inetAddress) && !permission.hasPermission(player.getUniqueId(), MurmelEssentials.PERMISSION_PUNISH_IMMUNE)) {
                                                 player.disconnect(MiniMessage.miniMessage().deserialize("<#990000>You have been punished.")); // TODO: Change the message
                                             }
                                         });

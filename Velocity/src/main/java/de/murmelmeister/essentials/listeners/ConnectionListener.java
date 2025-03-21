@@ -4,9 +4,11 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.proxy.Player;
+import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.utils.PunishmentUtil;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.logging.ActiveSession;
+import de.murmelmeister.murmelapi.permission.Permission;
 import de.murmelmeister.murmelapi.punishment.PunishmentIP;
 import de.murmelmeister.murmelapi.punishment.PunishmentType;
 import de.murmelmeister.murmelapi.punishment.PunishmentUser;
@@ -21,15 +23,17 @@ public final class ConnectionListener {
     private final Group group;
     private final PlayTime playTime;
     private final ActiveSession activeSession;
+    private final Permission permission;
     private final PunishmentReason punishmentReason;
     private final PunishmentIP punishmentIp;
     private final PunishmentUser punishmentUser;
 
-    public ConnectionListener(User user, Group group, PlayTime playTime, ActiveSession activeSession, PunishmentReason punishmentReason, PunishmentIP punishmentIp, PunishmentUser punishmentUser) {
+    public ConnectionListener(User user, Group group, PlayTime playTime, ActiveSession activeSession, Permission permission, PunishmentReason punishmentReason, PunishmentIP punishmentIp, PunishmentUser punishmentUser) {
         this.user = user;
         this.group = group;
         this.playTime = playTime;
         this.activeSession = activeSession;
+        this.permission = permission;
         this.punishmentReason = punishmentReason;
         this.punishmentIp = punishmentIp;
         this.punishmentUser = punishmentUser;
@@ -62,6 +66,7 @@ public final class ConnectionListener {
     }
 
     private void checkPunishments(Player player, int userId) {
+        if (permission.hasPermission(userId, MurmelEssentials.PERMISSION_PUNISH_IMMUNE)) return;
         InetAddress inetAddress = player.getRemoteAddress().getAddress();
 
         // maybe a type list of punishment types
