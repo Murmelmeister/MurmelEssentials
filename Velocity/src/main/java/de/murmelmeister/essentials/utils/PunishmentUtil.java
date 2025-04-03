@@ -36,14 +36,14 @@ public final class PunishmentUtil {
         if (isIp) {
             logId = punishmentIp.getLogId(inetAddress, punishId);
             reasonText = punishmentIp.getReason(inetAddress, punishId);
-            expireDate = punishmentIp.getExpiredDate(inetAddress, punishId);
-            startDate = punishmentIp.getCreatedAt(inetAddress, punishId).toString();
+            expireDate = punishmentIp.getExpiredAt(inetAddress, punishId) == null ? "never" : MurmelAPI.getDateFormat().format(punishmentIp.getExpiredAt(inetAddress, punishId));
+            startDate = MurmelAPI.getDateFormat().format(punishmentIp.getCreatedAt(inetAddress, punishId));
             punisher = user.getUsername(punishmentIp.getCreatedBy(inetAddress, punishId));
         } else {
             logId = punishmentUser.getLogId(userId, punishId);
             reasonText = punishmentUser.getReason(userId, punishId);
-            expireDate = punishmentUser.getExpiredDate(userId, punishId);
-            startDate = punishmentUser.getCreatedAt(userId, punishId).toString();
+            expireDate = punishmentUser.getExpiredAt(userId, punishId) == null ? "never" : MurmelAPI.getDateFormat().format(punishmentUser.getExpiredAt(userId, punishId));
+            startDate = MurmelAPI.getDateFormat().format(punishmentUser.getCreatedAt(userId, punishId));
             punisher = user.getUsername(punishmentUser.getCreatedBy(userId, punishId));
         }
 

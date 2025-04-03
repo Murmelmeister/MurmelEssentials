@@ -8,6 +8,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.logging.ActiveSession;
 import de.murmelmeister.murmelapi.logging.LoginHistory;
 import de.murmelmeister.murmelapi.permission.Permission;
@@ -49,7 +50,8 @@ public final class ShowTeamCommand extends CommandManager {
 
                         boolean isOnline = session.isOnline(targetId);
                         String online = isOnline ? "<#00cc88>online" : "<#cc0088>offline";
-                        String lastLogin = "<#999999>-</#999999> " + login.getLastQuit(targetId).toString();
+                        String lastQuit = login.getLastQuit(targetId) == null ? "unknown" : MurmelAPI.getDateFormat().format(login.getLastQuit(targetId));
+                        String lastLogin = "<#999999>-</#999999> " + lastQuit;
 
                         Optional<Player> target = proxyServer.getPlayer(username);
                         String serverName = target.flatMap(Player::getCurrentServer).map(server -> server.getServerInfo().getName()).orElse("unknown");

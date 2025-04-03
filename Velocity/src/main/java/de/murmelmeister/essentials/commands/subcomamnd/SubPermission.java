@@ -11,6 +11,7 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.utils.PermissionUtil;
+import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.parent.GroupParent;
 import de.murmelmeister.murmelapi.group.permission.GroupPermission;
@@ -22,6 +23,7 @@ import de.murmelmeister.murmelapi.utils.TimeUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -63,8 +65,8 @@ public final class SubPermission extends PermissionUtil {
         String clickMessage = isUser ? "/permission user permission " + user.getUsername(id) + " remove " : "/permission group permission " + group.getName(id) + " remove ";
         sendMessage(source, "<#009999>Permissions: ");
         for (String all : permissions) {
-            long duration = isUser ? userPermission.getExpiredTime(id, all) : groupPermission.getExpiredTime(id, all);
-            String expiredDate = duration == -1 ? "" : "<#999999> - Expired data: <#009999>" + (isUser ? userPermission.getExpiredDate(id, all) : groupPermission.getExpiredDate(id, all));
+            Timestamp duration = isUser ? userPermission.getExpiredAt(id, all) : groupPermission.getExpiredAt(id, all);
+            String expiredDate = duration == null ? "" : "<#999999> - Expired data: <#009999>" + MurmelAPI.getDateFormat().format(duration);
             sendMessage(source, "<#999999>- <#999900>" +
                                 "<hover:show_text:'<#990000>Click to remove <#999900>\"%s\"'>" +
                                 "<click:suggest_command:%s>%s</click></hover>%s",
@@ -308,7 +310,8 @@ public final class SubPermission extends PermissionUtil {
                             if (isUser) sendMessage(source, "<#009999>Player UUID: <#999900>" + user.getUniqueId(id));
                             sendMessage(source, isUser ? "<#009999>UserId: <#999900>" + id : "GroupId: " + id);
                             sendMessage(source, "<#009999>Get Date: <#999900>" + (isUser ? userPermission.getCreatedAt(id, input).toString() : groupPermission.getCreatedAt(id, input).toString()));
-                            sendMessage(source, "<#009999>Expired Date: <#999900>" + (isUser ? userPermission.getExpiredDate(id, input) : groupPermission.getExpiredDate(id, input)));
+                            sendMessage(source, "<#009999>Expired Date: <#999900>" + (isUser ? MurmelAPI.getDateFormat().format(userPermission.getExpiredAt(id, input))
+                                    : MurmelAPI.getDateFormat().format(groupPermission.getExpiredAt(id, input))));
                             sendCreatorMessage(source, user, creatorId);
                             return Command.SINGLE_SUCCESS;
                         })
@@ -401,17 +404,23 @@ public final class SubPermission extends PermissionUtil {
         switch (type) {
             case 1 -> {
                 logging(isUser, executorId, id, "Set expired time to permission", " time set " + input + " " + time);
-                expiredDate = isUser ? userPermission.setExpiredTime(executorId, id, input, duration) : groupPermission.setExpiredTime(executorId, id, input, duration);
+                if (isUser) userPermission.setExpiredAt(executorId, id, input, duration);
+                else groupPermission.setExpiredAt(executorId, id, input, duration);
+                expiredDate = isUser ? MurmelAPI.getDateFormat().format(userPermission.getExpiredAt(id, input)) : MurmelAPI.getDateFormat().format(groupPermission.getExpiredAt(id, input));
             }
             case 2 -> {
                 logging(isUser, executorId, id, "Add expired time to permission", " time add " + input + " " + time);
-                long newTime = isUser ? userPermission.getExpiredTime(id, input) + duration : groupPermission.getExpiredTime(id, input) + duration;
-                expiredDate = isUser ? userPermission.setExpiredTime(executorId, id, input, newTime) : groupPermission.setExpiredTime(executorId, id, input, newTime);
+                long newTime = isUser ? userPermission.getExpiredAt(id, input).getTime() + duration : groupPermission.getExpiredAt(id, input).getTime() + duration;
+                if (isUser) userPermission.setExpiredAt(executorId, id, input, newTime);
+                else groupPermission.setExpiredAt(executorId, id, input, newTime);
+                expiredDate = isUser ? MurmelAPI.getDateFormat().format(userPermission.getExpiredAt(id, input)) : MurmelAPI.getDateFormat().format(groupPermission.getExpiredAt(id, input));
             }
             case 3 -> {
                 logging(isUser, executorId, id, "Remove expired time to permission", " time remove " + input + " " + time);
-                long newTime = isUser ? userPermission.getExpiredTime(id, input) - duration : groupPermission.getExpiredTime(id, input) - duration;
-                expiredDate = isUser ? userPermission.setExpiredTime(executorId, id, input, newTime) : groupPermission.setExpiredTime(executorId, id, input, newTime);
+                long newTime = isUser ? userPermission.getExpiredAt(id, input).getTime() - duration : groupPermission.getExpiredAt(id, input).getTime() - duration;
+                if (isUser) userPermission.setExpiredAt(executorId, id, input, newTime);
+                else groupPermission.setExpiredAt(executorId, id, input, newTime);
+                expiredDate = isUser ? MurmelAPI.getDateFormat().format(userPermission.getExpiredAt(id, input)) : MurmelAPI.getDateFormat().format(groupPermission.getExpiredAt(id, input));
             }
             default -> expiredDate = null;
         }
@@ -491,7 +500,7 @@ public final class SubPermission extends PermissionUtil {
     }
 
     private String getPermissionExpiredDate(boolean isUser, int id, String permission) {
-        return isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
+        return isUser ? MurmelAPI.getDateFormat().format(userPermission.getExpiredAt(id, permission)) : MurmelAPI.getDateFormat().format(groupPermission.getExpiredAt(id, permission));
     }
 
     private boolean isPermissionNotExist(CommandSource source, boolean isUser, int id, String permission) {

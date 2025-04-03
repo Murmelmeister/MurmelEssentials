@@ -8,7 +8,7 @@ import de.murmelmeister.essentials.listeners.PermissionListener;
 public final class ListenerManager {
     public static void register(MurmelEssentials plugin, ProxyServer server) {
         addListener(plugin, server, new PermissionListener(plugin.getPermission()));
-        addListener(plugin, server, new ConnectionListener(plugin.getUser(), plugin.getGroup(), plugin.getPlayTime(), plugin.getActiveSession(),
+        addListener(plugin, server, new ConnectionListener(plugin.getUser(), plugin.getGroup(), plugin.getPlayTime(), plugin.getActiveSession(), plugin.getPermission(),
                 plugin.getPunishmentReason(), plugin.getPunishmentIP(), plugin.getPunishmentUser()));
     }
 

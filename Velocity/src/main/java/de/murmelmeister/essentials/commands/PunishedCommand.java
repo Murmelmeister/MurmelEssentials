@@ -153,7 +153,7 @@ public final class PunishedCommand extends CommandManager {
                                         boolean autoFlag = punishmentReason.getAutoFlagIP(reasonId, typeId);
                                         boolean autoPunish = punishmentReason.getAutoPunish(reasonId, typeId);
                                         punishmentUser.punish(userId, typeId, executorId, inetAddress, reasonId);
-                                        if (autoFlag) punishmentIP.punish(inetAddress, typeId, executorId, reasonId);
+                                        if (autoFlag && !punishmentIP.exists(inetAddress, typeId)) punishmentIP.punish(inetAddress, typeId, executorId, reasonId);
 
                                         // TODO: Add loggers
 

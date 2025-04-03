@@ -12,6 +12,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.logging.ActiveSession;
 import de.murmelmeister.murmelapi.logging.LoginHistory;
 import de.murmelmeister.murmelapi.permission.Permission;
@@ -97,12 +98,14 @@ public final class UserInfoCommand extends CommandManager {
                             int muteTypeId = PunishmentType.MUTE.getId();
                             UUID banLogId = punishment.exists(userId, banTypeId) ? punishment.getLogId(userId, banTypeId) : null;
                             UUID muteLogId = punishment.exists(userId, muteTypeId) ? punishment.getLogId(userId, muteTypeId) : null;
+                            String banExpired = log.getExpiredAt(banLogId, banTypeId) == null ? "never" : MurmelAPI.getDateFormat().format(log.getExpiredAt(banLogId, banTypeId));
+                            String muteExpired = log.getExpiredAt(muteLogId, muteTypeId) == null ? "never" : MurmelAPI.getDateFormat().format(log.getExpiredAt(muteLogId, muteTypeId));
                             String isBanned = punishment.isPunished(userId, banTypeId) ?
-                                    "<#cc0088>yes (" + log.getCreatedAt(banLogId, banTypeId) + " - " + log.getExpiredDate(banLogId, banTypeId) + ")</#cc0088>"
-                                    : "<#00cc88>no</#00cc88>";
+                                    "<#cc0088>yes (" + MurmelAPI.getDateFormat().format(log.getCreatedAt(banLogId, banTypeId)) + " - "
+                                    + banExpired + ")</#cc0088>" : "<#00cc88>no</#00cc88>";
                             String isMuted = punishment.isPunished(userId, muteTypeId) ?
-                                    "<#cc0088>yes (" + log.getCreatedAt(muteLogId, muteTypeId) + " - " + log.getExpiredDate(muteLogId, muteTypeId) + ")</#cc0088>"
-                                    : "<#00cc88>no</#00cc88>";
+                                    "<#cc0088>yes (" + MurmelAPI.getDateFormat().format(log.getCreatedAt(muteLogId, muteTypeId)) + " - "
+                                    + muteExpired + ")</#cc0088>" : "<#00cc88>no</#00cc88>";
                             int banCount = log.getLogs(userId, banTypeId).size();
                             int muteCount = log.getLogs(userId, muteTypeId).size();
 
@@ -174,7 +177,7 @@ public final class UserInfoCommand extends CommandManager {
 
                                     String username = user.getUsername(userId);
                                     String ipAddress = login.getIPAddress(loginId);
-                                    String loginTime = login.getLoginTime(loginId).toString();
+                                    String loginTime = MurmelAPI.getDateFormat().format(login.getLoginTime(loginId));
                                     String logoutTime = login.getLogoutDate(loginId);
                                     String clientVersion = login.getClientVersion(loginId);
                                     String protocolVersion = login.getProtocolVersion(loginId);

@@ -11,6 +11,7 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.utils.PermissionUtil;
+import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.parent.GroupParent;
 import de.murmelmeister.murmelapi.user.User;
@@ -20,6 +21,7 @@ import de.murmelmeister.murmelapi.utils.TimeUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -61,8 +63,8 @@ public final class SubParent extends PermissionUtil {
                 sendMessage(source, "<#999999>- <#999900>%s", all);
                 continue;
             }
-            long duration = isUser ? userParent.getExpiredTime(id, group.getUniqueId(all)) : groupParent.getExpiredTime(id, group.getUniqueId(all));
-            String expiredDate = duration == -1 ? "" : "<#999999> - Expired data: <#009999>" + (isUser ? userParent.getExpiredDate(id, group.getUniqueId(all)) : groupParent.getExpiredDate(id, group.getUniqueId(all)));
+            Timestamp duration = isUser ? userParent.getExpiredAt(id, group.getUniqueId(all)) : groupParent.getExpiredAt(id, group.getUniqueId(all));
+            String expiredDate = duration == null ? "" : "<#999999> - Expired data: <#009999>" + MurmelAPI.getDateFormat().format(duration);
             sendMessage(source, "<#999999>- <#999900>" +
                                 "<hover:show_text:'<#990000>Click to remove <#999900>\"%s\"'>" +
                                 "<click:suggest_command:%s>%s</click></hover>%s",
@@ -335,7 +337,7 @@ public final class SubParent extends PermissionUtil {
                             if (isUser) sendMessage(source, "<#009999>Player UUID: <#999900>" + user.getUniqueId(id));
                             sendMessage(source, isUser ? "<#009999>UserId: <#999900>" + id : "GroupId: " + id);
                             sendMessage(source, "<#009999>Get Date: <#999900>" + (isUser ? userParent.getCreatedAt(id, parentId).toString() : groupParent.getCreatedAt(id, parentId).toString()));
-                            sendMessage(source, "<#009999>Expired Date: <#999900>" + (isUser ? userParent.getExpiredDate(id, parentId) : groupParent.getExpiredDate(id, parentId)));
+                            sendMessage(source, "<#009999>Expired Date: <#999900>" + (isUser ? MurmelAPI.getDateFormat().format(userParent.getExpiredAt(id, parentId)) : MurmelAPI.getDateFormat().format(groupParent.getExpiredAt(id, parentId))));
                             sendCreatorMessage(source, user, creatorId);
                             return Command.SINGLE_SUCCESS;
                         })
@@ -459,17 +461,23 @@ public final class SubParent extends PermissionUtil {
         switch (type) {
             case 1 -> {
                 logging(isUser, executorId, id, "Set expired time to parent", " time set " + input + " " + time);
-                expiredDate = isUser ? userParent.setExpiredTime(executorId, id, parentId, duration) : groupParent.setExpiredTime(executorId, id, parentId, duration);
+                if (isUser) userParent.setExpiredAt(executorId, id, parentId, duration);
+                else groupParent.setExpiredAt(executorId, id, parentId, duration);
+                expiredDate = isUser ? MurmelAPI.getDateFormat().format(userParent.getExpiredAt(id, parentId)) : MurmelAPI.getDateFormat().format(groupParent.getExpiredAt(id, parentId));
             }
             case 2 -> {
                 logging(isUser, executorId, id, "Add expired time to parent", " time add " + input + " " + time);
-                long newTime = isUser ? userParent.getExpiredTime(id, parentId) + duration : groupParent.getExpiredTime(id, parentId) + duration;
-                expiredDate = isUser ? userParent.setExpiredTime(executorId, id, parentId, newTime) : groupParent.setExpiredTime(executorId, id, parentId, newTime);
+                long newTime = isUser ? userParent.getExpiredAt(id, parentId).getTime() + duration : groupParent.getExpiredAt(id, parentId).getTime() + duration;
+                if (isUser) userParent.setExpiredAt(executorId, id, parentId, newTime);
+                else groupParent.setExpiredAt(executorId, id, parentId, newTime);
+                expiredDate = isUser ? MurmelAPI.getDateFormat().format(userParent.getExpiredAt(id, parentId)) : MurmelAPI.getDateFormat().format(groupParent.getExpiredAt(id, parentId));
             }
             case 3 -> {
                 logging(isUser, executorId, id, "Remove expired time to parent", " time remove " + input + " " + time);
-                long newTime = isUser ? userParent.getExpiredTime(id, parentId) - duration : groupParent.getExpiredTime(id, parentId) - duration;
-                expiredDate = isUser ? userParent.setExpiredTime(executorId, id, parentId, newTime) : groupParent.setExpiredTime(executorId, id, parentId, newTime);
+                long newTime = isUser ? userParent.getExpiredAt(id, parentId).getTime() - duration : groupParent.getExpiredAt(id, parentId).getTime() - duration;
+                if (isUser) userParent.setExpiredAt(executorId, id, parentId, newTime);
+                else groupParent.setExpiredAt(executorId, id, parentId, newTime);
+                expiredDate = isUser ? MurmelAPI.getDateFormat().format(userParent.getExpiredAt(id, parentId)) : MurmelAPI.getDateFormat().format(groupParent.getExpiredAt(id, parentId));
             }
             default -> expiredDate = null;
         }
@@ -507,7 +515,7 @@ public final class SubParent extends PermissionUtil {
     }
 
     private String getParentExpiredDate(boolean isUser, int id, int parentId) {
-        return isUser ? userParent.getExpiredDate(id, parentId) : groupParent.getExpiredDate(id, parentId);
+        return isUser ? MurmelAPI.getDateFormat().format(userParent.getExpiredAt(id, parentId)) : MurmelAPI.getDateFormat().format(groupParent.getExpiredAt(id, parentId));
     }
 
     private boolean isParentNotExist(CommandSource source, boolean isUser, int id, int parentId) {

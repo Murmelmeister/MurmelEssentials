@@ -11,6 +11,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import com.velocitypowered.api.proxy.Player;
 import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.logging.ActiveSession;
 import de.murmelmeister.murmelapi.logging.LoginHistory;
 import de.murmelmeister.murmelapi.time.PlayTime;
@@ -49,7 +50,8 @@ public final class PlayTimeCommand extends CommandManager {
                             if (isUserNotExist(source, user, username)) return 2;
 
                             int userId = user.getId(username);
-                            String online = session.isOnline(userId) ? "<#00cc88>online" : "<#cc0099>" + login.getLastQuit(userId).toString();
+                            String lastQuit = login.getLastQuit(userId) == null ? "unknown" : MurmelAPI.getDateFormat().format(login.getLastQuit(userId));
+                            String online = session.isOnline(userId) ? "<#00cc88>online" : "<#cc0099>" + lastQuit;
                             String time = TimeUtil.formatTimeValue(playTime, userId);
                             sendMessage(source, "<#e6c200>%s <#999999>online mode: %s", username, online);
                             sendMessage(source, "<#999999>PlayTime from <#e6c200>%s<#999999>: <#00cc88>%s", username, time);
