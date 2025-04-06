@@ -289,7 +289,7 @@ public final class PermissionCommand extends PermissionUtil {
                                             int priority = IntegerArgumentType.getInteger(context, "priority");
                                             String teamId = StringArgumentType.getString(context, "teamId");
 
-                                            group.createNewGroup(groupName, executorId, priority, teamId);
+                                            group.createGroup(executorId, groupName, priority, teamId);
                                             logging(false, executorId, group.getUniqueId(groupName), "Create group", "/permission group create " + groupName + " " + priority + " " + teamId);
                                             sendMessage(context.getSource(), "<#999999>Group <#009999>%s</#009999> is now created.", groupName);
                                             return Command.SINGLE_SUCCESS;
