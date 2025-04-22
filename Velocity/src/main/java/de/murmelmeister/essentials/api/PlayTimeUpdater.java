@@ -35,7 +35,7 @@ public final class PlayTimeUpdater {
         cancelExistingTask();
         User user = plugin.getUser();
         PlayTime playTime = plugin.getPlayTime();
-        task = server.getScheduler().buildTask(playTime, () -> updateTimer(logger, server, user, playTime))
+        task = server.getScheduler().buildTask(plugin, () -> updateTimer(logger, server, user, playTime))
                 .repeat(1L, TimeUnit.SECONDS).schedule();
     }
 }
