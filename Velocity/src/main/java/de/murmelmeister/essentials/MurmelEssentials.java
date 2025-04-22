@@ -31,7 +31,7 @@ import java.nio.charset.StandardCharsets;
 @Plugin(
         id = "murmelessentials",
         name = "MurmelEssentials",
-        version = "0.0.1",
+        version = "0.0.3",
         description = "MurmelEssentials is a plugin that adds a lot of useful commands to your server.",
         authors = {
                 "Murmelmeister"
