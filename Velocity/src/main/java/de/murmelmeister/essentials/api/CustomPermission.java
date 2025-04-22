@@ -7,6 +7,8 @@ import com.velocitypowered.api.permission.PermissionSubject;
 import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.scheduler.ScheduledTask;
+import com.velocitypowered.api.scheduler.TaskStatus;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.murmelapi.permission.Permission;
 
@@ -15,6 +17,8 @@ import java.util.concurrent.TimeUnit;
 public final class CustomPermission implements PermissionProvider, PermissionFunction {
     private final Permission permission;
     private final Player player;
+
+    private static ScheduledTask task;
 
     public CustomPermission(Permission permission, Player player) {
         this.permission = permission;
@@ -32,10 +36,10 @@ public final class CustomPermission implements PermissionProvider, PermissionFun
         return this;
     }
 
-    public static void updatePermission(ProxyServer server, MurmelEssentials instance) {
-        server.getScheduler().buildTask(instance, () -> {
-            instance.getGroup().loadExpired();
-            instance.getUser().loadExpired();
-        }).repeat(10, TimeUnit.SECONDS).schedule();
+    public static void updatePermission(MurmelEssentials plugin, ProxyServer server) {
+        if (task != null && task.status() != TaskStatus.CANCELLED)
+            task.cancel();
+        task = server.getScheduler().buildTask(plugin, () -> plugin.getPermission().loadExpired())
+                .repeat(10, TimeUnit.SECONDS).schedule();
     }
 }
