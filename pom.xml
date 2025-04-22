@@ -23,8 +23,7 @@
         <dependency>
             <groupId>de.murmelmeister.murmelapi</groupId>
             <artifactId>MurmelAPI</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-            <scope>compile</scope>
+            <version>0.0.6-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
