@@ -40,16 +40,16 @@ import java.nio.charset.StandardCharsets;
 )
 public final class MurmelEssentials {
     private final Logger logger;
-    private final ProxyServer proxyServer;
+    private final ProxyServer server;
 
     private MySQL mySQL;
     private static final MinecraftChannelIdentifier CHANNEL = MinecraftChannelIdentifier.create("permission", "refresh");
 
     @Inject
-    public MurmelEssentials(Logger logger, ProxyServer proxyServer) {
+    public MurmelEssentials(Logger logger, ProxyServer server) {
         this.logger = logger;
-        this.proxyServer = proxyServer;
-        proxyServer.getChannelRegistrar().register(CHANNEL);
+        this.server = server;
+        server.getChannelRegistrar().register(CHANNEL);
     }
 
     @Subscribe
@@ -57,10 +57,10 @@ public final class MurmelEssentials {
         mySQL = new MySQL(logger);
         mySQL.connect();
         getGroup().createDefaultGroup("default");
-        CustomPermission.updatePermission(proxyServer, this);
-        ListenerManager.register(proxyServer, this);
-        CommandManager.register(proxyServer, this);
-        PlayTimeUpdater.startTimer(proxyServer, this);
+        CustomPermission.updatePermission(this, server);
+        ListenerManager.register(server, this);
+        CommandManager.register(server, this);
+        PlayTimeUpdater.startTimer(server, this);
     }
 
     @Subscribe
