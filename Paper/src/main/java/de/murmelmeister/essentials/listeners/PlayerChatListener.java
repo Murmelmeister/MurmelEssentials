@@ -13,6 +13,7 @@ public final class PlayerChatListener extends ListenerManager {
 
     @EventHandler
     public void handlePlayerChat(AsyncChatEvent event) {
+        // TODO: CheckPunishment
         Ranks.setChatFormat(event, this.instance.getGroup(), this.instance.getUser());
     }
 }
