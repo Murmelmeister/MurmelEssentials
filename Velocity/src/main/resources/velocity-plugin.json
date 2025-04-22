@@ -1,0 +1,10 @@
+{
+  "id":"murmelessentials",
+  "name":"MurmelEssentials",
+  "version":"0.0.3",
+  "description":"MurmelEssentials is a plugin that adds a lot of useful commands to your server.",
+  "url":"https://www.youtube.com/Murmelmeister",
+  "authors":["Murmelmeister"],
+  "dependencies":[],
+  "main":"de.murmelmeister.essentials.MurmelEssentials"
+}
