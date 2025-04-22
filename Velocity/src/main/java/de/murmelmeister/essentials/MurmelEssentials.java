@@ -58,7 +58,7 @@ public final class MurmelEssentials {
         mySQL.connect();
         getGroup().createDefaultGroup("default");
         CustomPermission.updatePermission(this, server);
-        ListenerManager.register(server, this);
+        ListenerManager.register(this, server);
         CommandManager.register(server, this);
         PlayTimeUpdater.startTimer(this, logger, server);
     }
