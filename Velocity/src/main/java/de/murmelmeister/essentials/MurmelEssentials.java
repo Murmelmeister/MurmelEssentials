@@ -60,7 +60,7 @@ public final class MurmelEssentials {
         CustomPermission.updatePermission(this, server);
         ListenerManager.register(server, this);
         CommandManager.register(server, this);
-        PlayTimeUpdater.startTimer(server, this);
+        PlayTimeUpdater.startTimer(this, logger, server);
     }
 
     @Subscribe

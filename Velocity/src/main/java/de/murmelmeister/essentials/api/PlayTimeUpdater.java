@@ -19,7 +19,7 @@ public final class PlayTimeUpdater {
             task.cancel();
     }
 
-    private static void updateTimer(ProxyServer server, Logger logger, User user, PlayTime playTime) {
+    private static void updateTimer(Logger logger, ProxyServer server, User user, PlayTime playTime) {
         for (Player player : server.getAllPlayers()) {
             if (!user.existsUser(player.getUniqueId())) {
                 logger.warn("Player {} doesn't exist in users table.", player.getUsername());
@@ -31,11 +31,11 @@ public final class PlayTimeUpdater {
         }
     }
 
-    public static void startTimer(MurmelEssentials plugin, ProxyServer server, Logger logger) {
+    public static void startTimer(MurmelEssentials plugin, Logger logger, ProxyServer server) {
         cancelExistingTask();
         User user = plugin.getUser();
         PlayTime playTime = plugin.getPlayTime();
-        task = server.getScheduler().buildTask(playTime, () -> updateTimer(server, logger, user, playTime))
+        task = server.getScheduler().buildTask(playTime, () -> updateTimer(logger, server, user, playTime))
                 .repeat(1L, TimeUnit.SECONDS).schedule();
     }
 }
