@@ -3,14 +3,15 @@ package de.murmelmeister.essentials.api;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.utils.HexColor;
 import de.murmelmeister.murmelapi.group.Group;
-import de.murmelmeister.murmelapi.group.settings.GroupColorType;
+import de.murmelmeister.murmelapi.group.color.GroupColor;
+import de.murmelmeister.murmelapi.group.color.GroupColorType;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.bukkit.ChatColor;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
@@ -19,8 +20,6 @@ import org.bukkit.scoreboard.Team;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public final class Ranks {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
@@ -49,30 +48,29 @@ public final class Ranks {
 
     @SuppressWarnings("deprecation")
     public static void setChatFormat(AsyncChatEvent event, Group group, User user) {
-        var player = event.getPlayer();
-        var idAndSortId = getUserIdAndSortId(group, user, player);
-        var userId = idAndSortId.getKey();
-        var highestSortId = idAndSortId.getValue();
-        var colorSettings = group.getColorSettings();
-        var chat = GroupColorType.CHAT;
+        Player player = event.getPlayer();
+        int userId = user.getId(player.getUniqueId());
+        int highestSortId = user.getParent().getHighestPriority(group, userId);
+        GroupColor groupColor = group.getColor();
+        GroupColorType groupType = GroupColorType.CHAT;
 
-        var serializer = LegacyComponentSerializer.builder().hexColors().build();
-        var originalMessage = serializer.serialize(event.message());
+        LegacyComponentSerializer serializer = LegacyComponentSerializer.builder().hexColors().build();
+        String originalMessage = serializer.serialize(event.message());
 
         if (player.hasPermission(PERMISSION_CHAT_COLOR))
             originalMessage = net.md_5.bungee.api.ChatColor.translateAlternateColorCodes('&', originalMessage);
         if (player.hasPermission(PERMISSION_CHAT_HEX)) originalMessage = HexColor.format(originalMessage);
 
-        final var finalMessage = originalMessage;
+        final String finalMessage = originalMessage;
         event.renderer((source, sourceDisplayName, message, viewer) -> {
-            var groupId = user.getParent().getParentIds(userId).stream()
-                    .filter(id -> highestSortId.equals(group.getSettings().getSortId(id)))
+            Optional<Integer> groupId = user.getParent().getParentIds(userId).stream()
+                    .filter(id -> highestSortId == group.getPriority(id))
                     .findFirst();
 
             if (groupId.isPresent()) {
                 int id = groupId.get();
-                var format = colorSettings.getPrefix(chat, id) + player.getName() + colorSettings.getSuffix(chat, id) + " : ";
-                var chatMessage = serializer.deserialize(HexColor.format(colorSettings.getColor(chat, id)) + finalMessage);
+                String format = groupColor.getPrefix(id, groupType) + player.getName() + groupColor.getSuffix(id, groupType) + " : ";
+                TextComponent chatMessage = serializer.deserialize(HexColor.format(groupColor.getColor(id, groupType)) + finalMessage);
 
                 return MINI_MESSAGE.deserialize(format).append(chatMessage);
             } else return message;
@@ -80,61 +78,70 @@ public final class Ranks {
     }
 
     private static void setPlayerListName(Group group, User user, Player player) {
-        var idAndSortId = getUserIdAndSortId(group, user, player);
-        var userId = idAndSortId.getKey();
-        var highestSortId = idAndSortId.getValue();
-        var colorSettings = group.getColorSettings();
-        var tab = GroupColorType.TAB;
+        int userId = user.getId(player.getUniqueId());
+        int highestSortId = user.getParent().getHighestPriority(group, userId);
+        GroupColor groupColor = group.getColor();
+        GroupColorType groupType = GroupColorType.TAB;
 
-        user.getParent().getParentIds(userId).stream()
-                .filter(groupId -> highestSortId.equals(group.getSettings().getSortId(groupId)))
-                .forEach(groupId -> player.playerListName(MINI_MESSAGE.deserialize(
-                        colorSettings.getPrefix(tab, groupId) + colorSettings.getColor(tab, groupId) + player.getName() + colorSettings.getSuffix(tab, groupId))));
+        Optional<Integer> groupId = user.getParent().getParentIds(userId).stream()
+                .filter(id -> highestSortId == group.getPriority(id))
+                .findFirst();
+
+        if (groupId.isPresent()) {
+            int id = groupId.get();
+            String prefix = groupColor.getPrefix(id, groupType);
+            String suffix = groupColor.getSuffix(id, groupType);
+            String color = groupColor.getColor(id, groupType);
+
+            Component baseComponent = MINI_MESSAGE.deserialize(prefix + color + player.getName() + suffix);
+            player.playerListName(baseComponent);
+        }
     }
 
     @SuppressWarnings("deprecation")
     private static void setPlayerTeams(Group group, User user, Player player) {
         Scoreboard scoreboard = player.getScoreboard();
+        GroupColorType groupType = GroupColorType.TEAM;
+        GroupColor groupColor = group.getColor();
 
-        scoreboard.getTeams().forEach(Team::unregister);
+        Map<String, Team> existingTeams = new HashMap<>();
+        for (Team team : scoreboard.getTeams())
+            existingTeams.put(team.getName(), team);
 
-        for (var groupName : group.getNames()) {
-            var tag = GroupColorType.TAG;
-            var groupId = group.getUniqueId(groupName);
-            var groupSortId = group.getSettings().getSortId(groupId);
-            var name = group.getSettings().getTeamId(groupId);
-
-            Team team = scoreboard.getTeam(name);
-            if (team == null) team = scoreboard.registerNewTeam(name);
-            var colorSettings = group.getColorSettings();
-            var prefix = colorSettings.getPrefix(tag, groupId);
-            var suffix = colorSettings.getSuffix(tag, groupId);
-            var color = colorSettings.getColor(tag, groupId);
-            team.prefix(MINI_MESSAGE.deserialize(prefix));
-            team.suffix(MINI_MESSAGE.deserialize(suffix));
-            team.setColor(Objects.requireNonNull(ChatColor.getByChar(color.replace("§", "").replace("&", ""))));
-
-            // Create a map of players and their highest SortID
-            Map<Player, Integer> playerSortIds = player.getServer().getOnlinePlayers().stream()
-                    .collect(Collectors.toMap(Function.identity(), target -> getHighestSortId(group, user, user.getId(target.getUniqueId()))));
-
-            playerSortIds.entrySet().stream()
-                    .filter(entry -> groupSortId == entry.getValue())
-                    .map(entry -> entry.getKey().getName())
-                    .forEach(team::addEntry);
+        Map<Integer, List<String>> playersBySortId = new HashMap<>();
+        for (Player target : player.getServer().getOnlinePlayers()) {
+            int userId = user.getId(target.getUniqueId());
+            int highestSortId = user.getParent().getHighestPriority(group, userId);
+            playersBySortId.computeIfAbsent(highestSortId, k -> new ArrayList<>()).add(target.getName());
         }
-    }
 
-    private static Pair<Integer, Integer> getUserIdAndSortId(Group group, User user, Player player) {
-        var userId = user.getId(player.getUniqueId());
-        var highestSortId = getHighestSortId(group, user, userId);
-        return new ImmutablePair<>(userId, highestSortId);
-    }
+        for (String groupName : group.getGroupNames()) {
+            int groupId = group.getId(groupName);
+            int groupSortId = group.getPriority(groupId);
+            String name = group.getTeamSort(groupId);
 
-    private static int getHighestSortId(Group group, User user, int userId) {
-        return user.getParent().getParentIds(userId).stream()
-                .map(groupId -> group.getSettings().getSortId(groupId))
-                .collect(Collectors.summarizingInt(Integer::intValue))
-                .getMax();
+            Team team = existingTeams.get(name);
+            if (team == null) team = scoreboard.registerNewTeam(name);
+
+            String prefix = groupColor.getPrefix(groupId, groupType);
+            String suffix = groupColor.getSuffix(groupId, groupType);
+            String color = groupColor.getColor(groupId, groupType);
+
+            if (prefix == null) prefix = "";
+            if (suffix == null) suffix = "";
+            if (color == null) color = "7";
+
+            if (!prefix.equals(team.getPrefix())) team.prefix(MINI_MESSAGE.deserialize(prefix));
+            if (!suffix.equals(team.getSuffix())) team.suffix(MINI_MESSAGE.deserialize(suffix));
+
+            ChatColor chatColor = ChatColor.getByChar(color.replace("§", "").replace("&", ""));
+            if (chatColor != null && !chatColor.equals(team.getColor()))
+                team.setColor(Objects.requireNonNull(chatColor));
+
+            List<String> playerNames = playersBySortId.get(groupSortId);
+            if (playerNames != null)
+                for (String playerName : playerNames)
+                    team.addEntry(playerName);
+        }
     }
 }
