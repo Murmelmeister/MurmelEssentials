@@ -4,14 +4,17 @@ import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.listeners.CustomPermissionListener;
 import de.murmelmeister.essentials.listeners.PlayerChatListener;
 import de.murmelmeister.murmelapi.permission.Permission;
+import de.murmelmeister.murmelapi.user.User;
 import org.bukkit.event.Listener;
 
 public class ListenerManager implements Listener {
-    public final MurmelEssentials instance;
-    public final Permission permission;
+    protected final MurmelEssentials instance;
+    protected final User user;
+    protected final Permission permission;
 
     public ListenerManager(MurmelEssentials instance) {
         this.instance = instance;
+        this.user = instance.getUser();
         this.permission = instance.getPermission();
     }
 
