@@ -33,7 +33,8 @@ public final class ConnectionListener {
         if (!user.getParent().existsParent(userId, defaultGroupId))
             user.getParent().addParent(userId, defaultGroupId, -1, -1);
         Timestamp firstLogin = new Timestamp(System.currentTimeMillis());
-        user.setFirstJoin(userId, firstLogin);
+        if (user.getFirstJoin(userId) == null)
+            user.setFirstJoin(userId, firstLogin);
         if (!playTime.existsUser(userId))
             playTime.createUser(userId);
         return userId;
