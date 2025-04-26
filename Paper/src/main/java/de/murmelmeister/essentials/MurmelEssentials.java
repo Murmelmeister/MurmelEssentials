@@ -11,13 +11,15 @@ import de.murmelmeister.murmelapi.user.User;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class MurmelEssentials extends JavaPlugin {
-    private final MySQL mySQL;
+    public static final String CHANNEL = "murmel:main";
     private static final PluginMessageRefresh PLUGIN_MESSAGE_REFRESH = new PluginMessageRefresh();
+
+    private final MySQL mySQL;
 
     @Override
     public void onDisable() {
         mySQL.disconnect();
-        getServer().getMessenger().unregisterIncomingPluginChannel(this, "permission:refresh", PLUGIN_MESSAGE_REFRESH);
+        getServer().getMessenger().unregisterIncomingPluginChannel(this, CHANNEL, PLUGIN_MESSAGE_REFRESH);
     }
 
     @Override
@@ -25,7 +27,7 @@ public final class MurmelEssentials extends JavaPlugin {
         mySQL.connect();
         ListenerManager.register(this);
         Ranks.updatePlayers(this, getServer());
-        getServer().getMessenger().registerIncomingPluginChannel(this, "permission:refresh", PLUGIN_MESSAGE_REFRESH);
+        getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, PLUGIN_MESSAGE_REFRESH);
     }
 
     public MurmelEssentials() {
