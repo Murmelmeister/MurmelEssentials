@@ -11,6 +11,7 @@ import de.murmelmeister.essentials.api.PlayTimeUpdater;
 import de.murmelmeister.essentials.files.MySQL;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.ListenerManager;
+import de.murmelmeister.essentials.utils.RefreshBridge;
 import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.logging.ActiveSession;
@@ -44,6 +45,7 @@ public final class MurmelEssentials {
         mySQL.connect();
         getGroup().createDefaultGroup("default");
         CustomPermission.updatePermission(this, server);
+        new RefreshBridge(this, server);
         ListenerManager.register(this, server);
         CommandManager.register(server, this);
         PlayTimeUpdater.startTimer(this, logger, server);
@@ -97,9 +99,5 @@ public final class MurmelEssentials {
 
     public MinecraftChannelIdentifier getChannel() {
         return channel;
-    }
-
-    public void broadcastToBackends(byte[] payload) {
-        server.getAllServers().forEach(registeredServer -> registeredServer.sendPluginMessage(channel, payload));
     }
 }
