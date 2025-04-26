@@ -35,14 +35,8 @@ public final class CustomPermissionListener extends ListenerManager {
         permission.preloadAsync(userId);
     }
 
-    /*@EventHandler
-    public void handlePlayerJoin(PlayerJoinEvent event) {
-        RefreshUtil.markAsRefreshed();
-    }*/
-
     @EventHandler
     public void handlePlayerQuit(PlayerQuitEvent event) {
-        // RefreshUtil.markAsRefreshed();
         Player player = event.getPlayer();
         int userId = user.getId(player.getUniqueId());
         permission.invalidate(userId);
