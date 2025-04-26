@@ -4,8 +4,6 @@ import com.google.inject.Inject;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
-import com.velocitypowered.api.plugin.Plugin;
-import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import de.murmelmeister.essentials.api.CustomPermission;
@@ -26,20 +24,18 @@ import de.murmelmeister.murmelapi.time.PlayTime;
 import de.murmelmeister.murmelapi.user.User;
 import org.slf4j.Logger;
 
-import java.nio.charset.StandardCharsets;
-
 public final class MurmelEssentials {
     private final Logger logger;
     private final ProxyServer server;
 
     private MySQL mySQL;
-    private static final MinecraftChannelIdentifier CHANNEL = MinecraftChannelIdentifier.create("permission", "refresh");
+    private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from("murmel:main");
 
     @Inject
     public MurmelEssentials(Logger logger, ProxyServer server) {
         this.logger = logger;
         this.server = server;
-        server.getChannelRegistrar().register(CHANNEL);
+        server.getChannelRegistrar().register(channel);
     }
 
     @Subscribe
@@ -56,6 +52,7 @@ public final class MurmelEssentials {
     @Subscribe
     public void onDisable(ProxyShutdownEvent event) {
         mySQL.disconnect();
+        server.getChannelRegistrar().unregister(channel);
     }
 
     public LoginHistory getLoginHistory() {
@@ -98,11 +95,11 @@ public final class MurmelEssentials {
         return MurmelAPI.getPunishmentUser();
     }
 
-    public static void playerSendRefreshMessage(Player player) {
-        player.sendPluginMessage(CHANNEL, "refresh".getBytes());
+    public MinecraftChannelIdentifier getChannel() {
+        return channel;
     }
 
-    public static void serverSendRefreshMessage(ProxyServer server) {
-        server.getAllServers().parallelStream().forEach(registeredServer -> registeredServer.sendPluginMessage(CHANNEL, "refresh".getBytes(StandardCharsets.UTF_8)));
+    public void broadcastToBackends(byte[] payload) {
+        server.getAllServers().forEach(registeredServer -> registeredServer.sendPluginMessage(channel, payload));
     }
 }
