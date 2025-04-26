@@ -28,15 +28,15 @@ public final class Ranks {
     private static final String PERMISSION_CHAT_HEX = "murmelessentials.chat.hex";
 
     public static void updatePlayers(MurmelEssentials instance, Server server) {
-        var hasUpdateOccurred = new AtomicBoolean(false);
+        AtomicBoolean hasUpdateOccurred = new AtomicBoolean(false);
 
-        RefreshUtil.setRefreshListener(() -> hasUpdateOccurred.set(true));
+        RefreshUtil.register(cacheName -> hasUpdateOccurred.set(true));
+        Group group = instance.getGroup();
+        User user = instance.getUser();
 
         server.getScheduler().runTaskTimerAsynchronously(instance, () -> {
             if (hasUpdateOccurred.get()) {
-                var group = instance.getGroup();
-                var user = instance.getUser();
-                for (var player : server.getOnlinePlayers()) {
+                for (Player player : server.getOnlinePlayers()) {
                     setPlayerTeams(group, user, player);
                     setPlayerListName(group, user, player);
                     player.updateCommands(); // Update the player commands
