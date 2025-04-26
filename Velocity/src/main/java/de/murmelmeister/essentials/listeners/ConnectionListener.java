@@ -4,7 +4,6 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.proxy.Player;
-import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.logging.ActiveSession;
 import de.murmelmeister.murmelapi.time.PlayTime;
@@ -53,7 +52,6 @@ public final class ConnectionListener {
         Player player = event.getPlayer();
         int userId = processUserJoin(player);
         processSessionStart(player, userId);
-        MurmelEssentials.playerSendRefreshMessage(player);
         // TODO: checkPunishment
     }
 
