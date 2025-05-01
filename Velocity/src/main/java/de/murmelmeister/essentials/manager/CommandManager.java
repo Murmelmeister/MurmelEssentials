@@ -1,50 +1,98 @@
 package de.murmelmeister.essentials.manager;
 
-import com.velocitypowered.api.command.Command;
-import com.velocitypowered.api.command.CommandSource;
-import com.velocitypowered.api.command.SimpleCommand;
+import com.velocitypowered.api.command.*;
+import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.MurmelEssentials;
-import de.murmelmeister.essentials.commands.PermissionCommand;
 import de.murmelmeister.essentials.commands.PlayTimeCommand;
+import de.murmelmeister.murmelapi.group.Group;
+import de.murmelmeister.murmelapi.time.PlayTime;
 import de.murmelmeister.murmelapi.user.User;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.slf4j.Logger;
 
-public abstract class CommandManager implements SimpleCommand {
-    public static void register(ProxyServer server, MurmelEssentials instance) {
-        var group = instance.getGroup();
-        var user = instance.getUser();
-        var permission = instance.getPermission();
-        var playTime = instance.getPlayTime();
-        addCommand(server, "permission", new PermissionCommand(server, permission, group, user));
+import java.util.UUID;
+
+public abstract class CommandManager implements CommandBrigadier {
+    protected final Logger logger;
+    protected final ProxyServer server;
+    protected final User user;
+    protected final Group group;
+    protected final PlayTime playTime;
+
+    public CommandManager(MurmelEssentials plugin) {
+        this.logger = plugin.getLogger();
+        this.server = plugin.getServer();
+        this.user = plugin.getUser();
+        this.group = plugin.getGroup();
+        this.playTime = plugin.getPlayTime();
+    }
+
+    public static void register(MurmelEssentials plugin) {
+        ProxyServer server = plugin.getServer();
+        addCommand(server, new PlayTimeCommand(plugin));
+        //addCommand(server, "permission", new PermissionCommand(server, permission, group, user));
         //addCommand(server, "playtime", new PlayTimeCommand(user, playTime));
-        server.getCommandManager().register(PlayTimeCommand.createBrigadierCommand(user, playTime));
+        //server.getCommandManager().register(PlayTimeCommand.createBrigadierCommand(user, playTime));
     }
 
-    private static void addCommand(ProxyServer server, String name, Object clazz) {
-        server.getCommandManager().register(name, (Command) clazz);
+    private static void addCommand(ProxyServer server, CommandManager manager) {
+        BrigadierCommand command = manager.createCommand();
+        addCommand(server, command);
     }
 
-    public static void sendSourceMessage(CommandSource source, String message, Object... objects) {
-        source.sendMessage(Component.text(String.format(message, objects)));
+    private static void addCommand(ProxyServer server, CommandManager manager, String... aliases) {
+        BrigadierCommand command = manager.createCommand();
+        addCommand(server, command, aliases);
     }
 
-    public static void sendHexColorMessage(CommandSource source, String message, Object... objects) {
-        source.sendMessage(MiniMessage.miniMessage().deserialize(String.format(message, objects)));
+    private static void addCommand(ProxyServer server, BrigadierCommand command) {
+        CommandMeta meta = server.getCommandManager().metaBuilder(command).build();
+        server.getCommandManager().register(meta, command);
     }
 
-    public static boolean isUserNotExist(CommandSource source, User user, String username) {
+    private static void addCommand(ProxyServer server, BrigadierCommand command, String... aliases) {
+        CommandMeta meta = server.getCommandManager().metaBuilder(command).aliases(aliases).build();
+        server.getCommandManager().register(meta, command);
+    }
+
+    protected void sendMessage(CommandSource source, String message, Object... args) {
+        source.sendMessage(MiniMessage.miniMessage().deserialize(String.format(message, args)));
+    }
+
+    protected Player getPlayer(CommandSource source) {
+        return source instanceof Player ? (Player) source : null;
+    }
+
+    protected boolean existsPlayer(CommandSource source) {
+        Player player = getPlayer(source);
+        if (player == null) {
+            sendMessage(source, "<red>This command does not work in the console.");
+            return false;
+        } else return true;
+    }
+
+    protected boolean existsUser(CommandSource source, UUID uuid) {
+        if (!user.existsUser(uuid)) {
+            sendMessage(source, "<red>User %s does not exist.", uuid);
+            return false;
+        }
+        return true;
+    }
+
+    protected boolean existsUser(CommandSource source, String username) {
         if (!user.existsUser(username)) {
-            sendSourceMessage(source, "§cUser does not exist.");
-            return true;
-        } else return false;
+            sendMessage(source, "<red>User %s does not exist.", username);
+            return false;
+        }
+        return true;
     }
 
-    public void sendCreatorMessage(CommandSource source, User user, int creatorId) {
-        sendSourceMessage(source, "§3Creator: ");
-        sendSourceMessage(source, "§7- §3ID: §e%s", creatorId);
-        sendSourceMessage(source, "§7- §3UUID: §e%s", user.getUniqueId(creatorId));
-        sendSourceMessage(source, "§7- §3Name: §e%s", user.getUsername(creatorId));
+    protected boolean existsGroup(CommandSource source, String groupName) {
+        if (!group.existsGroup(groupName)) {
+            sendMessage(source, "<red>Group %s does not exist.", groupName);
+            return false;
+        }
+        return true;
     }
 }
