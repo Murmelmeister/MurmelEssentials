@@ -47,7 +47,7 @@ public final class MurmelEssentials {
         CustomPermission.updatePermission(this, server);
         new RefreshBridge(this, server);
         ListenerManager.register(this, server);
-        CommandManager.register(server, this);
+        CommandManager.register(this);
         PlayTimeUpdater.startTimer(this, logger, server);
     }
 
@@ -55,6 +55,14 @@ public final class MurmelEssentials {
     public void onDisable(ProxyShutdownEvent event) {
         mySQL.disconnect();
         server.getChannelRegistrar().unregister(channel);
+    }
+
+    public Logger getLogger() {
+        return logger;
+    }
+
+    public ProxyServer getServer() {
+        return server;
     }
 
     public LoginHistory getLoginHistory() {
