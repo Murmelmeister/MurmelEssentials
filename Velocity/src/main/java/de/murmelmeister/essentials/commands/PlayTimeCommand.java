@@ -14,6 +14,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 public final class PlayTimeCommand extends CommandManager {
     public PlayTimeCommand(MurmelEssentials plugin) {
@@ -25,6 +26,7 @@ public final class PlayTimeCommand extends CommandManager {
         LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("playtime")
                 .requires(source -> source.hasPermission("murmel.command.playtime"))
                 .executes(context -> {
+                    long startTime = System.nanoTime();
                     CommandSource source = context.getSource();
                     Player player = getPlayer(source);
 
@@ -44,6 +46,10 @@ public final class PlayTimeCommand extends CommandManager {
 
                     String time = TimeUtil.formatTimeValue(playTime, userId);
                     sendMessage(source, "<#999999>PlayTime: <#00cc88>%s", time);
+                    if (user.isDebugMode(userId)) {
+                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
+                        sendMessage(player, "PlayTime command executed in %s ms", durationMs);
+                    }
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
@@ -54,6 +60,7 @@ public final class PlayTimeCommand extends CommandManager {
                             return builder.buildFuture();
                         })
                         .executes(context -> {
+                            long startTime = System.nanoTime();
                             CommandSource source = context.getSource();
                             String username = context.getArgument("player", String.class);
                             if (!user.existsUser(username)) {
@@ -71,6 +78,13 @@ public final class PlayTimeCommand extends CommandManager {
 
                             String time = TimeUtil.formatTimeValue(playTime, userId);
                             sendMessage(source, "<#999999>PlayTime from %s: <#00cc88>%s", username, time);
+
+                            Player player = getPlayer(source);
+                            int executorId = player != null ? user.getId(player.getUniqueId()) : -1;
+                            if (user.isDebugMode(executorId)) {
+                                long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
+                                sendMessage(source, "PlayTime command executed in %s ms", durationMs);
+                            }
                             return Command.SINGLE_SUCCESS;
                         }))
                 .build();
