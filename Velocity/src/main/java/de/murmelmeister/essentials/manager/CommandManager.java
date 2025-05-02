@@ -6,6 +6,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.commands.PlayTimeCommand;
 import de.murmelmeister.murmelapi.group.Group;
+import de.murmelmeister.murmelapi.permission.Permission;
 import de.murmelmeister.murmelapi.time.PlayTime;
 import de.murmelmeister.murmelapi.user.User;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -19,6 +20,7 @@ public abstract class CommandManager implements CommandBrigadier {
     protected final User user;
     protected final Group group;
     protected final PlayTime playTime;
+    protected final Permission permission;
 
     public CommandManager(MurmelEssentials plugin) {
         this.logger = plugin.getLogger();
@@ -26,6 +28,7 @@ public abstract class CommandManager implements CommandBrigadier {
         this.user = plugin.getUser();
         this.group = plugin.getGroup();
         this.playTime = plugin.getPlayTime();
+        this.permission = plugin.getPermission();
     }
 
     public static void register(MurmelEssentials plugin) {
