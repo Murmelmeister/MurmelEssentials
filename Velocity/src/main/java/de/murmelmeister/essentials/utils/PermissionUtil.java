@@ -1,6 +1,5 @@
 package de.murmelmeister.essentials.utils;
 
-import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
 
@@ -23,149 +22,89 @@ public abstract class PermissionUtil extends CommandManager {
                 user.getUsername(executorId), executorId, getName(isUser, id), (isUser ? "User" : "Group"), id, doing, fullCommand);
     }
 
-    public void syntax(CommandSource source) {
-        sendMessage(source, """
+    public String syntax() {
+        String group = syntaxGroup();
+        String user = syntaxUser();
+        return """
                  <#454545>- <#999999>/permission <#bb00bb>groups<#bb00bb>
-                <#454545>- <#999999>/permission <#990099>group</#990099> info <#999900><group></#999900>
-                <#454545>- <#999999>/permission <#990099>group</#990099> create <#999900><group></#999900> <white><priority> <teamId>
-                <#454545>- <#999999>/permission <#990099>group</#990099> delete <#999900><group></#999900>
-                <#454545>- <#999999>/permission <#990099>group</#990099> rename <#999900><group></#999900> <white><newName>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> add <white><parent> [time]
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> remove <white><parent>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> clear
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> info <white><parent>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> time <set|add|remove> <white><parent> <time>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> all
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> add <white><permission> [time]
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> remove <white><permission>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> clear
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> info <white><permission>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> time <set|add|remove> <white><permission> <time>
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> chat <white><prefix|suffix|color> [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> tab <white><prefix|suffix|color> [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> team <white><prefix|suffix|color|id> [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> priority <white>[value]
+                %s
                 <#454545>- <#999999>/permission <#00bbBB>users</#00bbBB>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> add <white><parent> [time]
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> remove <white><parent>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> clear
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> info <white><parent>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> time <set|add|remove> <white><parent> <time>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> all
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> add <white><permission> [time]
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> remove <white><permission>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> clear
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> info <white><permission>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> time <set|add|remove> <white><permission> <time>
-                """);
+                %s
+                """.stripIndent()
+                .trim()
+                .formatted(group, user);
     }
 
-    public  void syntax(CommandSource source, boolean isUser) {
-        if (isUser) sendMessage(source, """
-                 <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> add <white><parent> [time]
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> remove <white><parent>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> clear
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> info <white><parent>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> time <set|add|remove> <white><parent> <time>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> all
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> add <white><permission> [time]
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> remove <white><permission>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> clear
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> info <white><permission>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> time <set|add|remove> <white><permission> <time>
-                """);
-        else sendMessage(source, """
-                 <#454545>- <#999999>/permission <#990099>group</#990099> info <#999900><group></#999900>
-                <#454545>- <#999999>/permission <#990099>group</#990099> create <#999900><group></#999900> <white><priority> <teamId>
-                <#454545>- <#999999>/permission <#990099>group</#990099> delete <#999900><group></#999900>
-                <#454545>- <#999999>/permission <#990099>group</#990099> rename <#999900><group></#999900> <white><newName>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> add <white><parent> [time]
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> remove <white><parent>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> clear
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> info <white><parent>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> time <set|add|remove> <white><parent> <time>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> all
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> add <white><permission> [time]
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> remove <white><permission>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> clear
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> info <white><permission>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> time <set|add|remove> <white><permission> <time>
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> chat <white><prefix|suffix|color> [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> tab <white><prefix|suffix|color> [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> team <white><prefix|suffix|color|id> [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> priority <white>[value]
-                """);
+    public String syntaxGroup() {
+        String command = "<#990099>group</#990099> <#999900><group></#999900>";
+
+        String groupInfo = """
+                 <#454545>- <#999999>/permission %1$s info
+                <#454545>- <#999999>/permission %1$s create <white><priority> <teamId>
+                <#454545>- <#999999>/permission %1$s delete
+                <#454545>- <#999999>/permission %1$s rename <white><newName>
+                """.stripIndent()
+                .trim()
+                .formatted(command);
+
+        String groupParent = syntaxParent(false);
+        String groupPermission = syntaxPermission(false);
+        String groupEdit = syntaxGroupEdit();
+
+        return String.join("\n", groupInfo, groupParent, groupPermission, groupEdit);
     }
 
-    public void syntaxParent(CommandSource source, boolean isUser) {
-        if (isUser) sendMessage(source, """
-                 <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> add <white><parent> [time]
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> remove <white><parent>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> clear
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> info <white><parent>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> time set <white><parent> <time>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> time add <white><parent> <time>
-                <#454545>- <#999999>/permission <#009999>user</#009999> parent <#999900><user></#999900> time remove <white><parent> <time>
-                """);
-        else sendMessage(source, """
-                 <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> add <white><parent> [time]
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> remove <white><parent>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> clear
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> info <white><parent>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> time set <white><parent> <time>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> time add <white><parent> <time>
-                <#454545>- <#999999>/permission <#990099>group</#990099> parent <#999900><group></#999900> time remove <white><parent> <time>
-                """);
+    public String syntaxUser() {
+        String userParent = syntaxParent(true);
+        String userPermission = syntaxPermission(true);
+        return String.join("\n", userParent, userPermission);
     }
 
-    public void syntaxPermission(CommandSource source, boolean isUser) {
-        if (isUser) sendMessage(source, """
-                 <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> all
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> add <white><permission> [time]
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> remove <white><permission>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> clear
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> info <white><permission>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> time set <white><permission> <time>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> time add <white><permission> <time>
-                <#454545>- <#999999>/permission <#009999>user</#009999> permission <#999900><user></#999900> time remove <white><permission> <time>
-                """);
-        else sendMessage(source, """
-                 <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> all
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> add <white><permission> [time]
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> remove <white><permission>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> clear
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> info <white><permission>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> time set <white><permission> <time>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> time add <white><permission> <time>
-                <#454545>- <#999999>/permission <#990099>group</#990099> permission <#999900><group></#999900> time remove <white><permission> <time>
-                """);
+    public String syntaxParent(boolean isUser) {
+        String command = isUser ? "<#009999>user</#009999> <#999900><user></#999900>" : "<#990099>group</#990099> <#999900><group></#999900>";
+        return """
+                 <#454545>- <#999999>/permission %1$s parent
+                <#454545>- <#999999>/permission %1$s parent add <white><parent> [time]
+                <#454545>- <#999999>/permission %1$s parent remove <white><parent>
+                <#454545>- <#999999>/permission %1$s parent clear
+                <#454545>- <#999999>/permission %1$s parent info <white><parent>
+                <#454545>- <#999999>/permission %1$s parent time <white><parent> <time>
+                """.stripIndent()
+                .trim()
+                .formatted(command);
     }
 
-    public void syntaxGroupEdit(CommandSource source) {
-        sendMessage(source, """
-                 <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> chat <white>prefix [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> chat <white>suffix [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> chat <white>color [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> tab <white>prefix [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> tab <white>suffix [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> tab <white>color [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> team <white>prefix [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> team <white>suffix [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> team <white>color [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> team <white>id [value]
-                <#454545>- <#999999>/permission <#990099>group</#990099> edit <#999900><group></#999900> priority <white>[value]
-                """);
+    public String syntaxPermission(boolean isUser) {
+        String command = isUser ? "<#009999>user</#009999> <#999900><user></#999900>" : "<#990099>group</#990099> <#999900><group></#999900>";
+        return """
+                 <#454545>- <#999999>/permission %1$s permission
+                <#454545>- <#999999>/permission %1$s permission all
+                <#454545>- <#999999>/permission %1$s permission add <white><permission> [time]
+                <#454545>- <#999999>/permission %1$s permission remove <white><permission>
+                <#454545>- <#999999>/permission %1$s permission clear
+                <#454545>- <#999999>/permission %1$s permission info <white><permission>
+                <#454545>- <#999999>/permission %1$s permission time <white><permission> <time>
+                """.stripIndent()
+                .trim()
+                .formatted(command);
+    }
+
+    public String syntaxGroupEdit() {
+        String command = "<#990099>group</#990099> <#999900><group></#999900>";
+        return """
+                 <#454545>- <#999999>/permission %1$s edit chat <white>prefix <value>
+                <#454545>- <#999999>/permission %1$s edit chat <white>suffix <value>
+                <#454545>- <#999999>/permission %1$s edit chat <white>color <value>
+                <#454545>- <#999999>/permission %1$s edit tab <white>prefix <value>
+                <#454545>- <#999999>/permission %1$s edit tab <white>suffix <value>
+                <#454545>- <#999999>/permission %1$s edit tab <white>color <value>
+                <#454545>- <#999999>/permission %1$s edit team <white>prefix <value>
+                <#454545>- <#999999>/permission %1$s edit team <white>suffix <value>
+                <#454545>- <#999999>/permission %1$s edit team <white>color <value>
+                <#454545>- <#999999>/permission %1$s edit team <white>id <value>
+                <#454545>- <#999999>/permission %1$s edit priority <white><value>
+                """.stripIndent()
+                .trim()
+                .formatted(command);
     }
 }
