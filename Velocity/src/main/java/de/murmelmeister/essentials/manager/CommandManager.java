@@ -1,5 +1,8 @@
 package de.murmelmeister.essentials.manager;
 
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.velocitypowered.api.command.*;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -9,10 +12,13 @@ import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
 import de.murmelmeister.murmelapi.time.PlayTime;
 import de.murmelmeister.murmelapi.user.User;
+import de.murmelmeister.murmelapi.utils.StringUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 
 public abstract class CommandManager implements CommandBrigadier {
     protected final Logger logger;
@@ -35,8 +41,6 @@ public abstract class CommandManager implements CommandBrigadier {
         ProxyServer server = plugin.getServer();
         addCommand(server, new PlayTimeCommand(plugin));
         //addCommand(server, "permission", new PermissionCommand(server, permission, group, user));
-        //addCommand(server, "playtime", new PlayTimeCommand(user, playTime));
-        //server.getCommandManager().register(PlayTimeCommand.createBrigadierCommand(user, playTime));
     }
 
     private static void addCommand(ProxyServer server, CommandManager manager) {
@@ -102,5 +106,13 @@ public abstract class CommandManager implements CommandBrigadier {
     protected int getExecutorId(CommandSource source) {
         Player player = getPlayer(source);
         return player != null ? user.getId(player.getUniqueId()) : -1;
+    }
+
+    protected CompletableFuture<Suggestions> getSuggestionTime(CommandContext<CommandSource> context, SuggestionsBuilder builder) {
+        String prefix = builder.getRemaining();
+        Stream.of("s", "m", "h", "d", "w", "M", "y")
+                .filter(s -> StringUtil.startsWithIgnoreCase(s, prefix))
+                .forEach(builder::suggest);
+        return builder.buildFuture();
     }
 }
