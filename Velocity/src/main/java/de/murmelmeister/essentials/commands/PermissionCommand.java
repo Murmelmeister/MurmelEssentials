@@ -62,8 +62,8 @@ public final class PermissionCommand extends PermissionUtil {
                     for (String groupName : groupNames)
                         sendMessage(source, "<#999999>- <#00cc88>%s", groupName); // TODO: Add click to clipboard? => -/permission group <groupName>
 
-                    // TODO: Add logging - groups
                     int executorId = getExecutorId(source);
+                    loggingToConsole(executorId, "Get all groups", "/permission groups");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendMessage(source, "<#999900>Groups command executed in %s ms", durationMs);
@@ -203,7 +203,8 @@ public final class PermissionCommand extends PermissionUtil {
                                     chatHover, formatChat, tabHover, formatTab, teamHover, formatTeam);
 
                     sendMessage(source, message);
-                    // TODO: Add logging - group info
+
+                    loggingToConsole(false, executorId, groupId, "Get group information", "/permission group " + groupName + " info");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendMessage(source, "<#999900>Group info command executed in %s ms", durationMs);
@@ -245,7 +246,8 @@ public final class PermissionCommand extends PermissionUtil {
                                     if (!groupColor.existsGroup(groupId))
                                         colorRow = groupColor.createGroup(groupId, executorId);
                                     sendMessage(source, "<#00cc88>Group %s was created.", groupName, row);
-                                    // TODO: Add logging - group create
+
+                                    loggingToConsole(false, executorId, groupId, "Created group", "/permission group " + groupName + " create " + priority + " " + teamId);
                                     if (user.isDebugMode(executorId)) {
                                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                         sendMessage(source, "<#999900>Group create command executed in %s ms", durationMs);
@@ -280,8 +282,9 @@ public final class PermissionCommand extends PermissionUtil {
                               + user.getParent().clearOtherParent(groupId);
                     int finalRow = group.deleteGroup(groupId) + row;
                     sendMessage(source, "<#00cc88>Group %s was deleted.", groupName);
-                    // TODO: Add logging - group delete
+
                     int executorId = getExecutorId(source);
+                    loggingToConsole(false, executorId, groupId, "Deleted group", "/permission group " + groupName + " delete");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendMessage(source, "<#999900>Group delete command executed in %s ms", durationMs);
@@ -324,7 +327,8 @@ public final class PermissionCommand extends PermissionUtil {
                             int row = group.rename(groupId, newName, executorId)
                                       + group.setTeamSort(groupId, teamSort.replace(groupName, newName), executorId);
                             sendMessage(source, "<#00cc88>Group %s was renamed to %s.", groupName, newName);
-                            // TODO: Add logging - group rename
+
+                            loggingToConsole(false, executorId, groupId, "Renamed group", "/permission group " + groupName + " rename " + newName);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                 sendMessage(source, "<#999900>Group rename command executed in %s ms", durationMs);
@@ -386,6 +390,7 @@ public final class PermissionCommand extends PermissionUtil {
                         sendMessage(source, "<#999999>- <#00cc88>%s", username); // TODO: Add click to clipboard? => -/permission user <username>
 
                     int executorId = getExecutorId(source);
+                    loggingToConsole(executorId, "Get all users", "/permission users");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendMessage(source, "<#999900>Users command executed in %s ms", durationMs);
