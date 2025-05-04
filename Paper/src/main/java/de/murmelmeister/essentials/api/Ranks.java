@@ -10,9 +10,9 @@ import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.ChatColor;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Scoreboard;
@@ -69,8 +69,18 @@ public final class Ranks {
 
             if (groupId.isPresent()) {
                 int id = groupId.get();
-                String format = groupColor.getPrefix(id, groupType) + player.getName() + groupColor.getSuffix(id, groupType) + " : ";
-                TextComponent chatMessage = serializer.deserialize(HexColor.format(groupColor.getColor(id, groupType)) + finalMessage);
+                String prefix = groupColor.getPrefix(id, groupType);
+                String suffix = groupColor.getSuffix(id, groupType);
+                String color = groupColor.getColor(id, groupType);
+                String colorMessage = groupColor.getColor(id, GroupColorType.CHAT_MESSAGE);
+
+                String formattedPrefix = prefix != null ? prefix : "";
+                String formattedSuffix = suffix != null ? suffix : "";
+                String formattedColor = color != null ? "<" + color + ">" : "";
+                String formattedColorMessage = colorMessage != null ? colorMessage : "";
+
+                String format = formattedColor + formattedPrefix + player.getName() + formattedSuffix + " : ";
+                TextComponent chatMessage = serializer.deserialize(HexColor.format(formattedColorMessage) + finalMessage);
 
                 return MINI_MESSAGE.deserialize(format).append(chatMessage);
             } else return message;
@@ -93,7 +103,11 @@ public final class Ranks {
             String suffix = groupColor.getSuffix(id, groupType);
             String color = groupColor.getColor(id, groupType);
 
-            Component baseComponent = MINI_MESSAGE.deserialize(prefix + color + player.getName() + suffix);
+            String formattedPrefix = prefix != null ? prefix : "";
+            String formattedSuffix = suffix != null ? suffix : "";
+            String formattedColor = color != null ? "<" + color + ">" : "";
+
+            Component baseComponent = MINI_MESSAGE.deserialize(formattedColor + formattedPrefix + player.getName() + formattedSuffix);
             player.playerListName(baseComponent);
         }
     }
@@ -129,14 +143,14 @@ public final class Ranks {
 
             if (prefix == null) prefix = "";
             if (suffix == null) suffix = "";
-            if (color == null) color = "7";
+            if (color == null) color = "gray";
 
             if (!prefix.equals(team.getPrefix())) team.prefix(MINI_MESSAGE.deserialize(prefix));
             if (!suffix.equals(team.getSuffix())) team.suffix(MINI_MESSAGE.deserialize(suffix));
 
-            ChatColor chatColor = ChatColor.getByChar(color.replace("§", "").replace("&", ""));
-            if (chatColor != null && !chatColor.equals(team.getColor()))
-                team.setColor(Objects.requireNonNull(chatColor));
+            NamedTextColor textColor = NamedTextColor.NAMES.value(color.toLowerCase());
+            if (textColor != null && !textColor.equals(team.color()))
+                team.color(textColor);
 
             List<String> playerNames = playersBySortId.get(groupSortId);
             if (playerNames != null)
