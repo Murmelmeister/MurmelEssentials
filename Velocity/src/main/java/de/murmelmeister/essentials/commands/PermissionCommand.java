@@ -15,6 +15,7 @@ import de.murmelmeister.essentials.utils.PermissionUtil;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
 import de.murmelmeister.murmelapi.utils.StringUtil;
+import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 import java.util.List;
@@ -245,6 +246,7 @@ public final class PermissionCommand extends PermissionUtil {
                                     int colorRow = 0;
                                     if (!groupColor.existsGroup(groupId))
                                         colorRow = groupColor.createGroup(groupId, executorId);
+                                    // TODO: Add refresh to update the cache
                                     sendMessage(source, "<#00cc88>Group %s was created.", groupName, row);
 
                                     loggingToConsole(false, executorId, groupId, "Created group", "/permission group " + groupName + " create " + priority + " " + teamId);
@@ -281,6 +283,8 @@ public final class PermissionCommand extends PermissionUtil {
                               + group.getParent().clearOtherParent(groupId)
                               + user.getParent().clearOtherParent(groupId);
                     int finalRow = group.deleteGroup(groupId) + row;
+                    RefreshUtil.markAsRefreshed("permissions");
+                    // TODO: Add more refresh to update the cache
                     sendMessage(source, "<#00cc88>Group %s was deleted.", groupName);
 
                     int executorId = getExecutorId(source);
@@ -326,6 +330,7 @@ public final class PermissionCommand extends PermissionUtil {
 
                             int row = group.rename(groupId, newName, executorId)
                                       + group.setTeamSort(groupId, teamSort.replace(groupName, newName), executorId);
+                            // TODO: Add refresh to update the cache
                             sendMessage(source, "<#00cc88>Group %s was renamed to %s.", groupName, newName);
 
                             loggingToConsole(false, executorId, groupId, "Renamed group", "/permission group " + groupName + " rename " + newName);
