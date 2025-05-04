@@ -1,223 +1,465 @@
 package de.murmelmeister.essentials.commands;
 
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import com.mojang.brigadier.tree.LiteralCommandNode;
+import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
-import com.velocitypowered.api.proxy.Player;
-import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.MurmelEssentials;
-import de.murmelmeister.essentials.commands.subcomamnd.SubGroupEdit;
-import de.murmelmeister.essentials.commands.subcomamnd.SubParent;
-import de.murmelmeister.essentials.commands.subcomamnd.SubPermission;
-import de.murmelmeister.essentials.manager.CommandManager;
-import de.murmelmeister.essentials.utils.PermissionSyntaxUtil;
-import de.murmelmeister.murmelapi.group.Group;
-import de.murmelmeister.murmelapi.group.parent.GroupParent;
-import de.murmelmeister.murmelapi.group.permission.GroupPermission;
-import de.murmelmeister.murmelapi.group.settings.GroupColorSettings;
-import de.murmelmeister.murmelapi.group.settings.GroupSettings;
-import de.murmelmeister.murmelapi.permission.Permission;
-import de.murmelmeister.murmelapi.user.User;
-import de.murmelmeister.murmelapi.user.parent.UserParent;
-import de.murmelmeister.murmelapi.user.permission.UserPermission;
+import de.murmelmeister.essentials.utils.PermissionUtil;
+import de.murmelmeister.murmelapi.group.color.GroupColor;
+import de.murmelmeister.murmelapi.group.color.GroupColorType;
 import de.murmelmeister.murmelapi.utils.StringUtil;
+import net.kyori.adventure.text.format.NamedTextColor;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.concurrent.TimeUnit;
 
-public class PermissionCommand extends CommandManager {
-    private final ProxyServer server;
-    private final Group group;
-    private final User user;
+public final class PermissionCommand extends PermissionUtil {
+    private final GroupColor groupColor;
 
-    private final GroupSettings groupSettings;
-    private final GroupParent groupParent;
-    private final GroupPermission groupPermission;
-    private final UserParent userParent;
-    private final UserPermission userPermission;
-
-    private final SubGroupEdit subGroupEdit;
-    private final SubParent subParent;
-    private final SubPermission subPermission;
-
-    public PermissionCommand(ProxyServer server, Permission permission, Group group, User user) {
-        this.server = server;
-        this.group = group;
-        this.user = user;
-        this.groupSettings = group.getSettings();
-        GroupColorSettings groupColorSettings = group.getColorSettings();
-        this.groupParent = group.getParent();
-        this.groupPermission = group.getPermission();
-        this.userParent = user.getParent();
-        this.userPermission = user.getPermission();
-        this.subGroupEdit = new SubGroupEdit(server, this, group, user, groupSettings, groupColorSettings);
-        this.subParent = new SubParent(server, this, group, user, groupParent, userParent);
-        this.subPermission = new SubPermission(server, this, permission, user, groupParent, groupPermission, userPermission);
+    public PermissionCommand(MurmelEssentials plugin) {
+        super(plugin);
+        this.groupColor = plugin.getGroup().getColor();
     }
 
     @Override
-    public void execute(Invocation invocation) {
-        var args = invocation.arguments();
-        var source = invocation.source();
+    public BrigadierCommand createCommand() {
+        LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("permission")
+                .requires(source -> source.hasPermission("murmel.command.permission"))
+                .executes(context -> {
+                    sendMessage(context.getSource(), syntax());
+                    return Command.SINGLE_SUCCESS;
+                })
+                .then(getGroupsCommand())
+                .then(getGroupCommand())
+                .then(getUsersCommand())
+                .then(getUserCommand())
+                .build();
+        return new BrigadierCommand(node);
+    }
 
-        if (!source.hasPermission("murmelessentials.command.permission")) {
-            sendSourceMessage(source, "§cYou do not have permission to use this command.");
-            return;
-        }
+    private LiteralArgumentBuilder<CommandSource> getGroupsCommand() {
+        // -/permission groups
+        return BrigadierCommand.literalArgumentBuilder("groups")
+                .executes(context -> {
+                    long startTime = System.nanoTime();
+                    CommandSource source = context.getSource();
+                    List<String> groupNames = group.getGroupNames();
 
-        try {
-            if (args.length == 1) {
-                switch (args[0]) {
-                    case "groups" -> {
-                        sendSourceMessage(source, "§3Groups: ");
-                        for (var name : group.getNames())
-                            sendSourceMessage(source, "§7- §e" + name);
+                    if (groupNames.isEmpty()) {
+                        sendMessage(source, "<red>No groups found.");
+                        return -1;
                     }
-                    case "users" -> {
-                        sendSourceMessage(source, "§3Users: ");
-                        for (var name : user.getUsernames())
-                            sendSourceMessage(source, "§7- §e" + name);
+
+                    sendMessage(source, "<#999999>Groups: ");
+                    for (String groupName : groupNames)
+                        sendMessage(source, "<#999999>- <#00cc88>%s", groupName); // TODO: Add click to clipboard? => -/permission group <groupName>
+
+                    // TODO: Add logging - groups
+                    int executorId = getExecutorId(source);
+                    if (user.isDebugMode(executorId)) {
+                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
+                        sendMessage(source, "<#999900>Groups command executed in %s ms", durationMs);
                     }
-                    default -> PermissionSyntaxUtil.syntax(source);
-                }
-                return;
-            }
-
-            var player = source instanceof Player ? (Player) source : null;
-            var playerId = player != null ? player.getUniqueId() : null;
-            var creatorId = playerId == null ? -1 : user.getId(playerId);
-            if (args.length >= 3) {
-                switch (args[0]) {
-                    case "group" -> groups(source, creatorId, args);
-                    case "user" -> users(source, creatorId, args);
-                    default -> PermissionSyntaxUtil.syntax(source);
-                }
-            } else PermissionSyntaxUtil.syntax(source);
-        } catch (IllegalArgumentException e) {
-            sendSourceMessage(source, "§cError: " + e.getMessage());
-        }
+                    return Command.SINGLE_SUCCESS;
+                });
     }
 
-    @Override
-    public CompletableFuture<List<String>> suggestAsync(Invocation invocation) {
-        return CompletableFuture.supplyAsync(() -> {
-            var args = invocation.arguments();
-            if (args.length == 1)
-                return Stream.of("user", "users", "group", "groups").filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 2 && args[0].equals("group")) // Show all group names
-                return group.getNames().stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 2 && args[0].equals("user")) // Show all usernames
-                return user.getUsernames().stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 3 && args[0].equals("group")) // Show all group commands
-                return Stream.of("create", "delete", "rename", "parent", "permission", "edit").filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 3 && args[0].equals("user")) // Show all user commands
-                return Stream.of("parent", "permission").filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 4 && (args[0].equals("group") || args[0].equals("user")) && args[2].equals("parent")) // Show all group/user parent commands
-                return Stream.of("add", "remove", "clear", "info", "time").filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 4 && (args[0].equals("group") || args[0].equals("user")) && args[2].equals("permission")) // Show all group/user permission commands
-                return Stream.of("all", "add", "remove", "clear", "info", "time").filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 4 && args[0].equals("group") && args[2].equals("edit")) // Show all group edit commands
-                return Stream.of("chat", "tab", "tag", "sort", "team").filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 5 && args[0].equals("group") && args[2].equals("edit") && (args[3].equals("chat") || args[3].equals("tab") || args[3].equals("tag"))) // Show all group edit subcommands
-                return Stream.of("prefix", "suffix", "color").filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 5 && args[0].equals("group") && args[2].equals("parent") && args[3].equals("add")) // Add group parent
-                return group.getNames().stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 5 && args[0].equals("group") && args[2].equals("parent") && (args[3].equals("remove") || args[3].equals("info") || args[3].equals("time"))) // Remove/Creator/Created/Expired group parent
-                return groupParent.getParentNames(group, group.getUniqueId(args[1])).stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 5 && args[0].equals("group") && args[2].equals("permission") && (args[3].equals("remove") || args[3].equals("info") || args[3].equals("time"))) // Remove/Creator/Created/Expired group permission
-                return groupPermission.getPermissions(group.getUniqueId(args[1])).stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 5 && args[0].equals("user") && args[2].equals("parent") && args[3].equals("add")) // Add user parent
-                return group.getNames().stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 5 && args[0].equals("user") && args[2].equals("parent") && (args[3].equals("remove") || args[3].equals("info") || args[3].equals("time"))) // Remove/Creator/Created/Expired user parent
-                return userParent.getParentNames(group, user.getId(args[1])).stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 5 && args[0].equals("user") && args[2].equals("permission") && (args[3].equals("remove") || args[3].equals("info") || args[3].equals("time"))) // Remove/Creator/Created/Expired user permission
-                return userPermission.getPermissions(user.getId(args[1])).stream().filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            if (args.length == 7 && (args[0].equals("group") || args[0].equals("user")) && (args[2].equals("parent") || args[2].equals("permission")) && args[3].equals("time")) // Set/Remove/Expired time
-                return Stream.of("set", "add", "remove").filter(s -> StringUtil.startsWithIgnoreCase(s, args[args.length - 1])).sorted().collect(Collectors.toList());
-            return Collections.emptyList();
-        });
+    private LiteralArgumentBuilder<CommandSource> getGroupCommand() {
+        // -/permission group <groupName> ...
+        return BrigadierCommand.literalArgumentBuilder("group")
+                .executes(context -> {
+                    sendMessage(context.getSource(), syntaxGroup());
+                    return Command.SINGLE_SUCCESS;
+                })
+                .then(BrigadierCommand.requiredArgumentBuilder("groupName", StringArgumentType.word())
+                        .suggests(this::getGroupNames)
+                        .executes(context -> {
+                            sendMessage(context.getSource(), syntaxGroup());
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .then(getGroupInfoCommand())
+                        .then(getGroupCreateCommand())
+                        .then(getGroupDeleteCommand())
+                        .then(getGroupRenameCommand())
+                        .then(getGroupParentCommand())
+                        .then(getGroupPermissionCommand())
+                        .then(getGroupEditCommand())
+                );
     }
 
-    private void groups(CommandSource source, int creatorId, String[] args) {
-        var groupName = args[1];
-        if (!group.existsGroup(groupName)) {
-            if (args[2].equals("create")) createGroup(source, groupName, creatorId, args);
-            else sendSourceMessage(source, "§cGroup does not exist.");
-            return;
-        }
+    private LiteralArgumentBuilder<CommandSource> getGroupInfoCommand() {
+        // -/permission group <groupName> info
+        return BrigadierCommand.literalArgumentBuilder("info")
+                .executes(context -> {
+                    long startTime = System.nanoTime();
+                    CommandSource source = context.getSource();
+                    String groupName = StringArgumentType.getString(context, "groupName");
 
-        var groupId = group.getUniqueId(groupName);
-        switch (args[2]) {
-            case "create" -> sendSourceMessage(source, "§cGroup already exists.");
-            case "delete" -> deleteGroup(source, groupId, groupName);
-            case "rename" -> renameGroup(source, groupId, args);
-            case "parent" -> subParent.parent(source, false, groupId, creatorId, args);
-            case "permission" -> subPermission.permission(source, false, groupId, creatorId, args);
-            case "edit" -> subGroupEdit.groupEdit(source, groupId, creatorId, args);
-            default -> PermissionSyntaxUtil.syntax(source, false);
-        }
+                    int groupId = getGroupId(source, groupName);
+                    if (groupId == 0) return -1;
+
+                    int priority = group.getPriority(groupId);
+                    String teamSort = group.getTeamSort(groupId);
+                    int createdBy = group.getCreatedBy(groupId);
+                    String createdName = user.getUsername(createdBy);
+                    String createdAt = group.getCreatedDate(groupId);
+                    int updatedBy = group.getUpdatedBy(groupId);
+                    String updatedName = user.getUsername(updatedBy);
+                    String updatedAt = group.getUpdatedDate(groupId);
+
+                    int executorId = getExecutorId(source);
+                    String executorName = user.getUsername(executorId);
+                    GroupColorType typeChat = GroupColorType.CHAT;
+                    GroupColorType typeTab = GroupColorType.TAB;
+                    GroupColorType typeTeam = GroupColorType.TEAM;
+
+                    int colorCreatedBy = groupColor.getCreatedBy(groupId);
+                    String colorCreatedName = user.getUsername(colorCreatedBy);
+                    String colorCreatedAt = groupColor.getCreatedDate(groupId);
+                    int colorUpdatedBy = groupColor.getUpdatedBy(groupId);
+                    String colorUpdatedName = user.getUsername(colorUpdatedBy);
+                    String colorUpdatedAt = groupColor.getUpdatedDate(groupId);
+
+                    String chatPrefix = groupColor.getPrefix(groupId, typeChat);
+                    String chatSuffix = groupColor.getSuffix(groupId, typeChat);
+                    String chatColor = groupColor.getColor(groupId, typeChat);
+                    String chatColorMessage = groupColor.getColor(groupId, GroupColorType.CHAT_MESSAGE);
+                    String tabPrefix = groupColor.getPrefix(groupId, typeTab);
+                    String tabSuffix = groupColor.getSuffix(groupId, typeTab);
+                    String tabColor = groupColor.getColor(groupId, typeTab);
+                    String teamPrefix = groupColor.getPrefix(groupId, typeTeam);
+                    String teamSuffix = groupColor.getSuffix(groupId, typeTeam);
+                    String teamColor = groupColor.getColor(groupId, typeTeam);
+                    NamedTextColor textColor = teamColor != null ? NamedTextColor.NAMES.value(teamColor.toLowerCase()) : null;
+
+                    String formatChat = (chatColor != null ? "<" + chatColor + ">" : "")
+                                        + (chatPrefix != null ? chatPrefix : "")
+                                        + executorName
+                                        + (chatSuffix != null ? chatSuffix : "")
+                                        + " : " + (chatColorMessage != null ? "<" + chatColorMessage + ">" : "") + "message";
+                    String formatTab = (tabColor != null ? "<" + tabColor + ">" : "")
+                                       + (tabPrefix != null ? tabPrefix : "")
+                                       + executorName
+                                       + (tabSuffix != null ? tabSuffix : "");
+                    String formatTeam = (teamPrefix != null ? teamPrefix : "")
+                                        + (textColor != null ? "<" + textColor + ">" : "")
+                                        + executorName
+                                        + (teamSuffix != null ? teamSuffix : "");
+
+                    String chatHover = """
+                            <#999999>Chat Prefix: <#00cc88>%s
+                            <#999999>Chat Suffix: <#00cc88>%s
+                            <#999999>Chat Color: <#00cc88>%s
+                            <#999999>Chat Message Color: <#00cc88>%s
+                            <#999999>Created By: <#00cc88>%s (%s)
+                            <#999999>Created At: <#00cc88>%s
+                            <#999999>Updated By: <#00cc88>%s (%s)
+                            <#999999>Updated At: <#00cc88>%s"""
+                            .formatted(chatPrefix, chatSuffix, chatColor, chatColorMessage,
+                                    colorCreatedBy, colorCreatedName, colorCreatedAt, colorUpdatedBy, colorUpdatedName, colorUpdatedAt);
+                    String tabHover = """
+                            <#999999>Tab Prefix: <#00cc88>%s
+                            <#999999>Tab Suffix: <#00cc88>%s
+                            <#999999>Tab Color: <#00cc88>%s
+                            <#999999>Created By: <#00cc88>%s (%s)
+                            <#999999>Created At: <#00cc88>%s
+                            <#999999>Updated By: <#00cc88>%s (%s)
+                            <#999999>Updated At: <#00cc88>%s"""
+                            .formatted(tabPrefix, tabSuffix, tabColor,
+                                    colorCreatedBy, colorCreatedName, colorCreatedAt, colorUpdatedBy, colorUpdatedName, colorUpdatedAt);
+                    String teamHover = """
+                            <#999999>Team Prefix: <#00cc88>%s
+                            <#999999>Team Suffix: <#00cc88>%s
+                            <#999999>Team Color: <#00cc88>%s
+                            <#999999>Created By: <#00cc88>%s (%s)
+                            <#999999>Created At: <#00cc88>%s
+                            <#999999>Updated By: <#00cc88>%s (%s)
+                            <#999999>Updated At: <#00cc88>%s"""
+                            .formatted(teamPrefix, teamSuffix, teamColor,
+                                    colorCreatedBy, colorCreatedName, colorCreatedAt, colorUpdatedBy, colorUpdatedName, colorUpdatedAt);
+
+                    String message = """
+                            <#999999>===- Group Information:
+                            <#999999>Group Name: <#00cc88>%s
+                            <#999999>Group ID: <#00cc88>%s
+                            <#999999>Priority: <#00cc88>%s
+                            <#999999>Team Sort: <#00cc88>%s
+                            <#999999>Created By: <#00cc88>%s (%s)
+                            <#999999>Created At: <#00cc88>%s
+                            <#999999>Updated By: <#00cc88>%s (%s)
+                            <#999999>Updated At: <#00cc88>%s
+                            <#999999>Chat Format: <hover:show_text:'%s'>%s</hover>
+                            <#999999>Tab Format: <hover:show_text:'%s'>%s</hover>
+                            <#999999>Team Format: <hover:show_text:'%s'>%s</hover>"""
+                            .formatted(groupName, groupId, priority, teamSort, createdBy, createdName, createdAt, updatedBy, updatedName, updatedAt,
+                                    chatHover, formatChat, tabHover, formatTab, teamHover, formatTeam);
+
+                    sendMessage(source, message);
+                    // TODO: Add logging - group info
+                    if (user.isDebugMode(executorId)) {
+                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
+                        sendMessage(source, "<#999900>Group info command executed in %s ms", durationMs);
+                    }
+                    return Command.SINGLE_SUCCESS;
+                });
     }
 
-    private void users(CommandSource source, int creatorId, String[] args) {
-        var username = args[1];
-        if (isUserNotExist(source, user, username)) return;
+    private LiteralArgumentBuilder<CommandSource> getGroupCreateCommand() {
+        // -/permission group <groupName> create <priority> <teamId>
+        return BrigadierCommand.literalArgumentBuilder("create")
+                .executes(context -> {
+                    sendMessage(context.getSource(), syntaxGroup());
+                    return Command.SINGLE_SUCCESS;
+                })
+                .then(BrigadierCommand.requiredArgumentBuilder("priority", IntegerArgumentType.integer(1))
+                        .executes(context -> {
+                            sendMessage(context.getSource(), syntaxGroup());
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .then(BrigadierCommand.requiredArgumentBuilder("teamId", StringArgumentType.word())
+                                .executes(context -> {
+                                    long startTime = System.nanoTime();
+                                    CommandSource source = context.getSource();
+                                    String groupName = StringArgumentType.getString(context, "groupName");
+                                    int priority = IntegerArgumentType.getInteger(context, "priority");
+                                    String teamId = StringArgumentType.getString(context, "teamId");
 
-        var userId = user.getId(username);
-        switch (args[2]) {
-            case "parent" -> subParent.parent(source, true, userId, creatorId, args);
-            case "permission" -> subPermission.permission(source, true, userId, creatorId, args);
-            default -> PermissionSyntaxUtil.syntax(source, true);
-        }
+                                    if (group.existsGroup(groupName)) {
+                                        sendMessage(source, "<red>Group %s already exists.", groupName);
+                                        return -1;
+                                    }
+
+                                    int executorId = getExecutorId(source);
+                                    int row = group.createGroup(groupName, priority, teamId, executorId);
+
+                                    int groupId = group.getId(groupName);
+                                    int colorRow = 0;
+                                    if (!groupColor.existsGroup(groupId))
+                                        colorRow = groupColor.createGroup(groupId, executorId);
+                                    sendMessage(source, "<#00cc88>Group %s was created.", groupName, row);
+                                    // TODO: Add logging - group create
+                                    if (user.isDebugMode(executorId)) {
+                                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
+                                        sendMessage(source, "<#999900>Group create command executed in %s ms", durationMs);
+                                        sendMessage(source, "<#999900>Created row: %s", row + colorRow);
+                                    }
+                                    return Command.SINGLE_SUCCESS;
+                                })
+                        )
+                );
     }
 
-    private void createGroup(CommandSource source, String groupName, int creatorId, String[] args) {
-        if (args.length == 3) {
-            PermissionSyntaxUtil.syntax(source, false);
-            return;
-        }
-        try {
-            Integer.parseInt(args[3]);
-        } catch (NumberFormatException e) {
-            sendSourceMessage(source, "§cInvalid sort id");
-            return;
-        }
-        if (args.length == 4) {
-            PermissionSyntaxUtil.syntax(source, false);
-            return;
-        }
-        try {
-            Integer.parseInt(args[4]);
-        } catch (NumberFormatException e) {
-            sendSourceMessage(source, "§cInvalid team id");
-            return;
-        }
-        group.createNewGroup(groupName, creatorId, Integer.parseInt(args[3]), args[4]);
-        MurmelEssentials.serverSendRefreshMessage(server);
-        sendSourceMessage(source, "§3Group §e%s §3is now created.", groupName);
+    private LiteralArgumentBuilder<CommandSource> getGroupDeleteCommand() {
+        // -/permission group <groupName> delete
+        return BrigadierCommand.literalArgumentBuilder("delete")
+                .executes(context -> {
+                    long startTime = System.nanoTime();
+                    CommandSource source = context.getSource();
+                    String groupName = StringArgumentType.getString(context, "groupName");
+
+                    int groupId = getGroupId(source, groupName);
+                    if (groupId == 0) return -1;
+
+                    if (groupId == group.getId("default")) {
+                        sendMessage(source, "<red>You cannot delete the default group.");
+                        return -2;
+                    }
+
+                    int row = groupColor.deleteGroup(groupId)
+                              + group.getPermission().clearPermission(groupId)
+                              + group.getParent().clearParent(groupId)
+                              + group.getParent().clearOtherParent(groupId)
+                              + user.getParent().clearOtherParent(groupId);
+                    int finalRow = group.deleteGroup(groupId) + row;
+                    sendMessage(source, "<#00cc88>Group %s was deleted.", groupName);
+                    // TODO: Add logging - group delete
+                    int executorId = getExecutorId(source);
+                    if (user.isDebugMode(executorId)) {
+                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
+                        sendMessage(source, "<#999900>Group delete command executed in %s ms", durationMs);
+                        sendMessage(source, "<#999900>Deleted row: %s", finalRow);
+                    }
+                    return Command.SINGLE_SUCCESS;
+                });
     }
 
-    private void deleteGroup(CommandSource source, int groupId, String groupName) {
-        if (groupId == group.getDefaultGroup()) {
-            sendSourceMessage(source, "§cYou can not delete the default group.");
-            return;
-        }
-        group.deleteGroup(groupId);
-        MurmelEssentials.serverSendRefreshMessage(server);
-        sendSourceMessage(source, "§3Group §e%s §3is now deleted.", groupName);
+    private LiteralArgumentBuilder<CommandSource> getGroupRenameCommand() {
+        // -/permission group <groupName> rename <newName>
+        return BrigadierCommand.literalArgumentBuilder("rename")
+                .executes(context -> {
+                    sendMessage(context.getSource(), syntaxGroup());
+                    return Command.SINGLE_SUCCESS;
+                })
+                .then(BrigadierCommand.requiredArgumentBuilder("newName", StringArgumentType.word())
+                        .executes(context -> {
+                            long startTime = System.nanoTime();
+                            CommandSource source = context.getSource();
+                            String groupName = StringArgumentType.getString(context, "groupName");
+                            String newName = StringArgumentType.getString(context, "newName");
+
+                            int groupId = getGroupId(source, groupName);
+                            if (groupId == 0) return -1;
+
+                            if (groupId == group.getId("default")) {
+                                sendMessage(source, "<red>You cannot rename the default group.");
+                                return -2;
+                            }
+
+                            if (group.existsGroup(newName)) {
+                                sendMessage(source, "<red>Group %s already exists.", newName);
+                                return -3;
+                            }
+
+                            String teamSort = group.getTeamSort(groupId);
+                            int executorId = getExecutorId(source);
+
+                            int row = group.rename(groupId, newName, executorId)
+                                      + group.setTeamSort(groupId, teamSort.replace(groupName, newName), executorId);
+                            sendMessage(source, "<#00cc88>Group %s was renamed to %s.", groupName, newName);
+                            // TODO: Add logging - group rename
+                            if (user.isDebugMode(executorId)) {
+                                long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
+                                sendMessage(source, "<#999900>Group rename command executed in %s ms", durationMs);
+                                sendMessage(source, "<#999900>Renamed row: %s", row);
+                            }
+                            return Command.SINGLE_SUCCESS;
+                        })
+                );
     }
 
-    private void renameGroup(CommandSource source, int groupId, String[] args) {
-        if (args.length == 3) {
-            PermissionSyntaxUtil.syntax(source, false);
-            return;
-        }
-        var oldName = group.getName(groupId);
-        var newName = args[3];
-        var teamId = groupSettings.getTeamId(groupId);
-        group.rename(groupId, newName);
-        groupSettings.setTeamId(groupId, teamId.replace(oldName, newName));
-        MurmelEssentials.serverSendRefreshMessage(server);
-        sendSourceMessage(source, "§3Group is now renamed to §e%s", args[3]);
+    private LiteralArgumentBuilder<CommandSource> getGroupParentCommand() {
+        // -/permission group <groupName> parent ...
+        return BrigadierCommand.literalArgumentBuilder("parent")
+                .executes(context -> {
+                    sendMessage(context.getSource(), syntaxParent(false));
+                    return Command.SINGLE_SUCCESS;
+                })
+                // TODO: Implement group parent logic
+                ;
+    }
+
+    private LiteralArgumentBuilder<CommandSource> getGroupPermissionCommand() {
+        // -/permission group <groupName> permission ...
+        return BrigadierCommand.literalArgumentBuilder("permission")
+                .executes(context -> {
+                    sendMessage(context.getSource(), syntaxPermission(false));
+                    return Command.SINGLE_SUCCESS;
+                })
+                // TODO: Implement group permission logic
+                ;
+    }
+
+    private LiteralArgumentBuilder<CommandSource> getGroupEditCommand() {
+        // -/permission group <groupName> edit ...
+        return BrigadierCommand.literalArgumentBuilder("edit")
+                .executes(context -> {
+                    sendMessage(context.getSource(), syntaxGroupEdit());
+                    return Command.SINGLE_SUCCESS;
+                })
+                // TODO: Implement group edit logic
+                ;
+    }
+
+    private LiteralArgumentBuilder<CommandSource> getUsersCommand() {
+        // -/permission users
+        return BrigadierCommand.literalArgumentBuilder("users")
+                .executes(context -> {
+                    long startTime = System.nanoTime();
+                    CommandSource source = context.getSource();
+                    List<String> usernames = user.getUsernames();
+
+                    if (usernames.isEmpty()) {
+                        sendMessage(source, "<red>No users found.");
+                        return -1;
+                    }
+
+                    sendMessage(source, "<#999999>Users: ");
+                    for (String username : usernames)
+                        sendMessage(source, "<#999999>- <#00cc88>%s", username); // TODO: Add click to clipboard? => -/permission user <username>
+
+                    int executorId = getExecutorId(source);
+                    if (user.isDebugMode(executorId)) {
+                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
+                        sendMessage(source, "<#999900>Users command executed in %s ms", durationMs);
+                    }
+                    return Command.SINGLE_SUCCESS;
+                });
+    }
+
+    private LiteralArgumentBuilder<CommandSource> getUserCommand() {
+        // -/permission user <username> ...
+        return BrigadierCommand.literalArgumentBuilder("user")
+                .executes(context -> {
+                    sendMessage(context.getSource(), syntaxUser());
+                    return Command.SINGLE_SUCCESS;
+                })
+                .then(BrigadierCommand.requiredArgumentBuilder("username", StringArgumentType.word())
+                        .suggests(this::getUsernames)
+                        .executes(context -> {
+                            sendMessage(context.getSource(), syntaxUser());
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        // TODO: Implement user info command logic
+                        .then(getUserParentCommand())
+                        .then(getUserPermissionCommand())
+                );
+    }
+
+    private LiteralArgumentBuilder<CommandSource> getUserParentCommand() {
+        // -/permission user <username> parent ...
+        return BrigadierCommand.literalArgumentBuilder("parent")
+                .executes(context -> {
+                    sendMessage(context.getSource(), syntaxParent(true));
+                    return Command.SINGLE_SUCCESS;
+                })
+                // TODO: Implement user parent logic
+                ;
+    }
+
+    private LiteralArgumentBuilder<CommandSource> getUserPermissionCommand() {
+        // -/permission user <username> permission ...
+        return BrigadierCommand.literalArgumentBuilder("permission")
+                .executes(context -> {
+                    sendMessage(context.getSource(), syntaxPermission(true));
+                    return Command.SINGLE_SUCCESS;
+                })
+                // TODO: Implement user permission logic
+                ;
+    }
+
+    private CompletableFuture<Suggestions> getGroupNames(CommandContext<CommandSource> context, SuggestionsBuilder builder) {
+        String prefix = builder.getRemaining();
+        group.getGroupNames().stream()
+                .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
+                .sorted()
+                .forEach(builder::suggest);
+        return builder.buildFuture();
+    }
+
+    private CompletableFuture<Suggestions> getUsernames(CommandContext<CommandSource> context, SuggestionsBuilder builder) {
+        String prefix = builder.getRemaining();
+        user.getUsernames().stream()
+                .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
+                .sorted()
+                .forEach(builder::suggest);
+        return builder.buildFuture();
+    }
+
+    private int getGroupId(CommandSource source, String groupName) {
+        if (!existsGroup(source, groupName)) return 0;
+        return group.getId(groupName);
+    }
+
+    private int getUserId(CommandSource source, String username) {
+        if (!existsUser(source, username)) return -2;
+        return user.getId(username);
     }
 }
