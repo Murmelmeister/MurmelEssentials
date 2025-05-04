@@ -98,4 +98,9 @@ public abstract class CommandManager implements CommandBrigadier {
         }
         return true;
     }
+
+    protected int getExecutorId(CommandSource source) {
+        Player player = getPlayer(source);
+        return player != null ? user.getId(player.getUniqueId()) : -1;
+    }
 }

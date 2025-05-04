@@ -79,8 +79,7 @@ public final class PlayTimeCommand extends CommandManager {
                             String time = TimeUtil.formatTimeValue(playTime, userId);
                             sendMessage(source, "<#999999>PlayTime from %s: <#00cc88>%s", username, time);
 
-                            Player player = getPlayer(source);
-                            int executorId = player != null ? user.getId(player.getUniqueId()) : -1;
+                            int executorId = getExecutorId(source);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                 sendMessage(source, "PlayTime command executed in %s ms", durationMs);
