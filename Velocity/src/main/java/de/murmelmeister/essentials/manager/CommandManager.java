@@ -75,14 +75,14 @@ public abstract class CommandManager implements CommandBrigadier {
     protected boolean existsPlayer(CommandSource source) {
         Player player = getPlayer(source);
         if (player == null) {
-            sendMessage(source, "<red>This command does not work in the console.");
+            sendMessage(source, "<#990000>This command does not work in the console.");
             return false;
         } else return true;
     }
 
     protected boolean existsUser(CommandSource source, UUID uuid) {
         if (!user.existsUser(uuid)) {
-            sendMessage(source, "<red>User %s does not exist.", uuid);
+            sendMessage(source, "<#990000>User %s does not exist.", uuid);
             return false;
         }
         return true;
@@ -90,7 +90,7 @@ public abstract class CommandManager implements CommandBrigadier {
 
     protected boolean existsUser(CommandSource source, String username) {
         if (!user.existsUser(username)) {
-            sendMessage(source, "<red>User %s does not exist.", username);
+            sendMessage(source, "<#990000>User %s does not exist.", username);
             return false;
         }
         return true;
@@ -98,7 +98,7 @@ public abstract class CommandManager implements CommandBrigadier {
 
     protected boolean existsGroup(CommandSource source, String groupName) {
         if (!group.existsGroup(groupName)) {
-            sendMessage(source, "<red>Group %s does not exist.", groupName);
+            sendMessage(source, "<#990000>Group %s does not exist.", groupName);
             return false;
         }
         return true;

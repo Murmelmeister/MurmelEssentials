@@ -54,7 +54,7 @@ public final class PermissionCommand extends PermissionUtil {
                     List<String> groupNames = group.getGroupNames();
 
                     if (groupNames.isEmpty()) {
-                        sendMessage(source, "<red>No groups found.");
+                        sendMessage(source, "<#990000>No groups found.");
                         return -1;
                     }
 
@@ -233,7 +233,7 @@ public final class PermissionCommand extends PermissionUtil {
                                     String teamId = StringArgumentType.getString(context, "teamId");
 
                                     if (group.existsGroup(groupName)) {
-                                        sendMessage(source, "<red>Group %s already exists.", groupName);
+                                        sendMessage(source, "<#990000>Group %s already exists.", groupName);
                                         return -1;
                                     }
 
@@ -269,7 +269,7 @@ public final class PermissionCommand extends PermissionUtil {
                     if (groupId == 0) return -1;
 
                     if (groupId == group.getId("default")) {
-                        sendMessage(source, "<red>You cannot delete the default group.");
+                        sendMessage(source, "<#990000>You cannot delete the default group.");
                         return -2;
                     }
 
@@ -309,12 +309,12 @@ public final class PermissionCommand extends PermissionUtil {
                             if (groupId == 0) return -1;
 
                             if (groupId == group.getId("default")) {
-                                sendMessage(source, "<red>You cannot rename the default group.");
+                                sendMessage(source, "<#990000>You cannot rename the default group.");
                                 return -2;
                             }
 
                             if (group.existsGroup(newName)) {
-                                sendMessage(source, "<red>Group %s already exists.", newName);
+                                sendMessage(source, "<#990000>Group %s already exists.", newName);
                                 return -3;
                             }
 
@@ -377,7 +377,7 @@ public final class PermissionCommand extends PermissionUtil {
                     List<String> usernames = user.getUsernames();
 
                     if (usernames.isEmpty()) {
-                        sendMessage(source, "<red>No users found.");
+                        sendMessage(source, "<#990000>No users found.");
                         return -1;
                     }
 

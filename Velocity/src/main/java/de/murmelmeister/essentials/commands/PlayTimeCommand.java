@@ -48,7 +48,7 @@ public final class PlayTimeCommand extends CommandManager {
                     sendMessage(source, "<#999999>PlayTime: <#00cc88>%s", time);
                     if (user.isDebugMode(userId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                        sendMessage(player, "PlayTime command executed in %s ms", durationMs);
+                        sendMessage(player, "<#999900>PlayTime command executed in %s ms", durationMs);
                     }
                     return Command.SINGLE_SUCCESS;
                 })
@@ -65,14 +65,14 @@ public final class PlayTimeCommand extends CommandManager {
                             String username = context.getArgument("player", String.class);
                             if (!user.existsUser(username)) {
                                 sendLoggerErrorUser(username);
-                                sendMessage(source, "<red>User %s does not exist.", username);
+                                sendMessage(source, "<#990000>User %s does not exist.", username);
                                 return -1;
                             }
 
                             int userId = user.getId(username);
                             if (!playTime.existsUser(userId)) {
                                 sendLoggerErrorPlayTime(username);
-                                sendMessage(source, "<red>User %s does not exist.", username);
+                                sendMessage(source, "<#990000>User %s does not exist.", username);
                                 return -2;
                             }
 
@@ -82,7 +82,7 @@ public final class PlayTimeCommand extends CommandManager {
                             int executorId = getExecutorId(source);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                sendMessage(source, "PlayTime command executed in %s ms", durationMs);
+                                sendMessage(source, "<#999900>PlayTime command executed in %s ms", durationMs);
                             }
                             return Command.SINGLE_SUCCESS;
                         }))
