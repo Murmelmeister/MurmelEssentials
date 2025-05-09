@@ -135,7 +135,7 @@ public final class PermissionCommand extends PermissionUtil {
                     String chatPrefix = groupColor.getPrefix(groupId, typeChat);
                     String chatSuffix = groupColor.getSuffix(groupId, typeChat);
                     String chatColor = groupColor.getColor(groupId, typeChat);
-                    String chatColorMessage = groupColor.getColor(groupId, GroupColorType.CHAT_MESSAGE);
+                    String chatMessage = groupColor.getMessage(groupId);
                     String tabPrefix = groupColor.getPrefix(groupId, typeTab);
                     String tabSuffix = groupColor.getSuffix(groupId, typeTab);
                     String tabColor = groupColor.getColor(groupId, typeTab);
@@ -148,7 +148,7 @@ public final class PermissionCommand extends PermissionUtil {
                                         + (chatPrefix != null ? chatPrefix : "")
                                         + executorName
                                         + (chatSuffix != null ? chatSuffix : "")
-                                        + " : " + (chatColorMessage != null ? "<" + chatColorMessage + ">" : "") + "message";
+                                        + (chatMessage != null ? chatMessage : " ") + "message";
                     String formatTab = (tabColor != null ? "<" + tabColor + ">" : "")
                                        + (tabPrefix != null ? tabPrefix : "")
                                        + executorName
@@ -159,19 +159,19 @@ public final class PermissionCommand extends PermissionUtil {
                                         + (teamSuffix != null ? teamSuffix : "");
 
                     String chatHover = """
-                            <#999999>Chat Prefix: <#00cc88>%s
-                            <#999999>Chat Suffix: <#00cc88>%s
+                            <#999999>Chat Prefix: "<#00cc88>%s</#00cc88>"
+                            <#999999>Chat Suffix: "<#00cc88>%s</#00cc88>"
                             <#999999>Chat Color: <#00cc88>%s
-                            <#999999>Chat Message Color: <#00cc88>%s
+                            <#999999>Chat Message: "<#00cc88>%s</#00cc88>"
                             <#999999>Created By: <#00cc88>%s (%s)
                             <#999999>Created At: <#00cc88>%s
                             <#999999>Updated By: <#00cc88>%s (%s)
                             <#999999>Updated At: <#00cc88>%s"""
-                            .formatted(chatPrefix, chatSuffix, chatColor, chatColorMessage,
+                            .formatted(chatPrefix, chatSuffix, chatColor, chatMessage,
                                     colorCreatedBy, colorCreatedName, colorCreatedAt, colorUpdatedBy, colorUpdatedName, colorUpdatedAt);
                     String tabHover = """
-                            <#999999>Tab Prefix: <#00cc88>%s
-                            <#999999>Tab Suffix: <#00cc88>%s
+                            <#999999>Tab Prefix: "<#00cc88>%s</#00cc88>"
+                            <#999999>Tab Suffix: "<#00cc88>%s</#00cc88>"
                             <#999999>Tab Color: <#00cc88>%s
                             <#999999>Created By: <#00cc88>%s (%s)
                             <#999999>Created At: <#00cc88>%s
@@ -180,8 +180,8 @@ public final class PermissionCommand extends PermissionUtil {
                             .formatted(tabPrefix, tabSuffix, tabColor,
                                     colorCreatedBy, colorCreatedName, colorCreatedAt, colorUpdatedBy, colorUpdatedName, colorUpdatedAt);
                     String teamHover = """
-                            <#999999>Team Prefix: <#00cc88>%s
-                            <#999999>Team Suffix: <#00cc88>%s
+                            <#999999>Team Prefix: "<#00cc88>%s</#00cc88>"
+                            <#999999>Team Suffix: "<#00cc88>%s</#00cc88>"
                             <#999999>Team Color: <#00cc88>%s
                             <#999999>Created By: <#00cc88>%s (%s)
                             <#999999>Created At: <#00cc88>%s
