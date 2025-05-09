@@ -11,6 +11,7 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
+import de.murmelmeister.essentials.commands.subcomamnd.GroupEditSubCommand;
 import de.murmelmeister.essentials.utils.PermissionUtil;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
@@ -24,10 +25,12 @@ import java.util.concurrent.TimeUnit;
 
 public final class PermissionCommand extends PermissionUtil {
     private final GroupColor groupColor;
+    private final GroupEditSubCommand groupEdit;
 
     public PermissionCommand(MurmelEssentials plugin) {
         super(plugin);
         this.groupColor = plugin.getGroup().getColor();
+        this.groupEdit = new GroupEditSubCommand(plugin);
     }
 
     @Override
@@ -67,7 +70,7 @@ public final class PermissionCommand extends PermissionUtil {
                     loggingToConsole(executorId, "Get all groups", "/permission groups");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                        sendMessage(source, "<#999900>Groups command executed in %s ms", durationMs);
+                        sendDebugMessage(source, "<#999900>Groups command executed in %s ms", durationMs);
                     }
                     return Command.SINGLE_SUCCESS;
                 });
@@ -208,7 +211,7 @@ public final class PermissionCommand extends PermissionUtil {
                     loggingToConsole(false, executorId, groupId, "Get group information", "/permission group " + groupName + " info");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                        sendMessage(source, "<#999900>Group info command executed in %s ms", durationMs);
+                        sendDebugMessage(source, "<#999900>Group info command executed in %s ms", durationMs);
                     }
                     return Command.SINGLE_SUCCESS;
                 });
@@ -252,8 +255,8 @@ public final class PermissionCommand extends PermissionUtil {
                                     loggingToConsole(false, executorId, groupId, "Created group", "/permission group " + groupName + " create " + priority + " " + teamId);
                                     if (user.isDebugMode(executorId)) {
                                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                        sendMessage(source, "<#999900>Group create command executed in %s ms", durationMs);
-                                        sendMessage(source, "<#999900>Created row: %s", row + colorRow);
+                                        sendDebugMessage(source, "<#999900>Group create command executed in %s ms", durationMs);
+                                        sendDebugMessage(source, "<#999900>Created row: %s", row + colorRow);
                                     }
                                     return Command.SINGLE_SUCCESS;
                                 })
@@ -291,8 +294,8 @@ public final class PermissionCommand extends PermissionUtil {
                     loggingToConsole(false, executorId, groupId, "Deleted group", "/permission group " + groupName + " delete");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                        sendMessage(source, "<#999900>Group delete command executed in %s ms", durationMs);
-                        sendMessage(source, "<#999900>Deleted row: %s", finalRow);
+                        sendDebugMessage(source, "<#999900>Group delete command executed in %s ms", durationMs);
+                        sendDebugMessage(source, "<#999900>Deleted row: %s", finalRow);
                     }
                     return Command.SINGLE_SUCCESS;
                 });
@@ -336,8 +339,8 @@ public final class PermissionCommand extends PermissionUtil {
                             loggingToConsole(false, executorId, groupId, "Renamed group", "/permission group " + groupName + " rename " + newName);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                sendMessage(source, "<#999900>Group rename command executed in %s ms", durationMs);
-                                sendMessage(source, "<#999900>Renamed row: %s", row);
+                                sendDebugMessage(source, "<#999900>Group rename command executed in %s ms", durationMs);
+                                sendDebugMessage(source, "<#999900>Renamed row: %s", row);
                             }
                             return Command.SINGLE_SUCCESS;
                         })
@@ -373,8 +376,10 @@ public final class PermissionCommand extends PermissionUtil {
                     sendMessage(context.getSource(), syntaxGroupEdit());
                     return Command.SINGLE_SUCCESS;
                 })
-                // TODO: Implement group edit logic
-                ;
+                .then(groupEdit.getEditedChatCommand())
+                .then(groupEdit.getEditedTabCommand())
+                .then(groupEdit.getEditedTeamCommand())
+                .then(groupEdit.getEditedPriorityCommand());
     }
 
     private LiteralArgumentBuilder<CommandSource> getUsersCommand() {
@@ -398,7 +403,7 @@ public final class PermissionCommand extends PermissionUtil {
                     loggingToConsole(executorId, "Get all users", "/permission users");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                        sendMessage(source, "<#999900>Users command executed in %s ms", durationMs);
+                        sendDebugMessage(source, "<#999900>Users command executed in %s ms", durationMs);
                     }
                     return Command.SINGLE_SUCCESS;
                 });
@@ -461,15 +466,5 @@ public final class PermissionCommand extends PermissionUtil {
                 .sorted()
                 .forEach(builder::suggest);
         return builder.buildFuture();
-    }
-
-    private int getGroupId(CommandSource source, String groupName) {
-        if (!existsGroup(source, groupName)) return 0;
-        return group.getId(groupName);
-    }
-
-    private int getUserId(CommandSource source, String username) {
-        if (!existsUser(source, username)) return -2;
-        return user.getId(username);
     }
 }
