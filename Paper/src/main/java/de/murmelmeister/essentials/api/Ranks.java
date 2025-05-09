@@ -28,6 +28,7 @@ public final class Ranks {
     private static final String PERMISSION_CHAT_HEX = "murmelessentials.chat.hex";
 
     public static void updatePlayers(MurmelEssentials instance, Server server) {
+        // TODO: If a refresh has been sent and the player then joins, he will receive the old data
         AtomicBoolean hasUpdateOccurred = new AtomicBoolean(false);
 
         RefreshUtil.register(cacheName -> hasUpdateOccurred.set(true));
