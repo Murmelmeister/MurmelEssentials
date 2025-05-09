@@ -48,7 +48,7 @@ public final class PlayTimeCommand extends CommandManager {
                     sendMessage(source, "<#999999>PlayTime: <#00cc88>%s", time);
                     if (user.isDebugMode(userId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                        sendMessage(player, "<#999900>PlayTime command executed in %s ms", durationMs);
+                        sendDebugMessage(player, "<#999900>PlayTime command executed in %s ms", durationMs);
                     }
                     return Command.SINGLE_SUCCESS;
                 })
@@ -82,7 +82,7 @@ public final class PlayTimeCommand extends CommandManager {
                             int executorId = getExecutorId(source);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                sendMessage(source, "<#999900>PlayTime command executed in %s ms", durationMs);
+                                sendDebugMessage(source, "<#999900>PlayTime command executed in %s ms", durationMs);
                             }
                             return Command.SINGLE_SUCCESS;
                         }))
