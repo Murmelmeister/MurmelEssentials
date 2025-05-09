@@ -4,11 +4,9 @@ import com.destroystokyo.paper.profile.PlayerProfile;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.api.CustomPermission;
 import de.murmelmeister.essentials.manager.ListenerManager;
-import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
