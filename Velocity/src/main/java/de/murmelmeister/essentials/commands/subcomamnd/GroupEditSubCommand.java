@@ -19,7 +19,6 @@ public final class GroupEditSubCommand extends PermissionUtil {
     private final GroupColor color;
 
     private final GroupColorType typeChat = GroupColorType.CHAT;
-    private final GroupColorType typeChatMessage = GroupColorType.CHAT_MESSAGE;
     private final GroupColorType typeTab = GroupColorType.TAB;
     private final GroupColorType typeTeam = GroupColorType.TEAM;
 
@@ -70,7 +69,7 @@ public final class GroupEditSubCommand extends PermissionUtil {
                         case PREFIX -> color.getPrefix(groupId, groupType);
                         case SUFFIX -> color.getSuffix(groupId, groupType);
                         case COLOR -> color.getColor(groupId, groupType);
-                        case CHAT_MESSAGE -> color.getColor(groupId, typeChatMessage);
+                        case CHAT_MESSAGE -> color.getMessage(groupId);
                         case TEAM_ID -> group.getTeamSort(groupId);
                         case PRIORITY -> String.valueOf(group.getPriority(groupId));
                     };
@@ -115,7 +114,7 @@ public final class GroupEditSubCommand extends PermissionUtil {
                                 case PREFIX -> color.setPrefix(groupId, groupType, value, executorId);
                                 case SUFFIX -> color.setSuffix(groupId, groupType, value, executorId);
                                 case COLOR -> color.setColor(groupId, groupType, value, executorId);
-                                case CHAT_MESSAGE -> color.setColor(groupId, typeChatMessage, value, executorId);
+                                case CHAT_MESSAGE -> color.setMessage(groupId, value, executorId);
                                 case TEAM_ID -> {
                                     Matcher teamIdMatcher = teamIdPattern.matcher(value);
 
@@ -170,7 +169,7 @@ public final class GroupEditSubCommand extends PermissionUtil {
                 .then(createGroupValueCommand(literalName, "prefix", typeChat))
                 .then(createGroupValueCommand(literalName, "suffix", typeChat))
                 .then(createGroupValueCommand(literalName, "color", typeChat))
-                .then(createGroupValueCommand(literalName, "message", typeChatMessage));
+                .then(createGroupValueCommand(literalName, "message", null));
     }
 
     public LiteralArgumentBuilder<CommandSource> getEditedTabCommand() {
