@@ -4,6 +4,7 @@ import com.destroystokyo.paper.profile.PlayerProfile;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.api.CustomPermission;
 import de.murmelmeister.essentials.manager.ListenerManager;
+import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
@@ -31,6 +32,7 @@ public final class CustomPermissionListener extends ListenerManager {
         PlayerProfile player = event.getPlayerProfile();
         int userId = user.getId(player.getId());
         permission.preloadAsync(userId);
+        RefreshUtil.markAsRefreshed("update"); // Reloaded the Ranks#updatePlayers cache (locally)
     }
 
     @EventHandler
@@ -38,5 +40,6 @@ public final class CustomPermissionListener extends ListenerManager {
         Player player = event.getPlayer();
         int userId = user.getId(player.getUniqueId());
         permission.invalidate(userId);
+        RefreshUtil.markAsRefreshed("update"); // Reloaded the Ranks#updatePlayers cache (locally)
     }
 }
