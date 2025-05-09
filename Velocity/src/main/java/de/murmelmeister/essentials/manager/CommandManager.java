@@ -68,6 +68,11 @@ public abstract class CommandManager implements CommandBrigadier {
         source.sendMessage(MiniMessage.miniMessage().deserialize(String.format(message, args)));
     }
 
+    protected void sendDebugMessage(CommandSource source, String message, Object... args) {
+        String debugPrefix = "<#00CCdd>Debug <#454545>»</#454545> <#888800>";
+        sendMessage(source, debugPrefix + message, args);
+    }
+
     protected Player getPlayer(CommandSource source) {
         return source instanceof Player ? (Player) source : null;
     }
