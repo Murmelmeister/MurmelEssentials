@@ -1,5 +1,6 @@
 package de.murmelmeister.essentials.utils;
 
+import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
 
@@ -20,6 +21,16 @@ public abstract class PermissionUtil extends CommandManager {
     public void loggingToConsole(boolean isUser, int executorId, int id, String doing, String fullCommand) {
         logger.info("Command: Permission - Executor: {} (ID: {}) - Target: {} ({}) (ID: {}) - Doing: {} - Full command: {}",
                 user.getUsername(executorId), executorId, getName(isUser, id), (isUser ? "User" : "Group"), id, doing, fullCommand);
+    }
+
+    public int getGroupId(CommandSource source, String groupName) {
+        if (!existsGroup(source, groupName)) return 0;
+        return group.getId(groupName);
+    }
+
+    public int getUserId(CommandSource source, String username) {
+        if (!existsUser(source, username)) return -2;
+        return user.getId(username);
     }
 
     public String syntax() {
@@ -95,6 +106,7 @@ public abstract class PermissionUtil extends CommandManager {
                  <#454545>- <#999999>/permission %1$s edit chat <white>prefix <value>
                 <#454545>- <#999999>/permission %1$s edit chat <white>suffix <value>
                 <#454545>- <#999999>/permission %1$s edit chat <white>color <value>
+                <#454545>- <#999999>/permission %1$s edit chat <white>message <value>
                 <#454545>- <#999999>/permission %1$s edit tab <white>prefix <value>
                 <#454545>- <#999999>/permission %1$s edit tab <white>suffix <value>
                 <#454545>- <#999999>/permission %1$s edit tab <white>color <value>
