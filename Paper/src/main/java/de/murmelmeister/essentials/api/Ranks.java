@@ -1,7 +1,6 @@
 package de.murmelmeister.essentials.api;
 
 import de.murmelmeister.essentials.MurmelEssentials;
-import de.murmelmeister.essentials.utils.HexColor;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
@@ -9,10 +8,12 @@ import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Scoreboard;
@@ -20,12 +21,23 @@ import org.bukkit.scoreboard.Team;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class Ranks {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
+    private static final MiniMessage MINI_MESSAGE_COLOR = MiniMessage.builder()
+            .tags(TagResolver.builder()
+                    .resolvers(
+                            StandardTags.color(),
+                            StandardTags.decorations(),
+                            StandardTags.gradient(),
+                            StandardTags.reset()
+                    ).build())
+            .build();
+
     private static final String PERMISSION_CHAT_COLOR = "murmelessentials.chat.color";
-    private static final String PERMISSION_CHAT_HEX = "murmelessentials.chat.hex";
 
     public static void updatePlayers(MurmelEssentials instance, Server server) {
         // TODO: If a refresh has been sent and the player then joins, he will receive the old data
@@ -47,7 +59,6 @@ public final class Ranks {
         }, 10L, 2 * 20L);
     }
 
-    @SuppressWarnings("deprecation")
     public static void setChatFormat(AsyncChatEvent event, Group group, User user) {
         Player player = event.getPlayer();
         int userId = user.getId(player.getUniqueId());
@@ -55,14 +66,14 @@ public final class Ranks {
         GroupColor groupColor = group.getColor();
         GroupColorType groupType = GroupColorType.CHAT;
 
-        LegacyComponentSerializer serializer = LegacyComponentSerializer.builder().hexColors().build();
+        /*LegacyComponentSerializer serializer = LegacyComponentSerializer.builder().hexColors().build();
         String originalMessage = serializer.serialize(event.message());
 
         if (player.hasPermission(PERMISSION_CHAT_COLOR))
             originalMessage = net.md_5.bungee.api.ChatColor.translateAlternateColorCodes('&', originalMessage);
         if (player.hasPermission(PERMISSION_CHAT_HEX)) originalMessage = HexColor.format(originalMessage);
 
-        final String finalMessage = originalMessage;
+        final String finalMessage = originalMessage;*/
         event.renderer((source, sourceDisplayName, message, viewer) -> {
             Optional<Integer> groupId = user.getParent().getParentIds(userId).stream()
                     .filter(id -> highestSortId == group.getPriority(id))
@@ -73,17 +84,23 @@ public final class Ranks {
                 String prefix = groupColor.getPrefix(id, groupType);
                 String suffix = groupColor.getSuffix(id, groupType);
                 String color = groupColor.getColor(id, groupType);
-                String colorMessage = groupColor.getColor(id, GroupColorType.CHAT_MESSAGE);
+                String chatMessage = groupColor.getMessage(id);
 
                 String formattedPrefix = prefix != null ? prefix : "";
                 String formattedSuffix = suffix != null ? suffix : "";
                 String formattedColor = color != null ? "<" + color + ">" : "";
-                String formattedColorMessage = colorMessage != null ? colorMessage : "";
+                String formattedColorMessage = chatMessage != null ? chatMessage : " ";
 
-                String format = formattedColor + formattedPrefix + player.getName() + formattedSuffix + " : ";
-                TextComponent chatMessage = serializer.deserialize(HexColor.format(formattedColorMessage) + finalMessage);
+                String format = formattedColor + formattedPrefix + player.getName() + formattedSuffix + "<reset>";
+                Component component = MINI_MESSAGE.deserialize(format);
 
-                return MINI_MESSAGE.deserialize(format).append(chatMessage);
+                String finalMessage = PlainTextComponentSerializer.plainText().serialize(message);
+                Component messageComponent;
+                if (player.hasPermission(PERMISSION_CHAT_COLOR))
+                    messageComponent = MINI_MESSAGE_COLOR.deserialize(formattedColorMessage + finalMessage);
+                else
+                    messageComponent = MINI_MESSAGE.deserialize(formattedColorMessage + MINI_MESSAGE.escapeTags(finalMessage));
+                return component.append(messageComponent);
             } else return message;
         });
     }
@@ -158,5 +175,21 @@ public final class Ranks {
                 for (String playerName : playerNames)
                     team.addEntry(playerName);
         }
+    }
+
+    private static TextColor extractLastHexColor(String input) {
+        Pattern pattern = Pattern.compile("<#([0-9a-fA-F]{6})>");
+        Matcher matcher = pattern.matcher(input);
+
+        String lastHexColor = null;
+        while (matcher.find())
+            lastHexColor = matcher.group(1);
+
+        TextColor color = TextColor.color(NamedTextColor.GRAY.value());
+        if (lastHexColor != null) {
+            int rgb = Integer.parseInt(lastHexColor, 16);
+            color = TextColor.color(rgb);
+        }
+        return color;
     }
 }
