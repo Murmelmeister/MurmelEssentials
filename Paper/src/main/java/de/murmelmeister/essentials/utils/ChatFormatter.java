@@ -17,8 +17,8 @@ import java.util.regex.Pattern;
 public final class ChatFormatter {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
-    private static final Pattern LEGACY_COLOR_CODE = Pattern.compile("(?i)&[0-9A-FK-OR]");
-    private static final Pattern HEX_COLOR_CODE = Pattern.compile("(?i)&#[0-9A-F]{6}");
+    private static final Pattern LEGACY_COLOR_CODE = Pattern.compile("(?i)&([0-9A-FK-OR])");
+    private static final Pattern HEX_COLOR_CODE = Pattern.compile("(?i)&#([0-9A-F]{6})");
     private static final Pattern GRADIENT_COLOR_CODE = Pattern.compile("(?i)&g:(#[0-9A-F]{6}(?::#[0-9A-F]{6})*);");
 
     private static final String PERMISSION_COLOR_LEGACY = "murmel.color.legacy";
