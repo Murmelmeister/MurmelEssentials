@@ -1,6 +1,7 @@
 package de.murmelmeister.essentials.api;
 
 import de.murmelmeister.essentials.MurmelEssentials;
+import de.murmelmeister.essentials.utils.ChatFormatter;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
@@ -9,52 +10,45 @@ import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
-import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public final class Ranks {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
-    private static final MiniMessage MINI_MESSAGE_COLOR = MiniMessage.builder()
-            .tags(TagResolver.builder()
-                    .resolvers(
-                            StandardTags.color(),
-                            StandardTags.decorations(),
-                            StandardTags.gradient(),
-                            StandardTags.reset()
-                    ).build())
-            .build();
+    private static BukkitTask task;
+    private static final AtomicBoolean HAS_UPDATED = new AtomicBoolean(false);
 
-    private static final String PERMISSION_CHAT_COLOR = "murmelessentials.chat.color";
+    static {
+        RefreshUtil.register(cacheName -> HAS_UPDATED.set(true));
+    }
+
+    public static void cancelTask() {
+        if (task != null && !task.isCancelled())
+            task.cancel();
+    }
 
     public static void updatePlayers(MurmelEssentials instance, Server server) {
         // TODO: If a refresh has been sent and the player then joins, he will receive the old data
-        AtomicBoolean hasUpdateOccurred = new AtomicBoolean(false);
-
-        RefreshUtil.register(cacheName -> hasUpdateOccurred.set(true));
         Group group = instance.getGroup();
         User user = instance.getUser();
 
-        server.getScheduler().runTaskTimerAsynchronously(instance, () -> {
-            if (hasUpdateOccurred.get()) {
+        task = server.getScheduler().runTaskTimerAsynchronously(instance, () -> {
+            if (HAS_UPDATED.get()) {
                 for (Player player : server.getOnlinePlayers()) {
                     setPlayerTeams(group, user, player);
                     setPlayerListName(group, user, player);
                     player.updateCommands(); // Update the player commands
                 }
-                hasUpdateOccurred.set(false);
+                HAS_UPDATED.set(false);
             }
         }, 10L, 2 * 20L);
     }
@@ -66,14 +60,6 @@ public final class Ranks {
         GroupColor groupColor = group.getColor();
         GroupColorType groupType = GroupColorType.CHAT;
 
-        /*LegacyComponentSerializer serializer = LegacyComponentSerializer.builder().hexColors().build();
-        String originalMessage = serializer.serialize(event.message());
-
-        if (player.hasPermission(PERMISSION_CHAT_COLOR))
-            originalMessage = net.md_5.bungee.api.ChatColor.translateAlternateColorCodes('&', originalMessage);
-        if (player.hasPermission(PERMISSION_CHAT_HEX)) originalMessage = HexColor.format(originalMessage);
-
-        final String finalMessage = originalMessage;*/
         event.renderer((source, sourceDisplayName, message, viewer) -> {
             Optional<Integer> groupId = user.getParent().getParentIds(userId).stream()
                     .filter(id -> highestSortId == group.getPriority(id))
@@ -95,11 +81,7 @@ public final class Ranks {
                 Component component = MINI_MESSAGE.deserialize(format);
 
                 String finalMessage = PlainTextComponentSerializer.plainText().serialize(message);
-                Component messageComponent;
-                if (player.hasPermission(PERMISSION_CHAT_COLOR))
-                    messageComponent = MINI_MESSAGE_COLOR.deserialize(formattedColorMessage + finalMessage);
-                else
-                    messageComponent = MINI_MESSAGE.deserialize(formattedColorMessage + MINI_MESSAGE.escapeTags(finalMessage));
+                Component messageComponent = ChatFormatter.format(player, finalMessage, formattedColorMessage);
                 return component.append(messageComponent);
             } else return message;
         });
@@ -127,10 +109,11 @@ public final class Ranks {
 
             Component baseComponent = MINI_MESSAGE.deserialize(formattedColor + formattedPrefix + player.getName() + formattedSuffix);
             player.playerListName(baseComponent);
+            System.out.println("Order '" + player.getName() + "': " + player.getPlayerListOrder());
+            System.out.println("PlayerListName: " + MINI_MESSAGE.serialize(baseComponent));
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static void setPlayerTeams(Group group, User user, Player player) {
         Scoreboard scoreboard = player.getScoreboard();
         GroupColorType groupType = GroupColorType.TEAM;
@@ -163,11 +146,11 @@ public final class Ranks {
             if (suffix == null) suffix = "";
             if (color == null) color = "gray";
 
-            if (!prefix.equals(team.getPrefix())) team.prefix(MINI_MESSAGE.deserialize(prefix));
-            if (!suffix.equals(team.getSuffix())) team.suffix(MINI_MESSAGE.deserialize(suffix));
+            if (!prefix.equals(MINI_MESSAGE.serialize(team.prefix()))) team.prefix(MINI_MESSAGE.deserialize(prefix));
+            if (!suffix.equals(MINI_MESSAGE.serialize(team.suffix()))) team.suffix(MINI_MESSAGE.deserialize(suffix));
 
             NamedTextColor textColor = NamedTextColor.NAMES.value(color.toLowerCase());
-            if (textColor != null && !textColor.equals(team.color()))
+            if (textColor != null)
                 team.color(textColor);
 
             List<String> playerNames = playersBySortId.get(groupSortId);
@@ -175,21 +158,5 @@ public final class Ranks {
                 for (String playerName : playerNames)
                     team.addEntry(playerName);
         }
-    }
-
-    private static TextColor extractLastHexColor(String input) {
-        Pattern pattern = Pattern.compile("<#([0-9a-fA-F]{6})>");
-        Matcher matcher = pattern.matcher(input);
-
-        String lastHexColor = null;
-        while (matcher.find())
-            lastHexColor = matcher.group(1);
-
-        TextColor color = TextColor.color(NamedTextColor.GRAY.value());
-        if (lastHexColor != null) {
-            int rgb = Integer.parseInt(lastHexColor, 16);
-            color = TextColor.color(rgb);
-        }
-        return color;
     }
 }
