@@ -36,8 +36,7 @@ public final class ChatFormatter {
      */
     public static Component format(Player player, String raw, String fallbackPrefix) {
         // Escape any MiniMessage tags and quote replacement sequences
-        String quoted = Matcher.quoteReplacement(raw);
-        String safeRaw = MINI_MESSAGE.escapeTags(quoted);
+        String safeRaw = Matcher.quoteReplacement(MINI_MESSAGE.escapeTags(raw));
 
         // Apply gradient if permitted
         if (player.hasPermission(PERMISSION_COLOR_GRADIENT)
@@ -55,6 +54,7 @@ public final class ChatFormatter {
             safeRaw = applyLegacyColorCode(safeRaw);
 
         // Deserialize into a MiniMessage component
+        safeRaw = safeRaw.replace("\\$", "$");
         return MINI_MESSAGE.deserialize(fallbackPrefix + safeRaw);
     }
 
