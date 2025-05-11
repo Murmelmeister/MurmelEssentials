@@ -18,6 +18,7 @@ import de.murmelmeister.murmelapi.group.color.GroupColorType;
 import de.murmelmeister.murmelapi.utils.StringUtil;
 import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -26,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 public final class PermissionCommand extends PermissionUtil {
     private final GroupColor groupColor;
     private final GroupEditSubCommand groupEdit;
+    private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     public PermissionCommand(MurmelEssentials plugin) {
         super(plugin);
@@ -167,7 +169,7 @@ public final class PermissionCommand extends PermissionUtil {
                             <#999999>Created At: <#00cc88>%s
                             <#999999>Updated By: <#00cc88>%s (%s)
                             <#999999>Updated At: <#00cc88>%s"""
-                            .formatted(chatPrefix, chatSuffix, chatColor, chatMessage,
+                            .formatted(chatPrefix, chatSuffix, chatColor, miniMessage.escapeTags(chatMessage == null ? "" : chatMessage),
                                     colorCreatedBy, colorCreatedName, colorCreatedAt, colorUpdatedBy, colorUpdatedName, colorUpdatedAt);
                     String tabHover = """
                             <#999999>Tab Prefix: "<#00cc88>%s</#00cc88>"
