@@ -43,8 +43,7 @@ public final class ConnectionListener {
         InetAddress inetAddress = player.getRemoteAddress().getAddress();
         if (activeSession.existsSession(userId))
             activeSession.closeSession(userId); // Or kick the player and send a message with reconnecting
-        else
-            activeSession.startSession(userId, inetAddress, player.getClientBrand(), player.getProtocolVersion().toString());
+        activeSession.startSession(userId, inetAddress, player.getClientBrand(), player.getProtocolVersion().toString());
     }
 
     @Subscribe
