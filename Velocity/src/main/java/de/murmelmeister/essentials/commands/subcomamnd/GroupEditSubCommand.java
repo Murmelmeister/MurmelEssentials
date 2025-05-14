@@ -203,7 +203,7 @@ public final class GroupEditSubCommand extends PermissionUtil {
     }
 
     private void logging(int executorId, int groupId, String doing, String fullCommand) {
-        String command = "/permission group edit " + group.getGroupName(groupId) + " ";
+        String command = "/permission group " + group.getGroupName(groupId) + " edit ";
         loggingToConsole(executorId, doing, command + fullCommand);
     }
 
