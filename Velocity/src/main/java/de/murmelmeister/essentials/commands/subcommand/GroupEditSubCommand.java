@@ -1,4 +1,4 @@
-package de.murmelmeister.essentials.commands.subcomamnd;
+package de.murmelmeister.essentials.commands.subcommand;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
