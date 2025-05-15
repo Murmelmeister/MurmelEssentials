@@ -116,7 +116,7 @@ public abstract class CommandManager implements CommandBrigadier {
 
     protected CompletableFuture<Suggestions> getSuggestionTime(CommandContext<CommandSource> context, SuggestionsBuilder builder) {
         String prefix = builder.getRemaining();
-        Stream.of("s", "m", "h", "d", "w", "M", "y")
+        Stream.of("1s", "1m", "1h", "1d", "1w", "1M", "1y")
                 .filter(s -> StringUtil.startsWithIgnoreCase(s, prefix))
                 .forEach(builder::suggest);
         return builder.buildFuture();
