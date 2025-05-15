@@ -109,8 +109,6 @@ public final class Ranks {
 
             Component baseComponent = MINI_MESSAGE.deserialize(formattedColor + formattedPrefix + player.getName() + formattedSuffix);
             player.playerListName(baseComponent);
-            System.out.println("Order '" + player.getName() + "': " + player.getPlayerListOrder());
-            System.out.println("PlayerListName: " + MINI_MESSAGE.serialize(baseComponent));
         }
     }
 
