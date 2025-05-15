@@ -12,6 +12,7 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.commands.subcomamnd.GroupEditSubCommand;
+import de.murmelmeister.essentials.commands.subcomamnd.PermissionSubCommand;
 import de.murmelmeister.essentials.utils.PermissionUtil;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
@@ -26,13 +27,15 @@ import java.util.concurrent.TimeUnit;
 
 public final class PermissionCommand extends PermissionUtil {
     private final GroupColor groupColor;
-    private final GroupEditSubCommand groupEdit;
+    private final GroupEditSubCommand groupEditSub;
+    private final PermissionSubCommand permissionSub;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     public PermissionCommand(MurmelEssentials plugin) {
         super(plugin);
         this.groupColor = plugin.getGroup().getColor();
-        this.groupEdit = new GroupEditSubCommand(plugin);
+        this.groupEditSub = new GroupEditSubCommand(plugin);
+        this.permissionSub = new PermissionSubCommand(plugin);
     }
 
     @Override
@@ -363,12 +366,13 @@ public final class PermissionCommand extends PermissionUtil {
     private LiteralArgumentBuilder<CommandSource> getGroupPermissionCommand() {
         // -/permission group <groupName> permission ...
         return BrigadierCommand.literalArgumentBuilder("permission")
-                .executes(context -> {
-                    sendMessage(context.getSource(), syntaxPermission(false));
-                    return Command.SINGLE_SUCCESS;
-                })
-                // TODO: Implement group permission logic
-                ;
+                .executes(context -> permissionSub.getPermissions(context, false))
+                .then(permissionSub.getPermissionAll(false))
+                .then(permissionSub.getPermissionAdd(false))
+                .then(permissionSub.getPermissionRemove(false))
+                .then(permissionSub.getPermissionClear(false))
+                .then(permissionSub.getPermissionInfo(false))
+                .then(permissionSub.getPermissionTime(false));
     }
 
     private LiteralArgumentBuilder<CommandSource> getGroupEditCommand() {
@@ -378,10 +382,10 @@ public final class PermissionCommand extends PermissionUtil {
                     sendMessage(context.getSource(), syntaxGroupEdit());
                     return Command.SINGLE_SUCCESS;
                 })
-                .then(groupEdit.getEditedChatCommand())
-                .then(groupEdit.getEditedTabCommand())
-                .then(groupEdit.getEditedTeamCommand())
-                .then(groupEdit.getEditedPriorityCommand());
+                .then(groupEditSub.getEditedChatCommand())
+                .then(groupEditSub.getEditedTabCommand())
+                .then(groupEditSub.getEditedTeamCommand())
+                .then(groupEditSub.getEditedPriorityCommand());
     }
 
     private LiteralArgumentBuilder<CommandSource> getUsersCommand() {
@@ -444,12 +448,13 @@ public final class PermissionCommand extends PermissionUtil {
     private LiteralArgumentBuilder<CommandSource> getUserPermissionCommand() {
         // -/permission user <username> permission ...
         return BrigadierCommand.literalArgumentBuilder("permission")
-                .executes(context -> {
-                    sendMessage(context.getSource(), syntaxPermission(true));
-                    return Command.SINGLE_SUCCESS;
-                })
-                // TODO: Implement user permission logic
-                ;
+                .executes(context -> permissionSub.getPermissions(context, true))
+                .then(permissionSub.getPermissionAll(true))
+                .then(permissionSub.getPermissionAdd(true))
+                .then(permissionSub.getPermissionRemove(true))
+                .then(permissionSub.getPermissionClear(true))
+                .then(permissionSub.getPermissionInfo(true))
+                .then(permissionSub.getPermissionTime(true));
     }
 
     private CompletableFuture<Suggestions> getGroupNames(CommandContext<CommandSource> context, SuggestionsBuilder builder) {
