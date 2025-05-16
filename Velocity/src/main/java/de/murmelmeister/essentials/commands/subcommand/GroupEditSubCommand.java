@@ -26,7 +26,7 @@ public final class GroupEditSubCommand extends PermissionUtil {
 
     public GroupEditSubCommand(MurmelEssentials plugin) {
         super(plugin);
-        this.color = plugin.getGroup().getColor();
+        this.color = group.getColor();
     }
 
     @Override // Not used
