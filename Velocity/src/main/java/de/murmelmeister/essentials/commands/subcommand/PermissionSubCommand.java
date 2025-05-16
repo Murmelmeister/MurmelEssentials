@@ -139,6 +139,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                             else row = groupPermission.addPermission(id, permission, -1, executorId);
                             sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now added to <#990099>%s</#990099>.", permission, name);
 
+                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
                             logging(isUser, executorId, id, "Add permission", "add " + permission);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
