@@ -306,8 +306,8 @@ public final class PermissionSubCommand extends PermissionUtil {
                                     <#999999>Created date: <#00cc88>%s
                                     <#999999>Updated by: <#00cc88>%s (%s)
                                     <#999999>Updated date: <#00cc88>%s
-                                    <#999999>Expired date: <#00cc88>%s
-                                    """.formatted(nameType, name, typeId, id, permission, createdBy, creatorName, createdDate, updatedBy, updaterName, updatedDate, expiredMessage);
+                                    <#999999>Expired date: <#00cc88>%s"""
+                                    .formatted(nameType, name, typeId, id, permission, createdBy, creatorName, createdDate, updatedBy, updaterName, updatedDate, expiredMessage);
                             sendMessage(source, message);
 
                             logging(isUser, executorId, id, "Get permission info", "info " + permission);
