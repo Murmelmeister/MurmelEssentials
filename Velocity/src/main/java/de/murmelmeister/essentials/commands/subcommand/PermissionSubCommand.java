@@ -11,10 +11,8 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.utils.PermissionUtil;
-import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.parent.GroupParent;
 import de.murmelmeister.murmelapi.group.permission.GroupPermission;
-import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.permission.UserPermission;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
 import de.murmelmeister.murmelapi.utils.update.RefreshType;
@@ -26,16 +24,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 public final class PermissionSubCommand extends PermissionUtil {
-    private final Group group;
-    private final User user;
     private final GroupParent groupParent;
     private final GroupPermission groupPermission;
     private final UserPermission userPermission;
 
     public PermissionSubCommand(MurmelEssentials plugin) {
         super(plugin);
-        this.group = plugin.getGroup();
-        this.user = plugin.getUser();
         this.groupParent = group.getParent();
         this.groupPermission = group.getPermission();
         this.userPermission = user.getPermission();
@@ -62,7 +56,7 @@ public final class PermissionSubCommand extends PermissionUtil {
             return -3;
         }
 
-        sendMessage(source, "<#999999>Permissions of <#00cc88>%s</#00cc88>:", name);
+        sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", permissions.size() == 1 ? "Permission" : "Permissions", name);
         String clickMessage = isUser ? "/permission user " + name + " permission remove " : "/permission group " + name + " permission remove ";
         for (String permission : permissions) {
             String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
@@ -100,7 +94,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                         return -3;
                     }
 
-                    sendMessage(source, "<#999999>Permissions of <#00cc88>%s</#00cc88>:", name);
+                    sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", permissions.size() == 1 ? "Permission" : "Permissions", name);
                     for (String permission : permissions) {
                         String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
                         String expiredMessage = expiredDate == null ? "" : "<#999999>- Expired date: <#00cc88>" + expiredDate;
@@ -404,7 +398,7 @@ public final class PermissionSubCommand extends PermissionUtil {
     private boolean isPermissionNotExist(CommandSource source, boolean isUser, int id, String permission) {
         boolean exist = isUser ? userPermission.existsPermission(id, permission) : groupPermission.existsPermission(id, permission);
         if (!exist) {
-            sendMessage(source, "<#990099>Permission <#999900>%s</#999900> does not exist.", permission);
+            sendMessage(source, "<#990000>Permission <#999900>%s</#999900> does not exist.", permission);
             return true;
         } else return false;
     }
