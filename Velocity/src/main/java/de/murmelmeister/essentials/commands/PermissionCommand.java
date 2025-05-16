@@ -12,6 +12,7 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.commands.subcommand.GroupEditSubCommand;
+import de.murmelmeister.essentials.commands.subcommand.ParentSubCommand;
 import de.murmelmeister.essentials.commands.subcommand.PermissionSubCommand;
 import de.murmelmeister.essentials.utils.PermissionUtil;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
@@ -28,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 public final class PermissionCommand extends PermissionUtil {
     private final GroupColor groupColor;
     private final GroupEditSubCommand groupEditSub;
+    private final ParentSubCommand parentSub;
     private final PermissionSubCommand permissionSub;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
@@ -35,6 +37,7 @@ public final class PermissionCommand extends PermissionUtil {
         super(plugin);
         this.groupColor = plugin.getGroup().getColor();
         this.groupEditSub = new GroupEditSubCommand(plugin);
+        this.parentSub = new ParentSubCommand(plugin);
         this.permissionSub = new PermissionSubCommand(plugin);
     }
 
@@ -355,12 +358,12 @@ public final class PermissionCommand extends PermissionUtil {
     private LiteralArgumentBuilder<CommandSource> getGroupParentCommand() {
         // -/permission group <groupName> parent ...
         return BrigadierCommand.literalArgumentBuilder("parent")
-                .executes(context -> {
-                    sendMessage(context.getSource(), syntaxParent(false));
-                    return Command.SINGLE_SUCCESS;
-                })
-                // TODO: Implement group parent logic
-                ;
+                .executes(context -> parentSub.getParents(context, false))
+                .then(parentSub.getParentAdd(false))
+                .then(parentSub.getParentRemove(false))
+                .then(parentSub.getParentClear(false))
+                .then(parentSub.getParentInfo(false))
+                .then(parentSub.getParentTime(false));
     }
 
     private LiteralArgumentBuilder<CommandSource> getGroupPermissionCommand() {
@@ -437,12 +440,12 @@ public final class PermissionCommand extends PermissionUtil {
     private LiteralArgumentBuilder<CommandSource> getUserParentCommand() {
         // -/permission user <username> parent ...
         return BrigadierCommand.literalArgumentBuilder("parent")
-                .executes(context -> {
-                    sendMessage(context.getSource(), syntaxParent(true));
-                    return Command.SINGLE_SUCCESS;
-                })
-                // TODO: Implement user parent logic
-                ;
+                .executes(context -> parentSub.getParents(context, true))
+                .then(parentSub.getParentAdd(true))
+                .then(parentSub.getParentRemove(true))
+                .then(parentSub.getParentClear(true))
+                .then(parentSub.getParentInfo(true))
+                .then(parentSub.getParentTime(true));
     }
 
     private LiteralArgumentBuilder<CommandSource> getUserPermissionCommand() {
