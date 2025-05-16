@@ -9,6 +9,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.commands.PermissionCommand;
 import de.murmelmeister.essentials.commands.PlayTimeCommand;
+import de.murmelmeister.essentials.commands.RefreshCommand;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
 import de.murmelmeister.murmelapi.time.PlayTime;
@@ -42,6 +43,7 @@ public abstract class CommandManager implements CommandBrigadier {
         ProxyServer server = plugin.getServer();
         addCommand(server, new PlayTimeCommand(plugin));
         addCommand(server, new PermissionCommand(plugin));
+        addCommand(server, new RefreshCommand(plugin));
     }
 
     private static void addCommand(ProxyServer server, CommandManager manager) {
