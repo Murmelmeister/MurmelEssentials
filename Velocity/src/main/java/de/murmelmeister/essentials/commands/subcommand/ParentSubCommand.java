@@ -49,7 +49,7 @@ public final class ParentSubCommand extends PermissionUtil {
 
         List<Integer> parents = isUser ? userParent.getParentIds(id) : groupParent.getParentIds(id);
         if (parents.isEmpty()) {
-            sendMessage(source, "<#999900>%s <#990000>has no parent.", name);
+            sendMessage(source, "<#999900>%s <#990000>has no parents.", name);
             return -3;
         }
 
