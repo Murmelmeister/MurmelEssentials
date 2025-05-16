@@ -37,7 +37,6 @@ public final class Ranks {
     }
 
     public static void updatePlayers(MurmelEssentials instance, Server server) {
-        // TODO: If a refresh has been sent and the player then joins, he will receive the old data
         Group group = instance.getGroup();
         User user = instance.getUser();
 
@@ -50,7 +49,7 @@ public final class Ranks {
                 }
                 HAS_UPDATED.set(false);
             }
-        }, 10L, 2 * 20L);
+        }, 10L, 20L);
     }
 
     public static void setChatFormat(AsyncChatEvent event, Group group, User user) {
