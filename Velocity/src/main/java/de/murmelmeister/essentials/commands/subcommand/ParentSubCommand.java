@@ -280,10 +280,10 @@ public final class ParentSubCommand extends PermissionUtil {
                             int parentId = group.getId(parentName);
                             if (isParentNotExist(source, isUser, id, parentId)) return -4;
 
+                            String currentTime = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
                             long expiredTime = isUser ? (userParent.getExpiredAt(id, parentId) == null ? -1 : userParent.getExpiredAt(id, parentId).getTime())
                                     : (groupParent.getExpiredAt(id, parentId) == null ? -1 : groupParent.getExpiredAt(id, parentId).getTime());
                             String formatedTime = TimeUtil.formatTimeValue(expiredTime - System.currentTimeMillis());
-                            String currentTime = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
                             String expiredDate = isUser ? userParent.getExpiredDate(id, parentId) : groupParent.getExpiredDate(id, parentId);
                             String expiredMessage = expiredDate != null ? "<hover:show_text:'<#999999>Expired: <#00cc88>" + formatedTime +
                                                                           "<br><#999999>Current time: </#999999>" + currentTime + "'>" +
