@@ -16,6 +16,8 @@ import de.murmelmeister.murmelapi.group.parent.GroupParent;
 import de.murmelmeister.murmelapi.user.parent.UserParent;
 import de.murmelmeister.murmelapi.utils.StringUtil;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
+import de.murmelmeister.murmelapi.utils.update.RefreshType;
+import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.util.List;
@@ -96,6 +98,7 @@ public final class ParentSubCommand extends PermissionUtil {
                             int id = isUser ? getUserId(context.getSource(), name) : getGroupId(context.getSource(), name);
                             List<String> haveParents = isUser ? userParent.getParentNames(group, id) : groupParent.getParentNames(group, id);
                             group.getGroupNames().stream()
+                                    .filter(parent -> group.getId(parent) != id)
                                     .filter(parent -> !haveParents.contains(parent))
                                     .filter(parent -> StringUtil.startsWithIgnoreCase(parent, prefix))
                                     .forEach(parent -> builder.suggest(parent, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + parent))));
@@ -124,7 +127,7 @@ public final class ParentSubCommand extends PermissionUtil {
                             else row = groupParent.addParent(id, parentId, -1, executorId);
                             sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> added to <#999900>%s</#999900>.", parentName, name);
 
-                            // TODO: Add refresh
+                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
                             logging(isUser, executorId, id, "Add parent", "add " + parentName);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
@@ -171,7 +174,7 @@ public final class ParentSubCommand extends PermissionUtil {
                                     else row = groupParent.addParent(id, parentId, timeValue, executorId);
                                     sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> added to <#999900>%s</#999900> for <#009999>%s</#009999>.", parentName, name, time);
 
-                                    // TODO: Add refresh
+                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
                                     logging(isUser, executorId, id, "Add parent", "add " + parentName + " " + time);
                                     if (user.isDebugMode(executorId)) {
                                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
@@ -216,7 +219,7 @@ public final class ParentSubCommand extends PermissionUtil {
                             else row = groupParent.removeParent(id, parentId);
                             sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> removed from <#999900>%s</#999900>.", parentName, name);
 
-                            // TODO: Add refresh
+                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
                             logging(isUser, executorId, id, "Remove parent", "remove " + parentName);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
@@ -247,7 +250,7 @@ public final class ParentSubCommand extends PermissionUtil {
                     } else row = groupParent.clearParent(id);
                     sendMessage(source, "<#999999>All parents removed from <#999900>%s</#999900>.", name);
 
-                    // TODO: Add refresh
+                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
                     logging(isUser, executorId, id, "Clear parent", "clear");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
@@ -371,7 +374,7 @@ public final class ParentSubCommand extends PermissionUtil {
                                     else row = groupParent.setExpiredAt(id, parentId, timeValue, executorId);
                                     sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> time set to <#009999>%s</#009999>.", parentName, time);
 
-                                    // TODO: Add refresh
+                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
                                     logging(isUser, executorId, id, "Set expired date", "time " + parentName + " " + time);
                                     if (user.isDebugMode(executorId)) {
                                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
