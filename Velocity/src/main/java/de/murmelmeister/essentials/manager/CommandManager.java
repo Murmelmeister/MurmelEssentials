@@ -11,6 +11,9 @@ import de.murmelmeister.essentials.commands.PermissionCommand;
 import de.murmelmeister.essentials.commands.PlayTimeCommand;
 import de.murmelmeister.essentials.commands.RefreshCommand;
 import de.murmelmeister.essentials.commands.ShowTeamCommand;
+import de.murmelmeister.essentials.manager.command.CommandBrigadier;
+import de.murmelmeister.essentials.manager.command.CommandHandler;
+import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
 import de.murmelmeister.murmelapi.time.PlayTime;
@@ -23,6 +26,7 @@ import org.slf4j.Logger;
 import java.sql.Timestamp;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 public abstract class CommandManager implements CommandBrigadier {
@@ -146,5 +150,22 @@ public abstract class CommandManager implements CommandBrigadier {
     protected String formatTimeUntil(Timestamp timestamp) {
         long time = timestamp == null ? -1 : timestamp.getTime();
         return formatTimeUntil(time);
+    }
+
+    protected int runWithTiming(CommandContext<CommandSource> context, CommandHandler handler) {
+        long startTime = System.nanoTime();
+        CommandSource source = context.getSource();
+        int executorId = getExecutorId(source);
+        if (executorId == -2) return -1;
+
+        CommandResult result = handler.handle(source, executorId);
+
+        if (user.isDebugMode(executorId)) {
+            long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
+            sendDebugMessage(source, "<#999900>Command executed in %s ms", durationMs);
+            if (result.rowsAffected() != null)
+                sendDebugMessage(source, "<#999900>Rows affected: %s", result.rowsAffected());
+        }
+        return result.code();
     }
 }
