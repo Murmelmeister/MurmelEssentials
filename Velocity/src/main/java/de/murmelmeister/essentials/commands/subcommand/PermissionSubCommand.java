@@ -11,7 +11,6 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.utils.PermissionUtil;
-import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.group.parent.GroupParent;
 import de.murmelmeister.murmelapi.group.permission.GroupPermission;
 import de.murmelmeister.murmelapi.user.permission.UserPermission;
@@ -288,14 +287,9 @@ public final class PermissionSubCommand extends PermissionUtil {
                             String permission = StringArgumentType.getString(context, "permission");
                             if (isPermissionNotExist(source, isUser, id, permission)) return -3;
 
-                            String currentTime = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
-                            long expiredTime = isUser ? (userPermission.getExpiredAt(id, permission) == null ? -1 : userPermission.getExpiredAt(id, permission).getTime())
-                                    : (groupPermission.getExpiredAt(id, permission) == null ? -1 : groupPermission.getExpiredAt(id, permission).getTime());
-                            String formatedTime = TimeUtil.formatTimeValue(expiredTime - System.currentTimeMillis());
+                            Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
                             String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
-                            String expiredMessage = expiredDate != null ? "<hover:show_text:'<#999999>Expired: <#00cc88>" + formatedTime +
-                                                                          "<br><#999999>Current time: </#999999>" + currentTime + "'>" +
-                                                                          expiredDate + "</hover>" : "never";
+
                             int createdBy = isUser ? userPermission.getCreatedBy(id, permission) : groupPermission.getCreatedBy(id, permission);
                             String creatorName = user.getUsername(createdBy);
                             String createdDate = isUser ? userPermission.getCreatedDate(id, permission) : groupPermission.getCreatedDate(id, permission);
@@ -315,7 +309,9 @@ public final class PermissionSubCommand extends PermissionUtil {
                                     <#999999>Updated by: <#00cc88>%s (%s)
                                     <#999999>Updated date: <#00cc88>%s
                                     <#999999>Expired date: <#00cc88>%s"""
-                                    .formatted(nameType, name, typeId, id, permission, createdBy, creatorName, createdDate, updatedBy, updaterName, updatedDate, expiredMessage);
+                                    .formatted(nameType, name, typeId, id, permission,
+                                            createdBy, creatorName, createdDate,
+                                            updatedBy, updaterName, updatedDate, formatExpiredInfoMessage(expiredAt, expiredDate));
                             sendMessage(source, message);
 
                             logging(isUser, executorId, id, "info " + permission);
