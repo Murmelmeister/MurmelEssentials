@@ -94,7 +94,7 @@ public final class ParentSubCommand extends PermissionUtil {
                             int id = isUser ? getUserId(context.getSource(), name) : getGroupId(context.getSource(), name);
                             List<String> haveParents = isUser ? userParent.getParentNames(group, id) : groupParent.getParentNames(group, id);
                             group.getGroupNames().stream()
-                                    .filter(parent -> group.getId(parent) != id)
+                                    .filter(parent -> isUser || group.getId(parent) != id)
                                     .filter(parent -> !haveParents.contains(parent))
                                     .filter(parent -> StringUtil.startsWithIgnoreCase(parent, prefix))
                                     .forEach(parent -> builder.suggest(parent, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + parent))));
@@ -116,6 +116,11 @@ public final class ParentSubCommand extends PermissionUtil {
                             if (existParent) {
                                 sendMessage(source, "<#990000>%s <#999999>is already a parent of <#00cc88>%s</#00cc88>.", parentName, name);
                                 return -4;
+                            }
+
+                            if (!isUser && parentId == id) {
+                                sendMessage(source, "<#990000>You cannot add the group as a parent to itself.");
+                                return -5;
                             }
 
                             int row;
@@ -152,17 +157,22 @@ public final class ParentSubCommand extends PermissionUtil {
                                         return -4;
                                     }
 
+                                    if (!isUser && parentId == id) {
+                                        sendMessage(source, "<#990000>You cannot add the group as a parent to itself.");
+                                        return -5;
+                                    }
+
                                     String time = StringArgumentType.getString(context, "time");
                                     long timeValue = TimeUtil.formatTime(time);
 
                                     if (timeValue == -2) {
                                         sendMessage(source, "<#990000>No negative value allowed");
-                                        return -4;
+                                        return -6;
                                     }
 
                                     if (timeValue == -3) {
                                         sendMessage(source, "<#990000>Invalid time format");
-                                        return -5;
+                                        return -7;
                                     }
 
                                     int row;
@@ -190,7 +200,7 @@ public final class ParentSubCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
-                        .suggests((context, builder) -> getSuggestionParent(context, builder, isUser))
+                        .suggests((context, builder) -> getSuggestionParent(context, builder, isUser, false))
                         .executes(context -> {
                             long startTime = System.nanoTime();
                             CommandSource source = context.getSource();
@@ -264,7 +274,7 @@ public final class ParentSubCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
-                        .suggests((context, builder) -> getSuggestionParent(context, builder, isUser))
+                        .suggests((context, builder) -> getSuggestionParent(context, builder, isUser, true))
                         .executes(context -> {
                             long startTime = System.nanoTime();
                             CommandSource source = context.getSource();
@@ -326,7 +336,7 @@ public final class ParentSubCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
-                        .suggests((context, builder) -> getSuggestionParent(context, builder, isUser))
+                        .suggests((context, builder) -> getSuggestionParent(context, builder, isUser, false))
                         .executes(context -> {
                             sendMessage(context.getSource(), syntaxParent(isUser));
                             return Command.SINGLE_SUCCESS;
@@ -357,12 +367,12 @@ public final class ParentSubCommand extends PermissionUtil {
 
                                     if (timeValue == -2) {
                                         sendMessage(source, "<#990000>No negative value allowed");
-                                        return -4;
+                                        return -6;
                                     }
 
                                     if (timeValue == -3) {
                                         sendMessage(source, "<#990000>Invalid time format");
-                                        return -5;
+                                        return -7;
                                     }
 
                                     int row;
@@ -383,19 +393,20 @@ public final class ParentSubCommand extends PermissionUtil {
                 );
     }
 
-    private CompletableFuture<Suggestions> getSuggestionParent(CommandContext<CommandSource> context, SuggestionsBuilder builder, boolean isUser) {
+    private CompletableFuture<Suggestions> getSuggestionParent(CommandContext<CommandSource> context, SuggestionsBuilder builder, boolean isUser, boolean isDefaultAllowed) {
         String prefix = builder.getRemaining();
         String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
         int id = isUser ? getUserId(context.getSource(), name) : getGroupId(context.getSource(), name);
         List<String> parents = isUser ? userParent.getParentNames(group, id) : groupParent.getParentNames(group, id);
         parents.stream()
+                .filter(parent -> (!isUser || isDefaultAllowed) || !parent.equals("default"))
                 .filter(parent -> StringUtil.startsWithIgnoreCase(parent, prefix))
                 .forEach(parent -> builder.suggest(parent, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + parent))));
         return builder.buildFuture();
     }
 
     private boolean isParentNotExist(CommandSource source, boolean isUser, int id, int parentId) {
-        var exist = isUser ? userParent.existsParent(id, parentId) : groupParent.existsParent(id, parentId);
+        boolean exist = isUser ? userParent.existsParent(id, parentId) : groupParent.existsParent(id, parentId);
         if (!exist) {
             sendMessage(source, "<#990000>Parent <#999999>%s</#999999> does not exist.", parentId);
             return true;
