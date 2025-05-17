@@ -83,8 +83,7 @@ public final class ParentSubCommand extends PermissionUtil {
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
                         .suggests((context, builder) -> {
                             String prefix = builder.getRemaining();
-                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                            int id = isUser ? getUserId(context.getSource(), name) : getGroupId(context.getSource(), name);
+                            int id = getId(context, isUser);
                             List<String> haveParents = isUser ? userParent.getParentNames(group, id) : groupParent.getParentNames(group, id);
                             group.getGroupNames().stream()
                                     .filter(parent -> isUser || group.getId(parent) != id)
@@ -343,14 +342,18 @@ public final class ParentSubCommand extends PermissionUtil {
 
     private CompletableFuture<Suggestions> getSuggestionParent(CommandContext<CommandSource> context, SuggestionsBuilder builder, boolean isUser, boolean isDefaultAllowed) {
         String prefix = builder.getRemaining();
-        String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-        int id = isUser ? getUserId(context.getSource(), name) : getGroupId(context.getSource(), name);
+        int id = getId(context, isUser);
         List<String> parents = isUser ? userParent.getParentNames(group, id) : groupParent.getParentNames(group, id);
         parents.stream()
                 .filter(parent -> (!isUser || isDefaultAllowed) || !parent.equals("default"))
                 .filter(parent -> StringUtil.startsWithIgnoreCase(parent, prefix))
                 .forEach(parent -> builder.suggest(parent, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + parent))));
         return builder.buildFuture();
+    }
+
+    private int getId(CommandContext<CommandSource> context, boolean isUser) {
+        String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+        return isUser ? getUserId(context.getSource(), name) : getGroupId(context.getSource(), name);
     }
 
     private boolean isParentNotExist(CommandSource source, boolean isUser, int id, int parentId) {
