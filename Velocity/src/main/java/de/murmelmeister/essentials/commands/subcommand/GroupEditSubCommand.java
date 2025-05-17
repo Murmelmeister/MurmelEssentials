@@ -6,12 +6,12 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
+import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.essentials.utils.PermissionUtil;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
 import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,109 +51,95 @@ public final class GroupEditSubCommand extends PermissionUtil {
                 : loggingCommand + nameSuffix;
 
         return BrigadierCommand.literalArgumentBuilder(literalName)
-                .executes(context -> {
-                    long startTime = System.nanoTime();
-                    CommandSource source = context.getSource();
-
-                    int executorId = getExecutorId(source);
-                    String groupName = StringArgumentType.getString(context, "groupName");
-                    int groupId = getGroupId(source, groupName);
-                    if (executorId == -2 || groupId == 0) return -1;
-
-                    if (!color.existsGroup(groupId)) {
-                        sendMessage(source, "<#990000>Group does not exist.");
-                        return -2;
-                    }
-
-                    String value = colorType == null ? null : switch (colorType) {
-                        case PREFIX -> color.getPrefix(groupId, groupType);
-                        case SUFFIX -> color.getSuffix(groupId, groupType);
-                        case COLOR -> color.getColor(groupId, groupType);
-                        case CHAT_MESSAGE -> color.getMessage(groupId);
-                        case TEAM_ID -> group.getTeamSort(groupId);
-                        case PRIORITY -> String.valueOf(group.getPriority(groupId));
-                    };
-
-                    if (value == null) {
-                        sendMessage(source, "<#990000>%s is not set.", formatLiteralName);
-                        return -3;
-                    }
-
-                    sendMessage(source, "<#999999>%s of <#cc8800>%s</#cc8800>: <#00cc88>%s", formatLiteralName, groupName, value);
-                    logging(executorId, groupId, loggingCommand + " " + literalName);
-
-                    if (user.isDebugMode(executorId)) {
-                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                        sendMessage(source, "<#999900>Command executed in %s ms", durationMs);
-                    }
-                    return Command.SINGLE_SUCCESS;
-                })
-                .then(BrigadierCommand.requiredArgumentBuilder("value", StringArgumentType.string())
-                        .executes(context -> {
-                            long startTime = System.nanoTime();
-                            CommandSource source = context.getSource();
-
-                            int executorId = getExecutorId(source);
+                .executes(context ->
+                        runWithTiming(context, (source, executorId) -> {
                             String groupName = StringArgumentType.getString(context, "groupName");
                             int groupId = getGroupId(source, groupName);
-                            if (executorId == -2 || groupId == 0) return -1;
+                            if (groupId == 0) return CommandResult.of(-2);
 
                             if (!color.existsGroup(groupId)) {
                                 sendMessage(source, "<#990000>Group does not exist.");
-                                return -2;
+                                return CommandResult.of(-3);
                             }
 
-                            if (colorType == null) {
-                                sendMessage(source, "<#990000>Invalid color type.");
-                                return -3;
-                            }
-
-                            String value = StringArgumentType.getString(context, "value");
-                            int row = switch (colorType) {
-                                case PREFIX -> color.setPrefix(groupId, groupType, value, executorId);
-                                case SUFFIX -> color.setSuffix(groupId, groupType, value, executorId);
-                                case COLOR -> color.setColor(groupId, groupType, value, executorId);
-                                case CHAT_MESSAGE -> color.setMessage(groupId, value, executorId);
-                                case TEAM_ID -> {
-                                    Matcher teamIdMatcher = teamIdPattern.matcher(value);
-
-                                    if (!teamIdMatcher.matches()) {
-                                        sendMessage(source, "<#990000>Invalid team ID.");
-                                        yield -4;
-                                    }
-
-                                    String teamId = value + groupName;
-                                    yield group.setTeamSort(groupId, teamId, executorId);
-                                }
-                                case PRIORITY -> {
-                                    try {
-                                        int priority = Integer.parseInt(value);
-
-                                        if (priority < 0) {
-                                            sendMessage(source, "<#990000>Priority must be a positive number.");
-                                            yield -4;
-                                        }
-
-                                        yield group.setPriority(groupId, priority, executorId);
-                                    } catch (NumberFormatException e) {
-                                        sendMessage(source, "<#990000>Invalid priority value.");
-                                        yield -4;
-                                    }
-                                }
+                            String value = colorType == null ? null : switch (colorType) {
+                                case PREFIX -> color.getPrefix(groupId, groupType);
+                                case SUFFIX -> color.getSuffix(groupId, groupType);
+                                case COLOR -> color.getColor(groupId, groupType);
+                                case CHAT_MESSAGE -> color.getMessage(groupId);
+                                case TEAM_ID -> group.getTeamSort(groupId);
+                                case PRIORITY -> String.valueOf(group.getPriority(groupId));
                             };
 
-                            if (row == -4) return -4;
-                            sendMessage(source, "<#999999>%s of <#cc8800>%s</#cc8800> is now set to <#00cc88>%s", formatLiteralName, groupName, value);
-                            logging(executorId, groupId, loggingCommand + " " + literalName + " " + value);
-                            RefreshUtil.markAsRefreshed("global"); // TODO: changing the right cache name
-
-                            if (user.isDebugMode(executorId)) {
-                                long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                sendDebugMessage(source, "Command executed in %s ms", durationMs);
-                                sendDebugMessage(source, "Row affected: %s", row);
+                            if (value == null) {
+                                sendMessage(source, "<#990000>%s is not set.", formatLiteralName);
+                                return CommandResult.of(-4);
                             }
-                            return Command.SINGLE_SUCCESS;
+
+                            sendMessage(source, "<#999999>%s of <#cc8800>%s</#cc8800>: <#00cc88>%s", formatLiteralName, groupName, value);
+                            logging(executorId, groupId, loggingCommand + " " + literalName);
+                            return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
+                )
+                .then(BrigadierCommand.requiredArgumentBuilder("value", StringArgumentType.string())
+                        .executes(context ->
+                                runWithTiming(context, (source, executorId) -> {
+                                    String groupName = StringArgumentType.getString(context, "groupName");
+                                    int groupId = getGroupId(source, groupName);
+                                    if (groupId == 0) return CommandResult.of(-2);
+
+                                    if (!color.existsGroup(groupId)) {
+                                        sendMessage(source, "<#990000>Group does not exist.");
+                                        return CommandResult.of(-3);
+                                    }
+
+                                    if (colorType == null) {
+                                        sendMessage(source, "<#990000>Invalid color type.");
+                                        return CommandResult.of(-4);
+                                    }
+
+                                    String value = StringArgumentType.getString(context, "value");
+                                    int row = switch (colorType) {
+                                        case PREFIX -> color.setPrefix(groupId, groupType, value, executorId);
+                                        case SUFFIX -> color.setSuffix(groupId, groupType, value, executorId);
+                                        case COLOR -> color.setColor(groupId, groupType, value, executorId);
+                                        case CHAT_MESSAGE -> color.setMessage(groupId, value, executorId);
+                                        case TEAM_ID -> {
+                                            Matcher teamIdMatcher = teamIdPattern.matcher(value);
+
+                                            if (!teamIdMatcher.matches()) {
+                                                sendMessage(source, "<#990000>Invalid team ID.");
+                                                yield -5;
+                                            }
+
+                                            String teamId = value + groupName;
+                                            yield group.setTeamSort(groupId, teamId, executorId);
+                                        }
+                                        case PRIORITY -> {
+                                            try {
+                                                int priority = Integer.parseInt(value);
+
+                                                if (priority < 0) {
+                                                    sendMessage(source, "<#990000>Priority must be a positive number.");
+                                                    yield -5;
+                                                }
+
+                                                yield group.setPriority(groupId, priority, executorId);
+                                            } catch (NumberFormatException e) {
+                                                sendMessage(source, "<#990000>Invalid priority value.");
+                                                yield -5;
+                                            }
+                                        }
+                                    };
+
+                                    if (row == -5) return CommandResult.of(-5);
+                                    sendMessage(source, "<#999999>%s of <#cc8800>%s</#cc8800> is now set to <#00cc88>%s", formatLiteralName, groupName, value);
+
+                                    RefreshUtil.markAsRefreshed("global"); // TODO: changing the right cache name
+                                    logging(executorId, groupId, loggingCommand + " " + literalName + " " + value);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                })
+                        )
                 );
     }
 
