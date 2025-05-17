@@ -18,11 +18,13 @@ import de.murmelmeister.essentials.utils.PermissionUtil;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
 import de.murmelmeister.murmelapi.utils.StringUtil;
+import de.murmelmeister.murmelapi.utils.update.RefreshType;
 import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -70,9 +72,13 @@ public final class PermissionCommand extends PermissionUtil {
                         return -1;
                     }
 
-                    sendMessage(source, "<#999999>Groups: ");
-                    for (String groupName : groupNames)
-                        sendMessage(source, "<#999999>- <#00cc88>%s", groupName); // TODO: Add click to clipboard? => -/permission group <groupName>
+                    sendMessage(source, "<#999999>%s: ", groupNames.size() == 1 ? "Group" : "Groups");
+                    groupNames.forEach(name -> {
+                        String clickMessage = "/permission group " + name + " info";
+                        sendMessage(source, "<#999999>- <#00cc88>" +
+                                            "<hover:show_text:'<#999999>Click to get <#00cc88>group information'>" +
+                                            "<click:suggest_command:'%s'>%s</click></hover>", clickMessage, name);
+                    });
 
                     int executorId = getExecutorId(source);
                     loggingToConsole(executorId, "Get all groups", "/permission groups");
@@ -257,9 +263,9 @@ public final class PermissionCommand extends PermissionUtil {
                                     int colorRow = 0;
                                     if (!groupColor.existsGroup(groupId))
                                         colorRow = groupColor.createGroup(groupId, executorId);
-                                    // TODO: Add refresh to update the cache
                                     sendMessage(source, "<#00cc88>Group %s was created.", groupName, row);
 
+                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
                                     loggingToConsole(false, executorId, groupId, "Created group", "/permission group " + groupName + " create " + priority + " " + teamId);
                                     if (user.isDebugMode(executorId)) {
                                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
@@ -294,10 +300,9 @@ public final class PermissionCommand extends PermissionUtil {
                               + group.getParent().clearOtherParent(groupId)
                               + user.getParent().clearOtherParent(groupId);
                     int finalRow = group.deleteGroup(groupId) + row;
-                    RefreshUtil.markAsRefreshed("permissions");
-                    // TODO: Add more refresh to update the cache
                     sendMessage(source, "<#00cc88>Group %s was deleted.", groupName);
 
+                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
                     int executorId = getExecutorId(source);
                     loggingToConsole(false, executorId, groupId, "Deleted group", "/permission group " + groupName + " delete");
                     if (user.isDebugMode(executorId)) {
@@ -341,9 +346,9 @@ public final class PermissionCommand extends PermissionUtil {
 
                             int row = group.rename(groupId, newName, executorId)
                                       + group.setTeamSort(groupId, teamSort.replace(groupName, newName), executorId);
-                            // TODO: Add refresh to update the cache
                             sendMessage(source, "<#00cc88>Group %s was renamed to %s.", groupName, newName);
 
+                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
                             loggingToConsole(false, executorId, groupId, "Renamed group", "/permission group " + groupName + " rename " + newName);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
@@ -404,9 +409,13 @@ public final class PermissionCommand extends PermissionUtil {
                         return -1;
                     }
 
-                    sendMessage(source, "<#999999>Users: ");
-                    for (String username : usernames)
-                        sendMessage(source, "<#999999>- <#00cc88>%s", username); // TODO: Add click to clipboard? => -/permission user <username>
+                    sendMessage(source, "<#999999>%s: ", usernames.size() == 1 ? "User" : "Users");
+                    usernames.forEach(username -> {
+                        String clickMessage = "/permission user " + username + " info";
+                        sendMessage(source, "<#999999>- <#00cc88>" +
+                                            "<hover:show_text:'<#999999>Click to get <#00cc88>user information'>" +
+                                            "<click:suggest_command:'%s'>%s</click></hover>", clickMessage, username);
+                    });
 
                     int executorId = getExecutorId(source);
                     loggingToConsole(executorId, "Get all users", "/permission users");
@@ -431,10 +440,48 @@ public final class PermissionCommand extends PermissionUtil {
                             sendMessage(context.getSource(), syntaxUser());
                             return Command.SINGLE_SUCCESS;
                         })
-                        // TODO: Implement user info command logic
+                        .then(getUserInfoCommand())
                         .then(getUserParentCommand())
                         .then(getUserPermissionCommand())
                 );
+    }
+
+    private LiteralArgumentBuilder<CommandSource> getUserInfoCommand() {
+        // -/permission user <username> info
+        return BrigadierCommand.literalArgumentBuilder("info")
+                .executes(context -> {
+                    long startTime = System.nanoTime();
+                    CommandSource source = context.getSource();
+                    int executorId = getExecutorId(source);
+                    if (executorId == -2) return -1;
+
+                    String username = StringArgumentType.getString(context, "username");
+                    int userId = getUserId(source, username);
+                    if (userId == -2) return -2;
+
+                    UUID mojangId = user.getUniqueId(userId);
+                    String firstJoinDate = user.getFirstJoinDate(userId);
+                    String isDebugUser = user.isDebugUser(userId) ? "<#00cc88>Yes" : "<#990000>No";
+                    String isDebugMode = user.isDebugActive(userId) ? "<#00cc88>Yes" : "<#990000>No";
+
+                    String message = """
+                            <#999999>===- User information:
+                            <#999999>Username: <#00cc88>%s
+                            <#999999>User ID: <#00cc88>%s
+                            <#999999>Mojang ID: <#00cc88>%s
+                            <#999999>First join: <#00cc88>%s
+                            <#999999>Debug user: <#00cc88>%s
+                            <#999999>Debug mode: <#00cc88>%s"""
+                            .formatted(username, userId, mojangId.toString(), firstJoinDate, isDebugUser, isDebugMode);
+                    sendMessage(source, message);
+
+                    loggingToConsole(executorId, "Get user information", "/permission user " + username + " info");
+                    if (user.isDebugMode(executorId)) {
+                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
+                        sendDebugMessage(source, "<#999900>User info command executed in %s ms", durationMs);
+                    }
+                    return Command.SINGLE_SUCCESS;
+                });
     }
 
     private LiteralArgumentBuilder<CommandSource> getUserParentCommand() {
