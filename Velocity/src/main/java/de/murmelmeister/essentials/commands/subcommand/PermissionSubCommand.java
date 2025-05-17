@@ -70,7 +70,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                     permission, formatExpiredMessage(expiredAt, expiredDate));
         });
 
-        logging(isUser, executorId, id, "Get permissions", "");
+        logging(isUser, executorId, id, "");
         if (user.isDebugMode(executorId)) {
             long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
             sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
@@ -103,7 +103,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                         sendMessage(source, "<#999999>- <#999900>%s %s", permission, formatExpiredMessage(expiredAt, expiredDate));
                     });
 
-                    logging(isUser, executorId, id, "Get all permissions", "");
+                    logging(isUser, executorId, id, "");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
@@ -142,7 +142,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                             sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now added to <#990099>%s</#990099>.", permission, name);
 
                             RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                            logging(isUser, executorId, id, "Add permission", "add " + permission);
+                            logging(isUser, executorId, id, "add " + permission);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                 sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
@@ -189,7 +189,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                                     sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now added to <#990099>%s</#990099> for <#009999>%s</#009999>.", permission, name, time);
 
                                     RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "Add permission", "add " + permission + " " + time);
+                                    logging(isUser, executorId, id, "add " + permission + " " + time);
                                     if (user.isDebugMode(executorId)) {
                                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                         sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
@@ -228,7 +228,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                             sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now removed from <#990099>%s</#990099>.", permission, name);
 
                             RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                            logging(isUser, executorId, id, "Remove permission", "remove " + permission);
+                            logging(isUser, executorId, id, "remove " + permission);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                 sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
@@ -257,7 +257,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                     sendMessage(source, "<#999999>All permissions are now removed from <#990099>%s</#990099>.", name);
 
                     RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                    logging(isUser, executorId, id, "Clear permissions", "clear");
+                    logging(isUser, executorId, id, "clear");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
@@ -318,7 +318,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                                     .formatted(nameType, name, typeId, id, permission, createdBy, creatorName, createdDate, updatedBy, updaterName, updatedDate, expiredMessage);
                             sendMessage(source, message);
 
-                            logging(isUser, executorId, id, "Get permission info", "info " + permission);
+                            logging(isUser, executorId, id, "info " + permission);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                 sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
@@ -375,7 +375,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                                     sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now set to <#009999>%s</#009999>.", permission, time);
 
                                     RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "Set expired date", "time " + permission + " " + time);
+                                    logging(isUser, executorId, id, "time " + permission + " " + time);
                                     if (user.isDebugMode(executorId)) {
                                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                         sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
@@ -412,8 +412,8 @@ public final class PermissionSubCommand extends PermissionUtil {
         } else return false;
     }
 
-    private void logging(boolean isUser, int executorId, int id, String doing, String fullCommand) {
+    private void logging(boolean isUser, int executorId, int id, String fullCommand) {
         String command = isUser ? "/permission user " + user.getUsername(id) + " permission " : "/permission group " + group.getGroupName(id) + " permission ";
-        loggingToConsole(isUser, executorId, id, doing, command + fullCommand);
+        loggingToConsole(isUser, executorId, id, command + fullCommand);
     }
 }

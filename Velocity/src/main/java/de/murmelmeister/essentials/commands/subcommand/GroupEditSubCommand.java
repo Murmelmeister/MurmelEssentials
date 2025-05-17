@@ -80,8 +80,7 @@ public final class GroupEditSubCommand extends PermissionUtil {
                     }
 
                     sendMessage(source, "<#999999>%s of <#cc8800>%s</#cc8800>: <#00cc88>%s", formatLiteralName, groupName, value);
-                    logging(executorId, groupId, "Get the " + loggingCommand + " " + literalName + " of the group",
-                            loggingCommand + " " + literalName);
+                    logging(executorId, groupId, loggingCommand + " " + literalName);
 
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
@@ -145,8 +144,7 @@ public final class GroupEditSubCommand extends PermissionUtil {
 
                             if (row == -4) return -4;
                             sendMessage(source, "<#999999>%s of <#cc8800>%s</#cc8800> is now set to <#00cc88>%s", formatLiteralName, groupName, value);
-                            logging(executorId, groupId, "Set the " + loggingCommand + " " + literalName + " of the group",
-                                    loggingCommand + " " + literalName + " " + value);
+                            logging(executorId, groupId, loggingCommand + " " + literalName + " " + value);
                             RefreshUtil.markAsRefreshed("global"); // TODO: changing the right cache name
 
                             if (user.isDebugMode(executorId)) {
@@ -202,9 +200,9 @@ public final class GroupEditSubCommand extends PermissionUtil {
         return createGroupValueCommand(literalName, literalName, null);
     }
 
-    private void logging(int executorId, int groupId, String doing, String fullCommand) {
+    private void logging(int executorId, int groupId, String fullCommand) {
         String command = "/permission group " + group.getGroupName(groupId) + " edit ";
-        loggingToConsole(executorId, doing, command + fullCommand);
+        loggingToConsole(executorId, command + fullCommand);
     }
 
     private enum ColorType {

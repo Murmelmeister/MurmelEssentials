@@ -16,14 +16,13 @@ public abstract class PermissionUtil extends CommandManager {
         return isUser ? user.getUsername(id) : group.getGroupName(id);
     }
 
-    public void loggingToConsole(int executorId, String doing, String fullCommand) {
-        logger.info("Command: Permission - Executor: {} (ID: {}) - Doing: {} - Full command: {}",
-                user.getUsername(executorId), executorId, doing, fullCommand);
+    public void loggingToConsole(int executorId, String fullCommand) {
+        logger.info("Executor: {} (ID: {}) - Command: {}", user.getUsername(executorId), executorId, fullCommand);
     }
 
-    public void loggingToConsole(boolean isUser, int executorId, int id, String doing, String fullCommand) {
-        logger.info("Command: Permission - Executor: {} (ID: {}) - Target: {} ({}) (ID: {}) - Doing: {} - Full command: {}",
-                user.getUsername(executorId), executorId, getName(isUser, id), (isUser ? "User" : "Group"), id, doing, fullCommand);
+    public void loggingToConsole(boolean isUser, int executorId, int id, String fullCommand) {
+        logger.info("Executor: {} (ID: {}) - Target: {} ({}) (ID: {}) - Command: {}",
+                user.getUsername(executorId), executorId, getName(isUser, id), (isUser ? "User" : "Group"), id, fullCommand);
     }
 
     public int getGroupId(CommandSource source, String groupName) {

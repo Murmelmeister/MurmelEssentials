@@ -81,7 +81,7 @@ public final class PermissionCommand extends PermissionUtil {
                     });
 
                     int executorId = getExecutorId(source);
-                    loggingToConsole(executorId, "Get all groups", "/permission groups");
+                    loggingToConsole(executorId, "/permission groups");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendDebugMessage(source, "<#999900>Groups command executed in %s ms", durationMs);
@@ -222,7 +222,7 @@ public final class PermissionCommand extends PermissionUtil {
 
                     sendMessage(source, message);
 
-                    loggingToConsole(false, executorId, groupId, "Get group information", "/permission group " + groupName + " info");
+                    loggingToConsole(false, executorId, groupId, "/permission group " + groupName + " info");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendDebugMessage(source, "<#999900>Group info command executed in %s ms", durationMs);
@@ -266,7 +266,7 @@ public final class PermissionCommand extends PermissionUtil {
                                     sendMessage(source, "<#00cc88>Group %s was created.", groupName, row);
 
                                     RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    loggingToConsole(false, executorId, groupId, "Created group", "/permission group " + groupName + " create " + priority + " " + teamId);
+                                    loggingToConsole(false, executorId, groupId, "/permission group " + groupName + " create " + priority + " " + teamId);
                                     if (user.isDebugMode(executorId)) {
                                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                         sendDebugMessage(source, "<#999900>Group create command executed in %s ms", durationMs);
@@ -304,7 +304,7 @@ public final class PermissionCommand extends PermissionUtil {
 
                     RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
                     int executorId = getExecutorId(source);
-                    loggingToConsole(false, executorId, groupId, "Deleted group", "/permission group " + groupName + " delete");
+                    loggingToConsole(false, executorId, groupId, "/permission group " + groupName + " delete");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendDebugMessage(source, "<#999900>Group delete command executed in %s ms", durationMs);
@@ -349,7 +349,7 @@ public final class PermissionCommand extends PermissionUtil {
                             sendMessage(source, "<#00cc88>Group %s was renamed to %s.", groupName, newName);
 
                             RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                            loggingToConsole(false, executorId, groupId, "Renamed group", "/permission group " + groupName + " rename " + newName);
+                            loggingToConsole(false, executorId, groupId, "/permission group " + groupName + " rename " + newName);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                 sendDebugMessage(source, "<#999900>Group rename command executed in %s ms", durationMs);
@@ -418,7 +418,7 @@ public final class PermissionCommand extends PermissionUtil {
                     });
 
                     int executorId = getExecutorId(source);
-                    loggingToConsole(executorId, "Get all users", "/permission users");
+                    loggingToConsole(executorId, "/permission users");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendDebugMessage(source, "<#999900>Users command executed in %s ms", durationMs);
@@ -475,7 +475,7 @@ public final class PermissionCommand extends PermissionUtil {
                             .formatted(username, userId, mojangId.toString(), firstJoinDate, isDebugUser, isDebugMode);
                     sendMessage(source, message);
 
-                    loggingToConsole(executorId, "Get user information", "/permission user " + username + " info");
+                    loggingToConsole(executorId, "/permission user " + username + " info");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendDebugMessage(source, "<#999900>User info command executed in %s ms", durationMs);

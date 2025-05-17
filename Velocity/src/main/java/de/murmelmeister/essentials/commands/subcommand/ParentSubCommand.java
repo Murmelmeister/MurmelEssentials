@@ -73,7 +73,7 @@ public final class ParentSubCommand extends PermissionUtil {
                     parentName, clickMessage + parentName, parentName, formatExpiredMessage(expiredAt, expiredDate));
         });
 
-        logging(isUser, executorId, id, "Get parents", "");
+        logging(isUser, executorId, id, "");
         if (user.isDebugMode(executorId)) {
             long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
             sendDebugMessage(source, "<#999900>Parents command executed in %s ms", durationMs);
@@ -124,7 +124,7 @@ public final class ParentSubCommand extends PermissionUtil {
                             sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> added to <#999900>%s</#999900>.", parentName, name);
 
                             RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                            logging(isUser, executorId, id, "Add parent", "add " + parentName);
+                            logging(isUser, executorId, id, "add " + parentName);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                 sendDebugMessage(source, "<#999900>Parent add command executed in %s ms", durationMs);
@@ -171,7 +171,7 @@ public final class ParentSubCommand extends PermissionUtil {
                                     sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> added to <#999900>%s</#999900> for <#009999>%s</#009999>.", parentName, name, time);
 
                                     RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "Add parent", "add " + parentName + " " + time);
+                                    logging(isUser, executorId, id, "add " + parentName + " " + time);
                                     if (user.isDebugMode(executorId)) {
                                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                         sendDebugMessage(source, "<#999900>Parent add command executed in %s ms", durationMs);
@@ -216,7 +216,7 @@ public final class ParentSubCommand extends PermissionUtil {
                             sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> removed from <#999900>%s</#999900>.", parentName, name);
 
                             RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                            logging(isUser, executorId, id, "Remove parent", "remove " + parentName);
+                            logging(isUser, executorId, id, "remove " + parentName);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                 sendDebugMessage(source, "<#999900>Parent remove command executed in %s ms", durationMs);
@@ -247,7 +247,7 @@ public final class ParentSubCommand extends PermissionUtil {
                     sendMessage(source, "<#999999>All parents removed from <#999900>%s</#999900>.", name);
 
                     RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                    logging(isUser, executorId, id, "Clear parent", "clear");
+                    logging(isUser, executorId, id, "clear");
                     if (user.isDebugMode(executorId)) {
                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                         sendDebugMessage(source, "<#999900>Parent clear command executed in %s ms", durationMs);
@@ -309,7 +309,7 @@ public final class ParentSubCommand extends PermissionUtil {
                                     .formatted(nameType, name, typeId, id, parentName, createdBy, creatorName, createdDate, updatedBy, updaterName, updatedDate, expiredMessage);
                             sendMessage(source, message);
 
-                            logging(isUser, executorId, id, "Get parent info", "info " + parentName);
+                            logging(isUser, executorId, id, "info " + parentName);
                             if (user.isDebugMode(executorId)) {
                                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                 sendDebugMessage(source, "<#999900>Parent info command executed in %s ms", durationMs);
@@ -371,7 +371,7 @@ public final class ParentSubCommand extends PermissionUtil {
                                     sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> time set to <#009999>%s</#009999>.", parentName, time);
 
                                     RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "Set expired date", "time " + parentName + " " + time);
+                                    logging(isUser, executorId, id, "time " + parentName + " " + time);
                                     if (user.isDebugMode(executorId)) {
                                         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
                                         sendDebugMessage(source, "<#999900>Parent time command executed in %s ms", durationMs);
@@ -402,8 +402,8 @@ public final class ParentSubCommand extends PermissionUtil {
         } else return false;
     }
 
-    private void logging(boolean isUser, int executorId, int id, String doing, String fullCommand) {
+    private void logging(boolean isUser, int executorId, int id, String fullCommand) {
         String command = isUser ? "/permission user " + user.getUsername(id) + " parent " : "/permission group " + group.getGroupName(id) + " parent ";
-        loggingToConsole(isUser, executorId, id, doing, command + fullCommand);
+        loggingToConsole(isUser, executorId, id, command + fullCommand);
     }
 }
