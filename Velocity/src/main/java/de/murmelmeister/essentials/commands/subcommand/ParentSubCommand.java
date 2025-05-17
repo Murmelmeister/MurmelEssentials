@@ -10,6 +10,7 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.MurmelEssentials;
+import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.essentials.utils.PermissionUtil;
 import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.group.parent.GroupParent;
@@ -23,7 +24,6 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 public final class ParentSubCommand extends PermissionUtil {
     private final GroupParent groupParent;
@@ -41,44 +41,37 @@ public final class ParentSubCommand extends PermissionUtil {
     }
 
     public int getParents(CommandContext<CommandSource> context, boolean isUser) {
-        long startTime = System.nanoTime();
-        CommandSource source = context.getSource();
-        int executorId = getExecutorId(source);
-        if (executorId == -2) return -1;
+        return runWithTiming(context, (source, executorId) -> {
+            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+            if (id == -2) return CommandResult.of(-2);
 
-        String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-        int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-        if (id == -2) return -2;
-
-        List<Integer> parents = isUser ? userParent.getParentIds(id) : groupParent.getParentIds(id);
-        if (parents.isEmpty()) {
-            sendMessage(source, "<#999900>%s <#990000>has no parents.", name);
-            return -3;
-        }
-
-        sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", parents.size() == 1 ? "Parent" : "Parents", name);
-        String clickMessage = isUser ? "/permission user " + name + " parent remove " : "/permission group " + name + " parent remove ";
-        parents.forEach(parent -> {
-            String parentName = group.getGroupName(parent);
-            if (isUser && (parent == group.getId("default"))) {
-                sendMessage(source, "<#999999>- <#999900>%s", parentName);
-                return;
+            List<Integer> parents = isUser ? userParent.getParentIds(id) : groupParent.getParentIds(id);
+            if (parents.isEmpty()) {
+                sendMessage(source, "<#999900>%s <#990000>has no parents.", name);
+                return CommandResult.of(-3);
             }
 
-            Timestamp expiredAt = isUser ? userParent.getExpiredAt(id, parent) : groupParent.getExpiredAt(id, parent);
-            String expiredDate = isUser ? userParent.getExpiredDate(id, parent) : groupParent.getExpiredDate(id, parent);
-            sendMessage(source, "<#999999>- <#999900>" +
-                                "<hover:show_text:'<#990000>Click to remove <#999900>\"%s\"'>" +
-                                "<click:suggest_command:%s>%s</click></hover> %s",
-                    parentName, clickMessage + parentName, parentName, formatExpiredMessage(expiredAt, expiredDate));
-        });
+            sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", parents.size() == 1 ? "Parent" : "Parents", name);
+            String clickMessage = isUser ? "/permission user " + name + " parent remove " : "/permission group " + name + " parent remove ";
+            parents.forEach(parent -> {
+                String parentName = group.getGroupName(parent);
+                if (isUser && (parent == group.getId("default"))) {
+                    sendMessage(source, "<#999999>- <#999900>%s", parentName);
+                    return;
+                }
 
-        logging(isUser, executorId, id, "");
-        if (user.isDebugMode(executorId)) {
-            long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-            sendDebugMessage(source, "<#999900>Parents command executed in %s ms", durationMs);
-        }
-        return Command.SINGLE_SUCCESS;
+                Timestamp expiredAt = isUser ? userParent.getExpiredAt(id, parent) : groupParent.getExpiredAt(id, parent);
+                String expiredDate = isUser ? userParent.getExpiredDate(id, parent) : groupParent.getExpiredDate(id, parent);
+                sendMessage(source, "<#999999>- <#999900>" +
+                                    "<hover:show_text:'<#990000>Click to remove <#999900>\"%s\"'>" +
+                                    "<click:suggest_command:%s>%s</click></hover> %s",
+                        parentName, clickMessage + parentName, parentName, formatExpiredMessage(expiredAt, expiredDate));
+            });
+
+            logging(isUser, executorId, id, "");
+            return CommandResult.of(Command.SINGLE_SUCCESS);
+        });
     }
 
     public LiteralArgumentBuilder<CommandSource> getParentAdd(boolean isUser) {
@@ -100,95 +93,79 @@ public final class ParentSubCommand extends PermissionUtil {
                                     .forEach(parent -> builder.suggest(parent, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + parent))));
                             return builder.buildFuture();
                         })
-                        .executes(context -> {
-                            long startTime = System.nanoTime();
-                            CommandSource source = context.getSource();
-                            int executorId = getExecutorId(source);
-                            if (executorId == -2) return -1;
-
-                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                            if (id == -2) return -2;
-
-                            String parentName = StringArgumentType.getString(context, "parent");
-                            int parentId = group.getId(parentName);
-                            boolean existParent = isUser ? userParent.existsParent(id, parentId) : groupParent.existsParent(id, parentId);
-                            if (existParent) {
-                                sendMessage(source, "<#990000>%s <#999999>is already a parent of <#00cc88>%s</#00cc88>.", parentName, name);
-                                return -4;
-                            }
-
-                            if (!isUser && parentId == id) {
-                                sendMessage(source, "<#990000>You cannot add the group as a parent to itself.");
-                                return -5;
-                            }
-
-                            int row;
-                            if (isUser) row = userParent.addParent(id, parentId, -1, executorId);
-                            else row = groupParent.addParent(id, parentId, -1, executorId);
-                            sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> added to <#999900>%s</#999900>.", parentName, name);
-
-                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                            logging(isUser, executorId, id, "add " + parentName);
-                            if (user.isDebugMode(executorId)) {
-                                long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                sendDebugMessage(source, "<#999900>Parent add command executed in %s ms", durationMs);
-                                sendDebugMessage(source, "<#999900>Row: %s", row);
-                            }
-                            return Command.SINGLE_SUCCESS;
-                        })
-                        .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
-                                .suggests(this::getSuggestionTime)
-                                .executes(context -> {
-                                    long startTime = System.nanoTime();
-                                    CommandSource source = context.getSource();
-                                    int executorId = getExecutorId(source);
-                                    if (executorId == -2) return -1;
-
+                        .executes(context ->
+                                runWithTiming(context, (source, executorId) -> {
                                     String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
                                     int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                    if (id == -2) return -2;
+                                    if (id == -2) return CommandResult.of(-2);
 
                                     String parentName = StringArgumentType.getString(context, "parent");
                                     int parentId = group.getId(parentName);
                                     boolean existParent = isUser ? userParent.existsParent(id, parentId) : groupParent.existsParent(id, parentId);
                                     if (existParent) {
                                         sendMessage(source, "<#990000>%s <#999999>is already a parent of <#00cc88>%s</#00cc88>.", parentName, name);
-                                        return -4;
+                                        return CommandResult.of(-4);
                                     }
 
                                     if (!isUser && parentId == id) {
                                         sendMessage(source, "<#990000>You cannot add the group as a parent to itself.");
-                                        return -5;
-                                    }
-
-                                    String time = StringArgumentType.getString(context, "time");
-                                    long timeValue = TimeUtil.formatTime(time);
-
-                                    if (timeValue == -2) {
-                                        sendMessage(source, "<#990000>No negative value allowed");
-                                        return -6;
-                                    }
-
-                                    if (timeValue == -3) {
-                                        sendMessage(source, "<#990000>Invalid time format");
-                                        return -7;
+                                        return CommandResult.of(-5);
                                     }
 
                                     int row;
-                                    if (isUser) row = userParent.addParent(id, parentId, timeValue, executorId);
-                                    else row = groupParent.addParent(id, parentId, timeValue, executorId);
-                                    sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> added to <#999900>%s</#999900> for <#009999>%s</#009999>.", parentName, name, time);
+                                    if (isUser) row = userParent.addParent(id, parentId, -1, executorId);
+                                    else row = groupParent.addParent(id, parentId, -1, executorId);
+                                    sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> added to <#999900>%s</#999900>.", parentName, name);
 
                                     RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "add " + parentName + " " + time);
-                                    if (user.isDebugMode(executorId)) {
-                                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                        sendDebugMessage(source, "<#999900>Parent add command executed in %s ms", durationMs);
-                                        sendDebugMessage(source, "<#999900>Row: %s", row);
-                                    }
-                                    return Command.SINGLE_SUCCESS;
+                                    logging(isUser, executorId, id, "add " + parentName);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
                                 })
+                        )
+                        .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
+                                .suggests(this::getSuggestionTime)
+                                .executes(context ->
+                                        runWithTiming(context, (source, executorId) -> {
+                                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+                                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+                                            if (id == -2) return CommandResult.of(-2);
+
+                                            String parentName = StringArgumentType.getString(context, "parent");
+                                            int parentId = group.getId(parentName);
+                                            boolean existParent = isUser ? userParent.existsParent(id, parentId) : groupParent.existsParent(id, parentId);
+                                            if (existParent) {
+                                                sendMessage(source, "<#990000>%s <#999999>is already a parent of <#00cc88>%s</#00cc88>.", parentName, name);
+                                                return CommandResult.of(-3);
+                                            }
+
+                                            if (!isUser && parentId == id) {
+                                                sendMessage(source, "<#990000>You cannot add the group as a parent to itself.");
+                                                return CommandResult.of(-4);
+                                            }
+
+                                            String time = StringArgumentType.getString(context, "time");
+                                            long timeValue = TimeUtil.formatTime(time);
+
+                                            if (timeValue == -2) {
+                                                sendMessage(source, "<#990000>No negative value allowed");
+                                                return CommandResult.of(-5);
+                                            }
+
+                                            if (timeValue == -3) {
+                                                sendMessage(source, "<#990000>Invalid time format");
+                                                return CommandResult.of(-6);
+                                            }
+
+                                            int row;
+                                            if (isUser) row = userParent.addParent(id, parentId, timeValue, executorId);
+                                            else row = groupParent.addParent(id, parentId, timeValue, executorId);
+                                            sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> added to <#999900>%s</#999900> for <#009999>%s</#009999>.", parentName, name, time);
+
+                                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
+                                            logging(isUser, executorId, id, "add " + parentName + " " + time);
+                                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                        })
+                                )
                         )
                 );
     }
@@ -201,70 +178,54 @@ public final class ParentSubCommand extends PermissionUtil {
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
                         .suggests((context, builder) -> getSuggestionParent(context, builder, isUser, false))
-                        .executes(context -> {
-                            long startTime = System.nanoTime();
-                            CommandSource source = context.getSource();
-                            int executorId = getExecutorId(source);
-                            if (executorId == -2) return -1;
+                        .executes(context ->
+                                runWithTiming(context, (source, executorId) -> {
+                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+                                    if (id == -2) return CommandResult.of(-2);
 
-                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                            if (id == -2) return -2;
+                                    String parentName = StringArgumentType.getString(context, "parent");
+                                    int parentId = group.getId(parentName);
+                                    if (isParentNotExist(source, isUser, id, parentId)) return CommandResult.of(-4);
 
-                            String parentName = StringArgumentType.getString(context, "parent");
-                            int parentId = group.getId(parentName);
-                            if (isParentNotExist(source, isUser, id, parentId)) return -4;
+                                    if (isUser && (parentId == group.getId("default"))) {
+                                        sendMessage(source, "<#990000>You cannot remove default parent.");
+                                        return CommandResult.of(-3);
+                                    }
 
-                            if (isUser && (parentId == group.getId("default"))) {
-                                sendMessage(source, "<#990000>You cannot remove default parent.");
-                                return -5;
-                            }
+                                    int row;
+                                    if (isUser) row = userParent.removeParent(id, parentId);
+                                    else row = groupParent.removeParent(id, parentId);
+                                    sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> removed from <#999900>%s</#999900>.", parentName, name);
 
-                            int row;
-                            if (isUser) row = userParent.removeParent(id, parentId);
-                            else row = groupParent.removeParent(id, parentId);
-                            sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> removed from <#999900>%s</#999900>.", parentName, name);
-
-                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                            logging(isUser, executorId, id, "remove " + parentName);
-                            if (user.isDebugMode(executorId)) {
-                                long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                sendDebugMessage(source, "<#999900>Parent remove command executed in %s ms", durationMs);
-                                sendDebugMessage(source, "<#999900>Row: %s", row);
-                            }
-                            return Command.SINGLE_SUCCESS;
-                        })
+                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
+                                    logging(isUser, executorId, id, "remove " + parentName);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                })
+                        )
                 );
     }
 
     public LiteralArgumentBuilder<CommandSource> getParentClear(boolean isUser) {
         return BrigadierCommand.literalArgumentBuilder("clear")
-                .executes(context -> {
-                    long startTime = System.nanoTime();
-                    CommandSource source = context.getSource();
-                    int executorId = getExecutorId(source);
-                    if (executorId == -2) return -1;
+                .executes(context ->
+                        runWithTiming(context, (source, executorId) -> {
+                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+                            if (id == -2) return CommandResult.of(-2);
 
-                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                    if (id == -2) return -2;
+                            int row;
+                            if (isUser) {
+                                row = userParent.clearParent(id) +
+                                      userParent.addParent(id, group.getId("default"), -1, executorId);
+                            } else row = groupParent.clearParent(id);
+                            sendMessage(source, "<#999999>All parents removed from <#999900>%s</#999900>.", name);
 
-                    int row;
-                    if (isUser) {
-                        row = userParent.clearParent(id) +
-                              userParent.addParent(id, group.getId("default"), -1, executorId);
-                    } else row = groupParent.clearParent(id);
-                    sendMessage(source, "<#999999>All parents removed from <#999900>%s</#999900>.", name);
-
-                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                    logging(isUser, executorId, id, "clear");
-                    if (user.isDebugMode(executorId)) {
-                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                        sendDebugMessage(source, "<#999900>Parent clear command executed in %s ms", durationMs);
-                        sendDebugMessage(source, "<#999900>Row: %s", row);
-                    }
-                    return Command.SINGLE_SUCCESS;
-                });
+                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
+                            logging(isUser, executorId, id, "clear");
+                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                        })
+                );
     }
 
     public LiteralArgumentBuilder<CommandSource> getParentInfo(boolean isUser) {
@@ -275,57 +236,50 @@ public final class ParentSubCommand extends PermissionUtil {
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
                         .suggests((context, builder) -> getSuggestionParent(context, builder, isUser, true))
-                        .executes(context -> {
-                            long startTime = System.nanoTime();
-                            CommandSource source = context.getSource();
-                            int executorId = getExecutorId(source);
-                            if (executorId == -2) return -1;
+                        .executes(context ->
+                                runWithTiming(context, (source, executorId) -> {
+                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+                                    if (id == -2) return CommandResult.of(-2);
 
-                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                            if (id == -2) return -2;
+                                    String parentName = StringArgumentType.getString(context, "parent");
+                                    int parentId = group.getId(parentName);
+                                    if (isParentNotExist(source, isUser, id, parentId)) return CommandResult.of(-3);
 
-                            String parentName = StringArgumentType.getString(context, "parent");
-                            int parentId = group.getId(parentName);
-                            if (isParentNotExist(source, isUser, id, parentId)) return -4;
+                                    String currentTime = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
+                                    long expiredTime = isUser ? (userParent.getExpiredAt(id, parentId) == null ? -1 : userParent.getExpiredAt(id, parentId).getTime())
+                                            : (groupParent.getExpiredAt(id, parentId) == null ? -1 : groupParent.getExpiredAt(id, parentId).getTime());
+                                    String formatedTime = TimeUtil.formatTimeValue(expiredTime - System.currentTimeMillis());
+                                    String expiredDate = isUser ? userParent.getExpiredDate(id, parentId) : groupParent.getExpiredDate(id, parentId);
+                                    String expiredMessage = expiredDate != null ? "<hover:show_text:'<#999999>Expired: <#00cc88>" + formatedTime +
+                                                                                  "<br><#999999>Current time: </#999999>" + currentTime + "'>" +
+                                                                                  expiredDate + "</hover>" : "never";
+                                    int createdBy = isUser ? userParent.getCreatedBy(id, parentId) : groupParent.getCreatedBy(id, parentId);
+                                    String creatorName = user.getUsername(createdBy);
+                                    String createdDate = isUser ? userParent.getCreatedDate(id, parentId) : groupParent.getCreatedDate(id, parentId);
+                                    int updatedBy = isUser ? userParent.getUpdatedBy(id, parentId) : groupParent.getUpdatedBy(id, parentId);
+                                    String updaterName = user.getUsername(updatedBy);
+                                    String updatedDate = isUser ? userParent.getUpdatedDate(id, parentId) : groupParent.getUpdatedDate(id, parentId);
+                                    String nameType = isUser ? "Username" : "Group Name";
+                                    String typeId = isUser ? "User ID" : "Group ID";
 
-                            String currentTime = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
-                            long expiredTime = isUser ? (userParent.getExpiredAt(id, parentId) == null ? -1 : userParent.getExpiredAt(id, parentId).getTime())
-                                    : (groupParent.getExpiredAt(id, parentId) == null ? -1 : groupParent.getExpiredAt(id, parentId).getTime());
-                            String formatedTime = TimeUtil.formatTimeValue(expiredTime - System.currentTimeMillis());
-                            String expiredDate = isUser ? userParent.getExpiredDate(id, parentId) : groupParent.getExpiredDate(id, parentId);
-                            String expiredMessage = expiredDate != null ? "<hover:show_text:'<#999999>Expired: <#00cc88>" + formatedTime +
-                                                                          "<br><#999999>Current time: </#999999>" + currentTime + "'>" +
-                                                                          expiredDate + "</hover>" : "never";
-                            int createdBy = isUser ? userParent.getCreatedBy(id, parentId) : groupParent.getCreatedBy(id, parentId);
-                            String creatorName = user.getUsername(createdBy);
-                            String createdDate = isUser ? userParent.getCreatedDate(id, parentId) : groupParent.getCreatedDate(id, parentId);
-                            int updatedBy = isUser ? userParent.getUpdatedBy(id, parentId) : groupParent.getUpdatedBy(id, parentId);
-                            String updaterName = user.getUsername(updatedBy);
-                            String updatedDate = isUser ? userParent.getUpdatedDate(id, parentId) : groupParent.getUpdatedDate(id, parentId);
-                            String nameType = isUser ? "Username" : "Group Name";
-                            String typeId = isUser ? "User ID" : "Group ID";
+                                    String message = """
+                                            <#999999>===- Parent info
+                                            <#999999>%s: <#00cc88>%s
+                                            <#999999>%s: <#00cc88>%s
+                                            <#999999>Parent: <#00cc88>%s
+                                            <#999999>Created by: <#00cc88>%s (%s)
+                                            <#999999>Created date: <#00cc88>%s
+                                            <#999999>Updated by: <#00cc88>%s (%s)
+                                            <#999999>Updated date: <#00cc88>%s
+                                            <#999999>Expired date: <#00cc88>%s"""
+                                            .formatted(nameType, name, typeId, id, parentName, createdBy, creatorName, createdDate, updatedBy, updaterName, updatedDate, expiredMessage);
+                                    sendMessage(source, message);
 
-                            String message = """
-                                    <#999999>===- Parent info
-                                    <#999999>%s: <#00cc88>%s
-                                    <#999999>%s: <#00cc88>%s
-                                    <#999999>Parent: <#00cc88>%s
-                                    <#999999>Created by: <#00cc88>%s (%s)
-                                    <#999999>Created date: <#00cc88>%s
-                                    <#999999>Updated by: <#00cc88>%s (%s)
-                                    <#999999>Updated date: <#00cc88>%s
-                                    <#999999>Expired date: <#00cc88>%s"""
-                                    .formatted(nameType, name, typeId, id, parentName, createdBy, creatorName, createdDate, updatedBy, updaterName, updatedDate, expiredMessage);
-                            sendMessage(source, message);
-
-                            logging(isUser, executorId, id, "info " + parentName);
-                            if (user.isDebugMode(executorId)) {
-                                long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                sendDebugMessage(source, "<#999900>Parent info command executed in %s ms", durationMs);
-                            }
-                            return Command.SINGLE_SUCCESS;
-                        })
+                                    logging(isUser, executorId, id, "info " + parentName);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
                 );
     }
 
@@ -343,52 +297,46 @@ public final class ParentSubCommand extends PermissionUtil {
                         })
                         .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
                                 .suggests(this::getSuggestionTime)
-                                .executes(context -> {
-                                    long startTime = System.nanoTime();
-                                    CommandSource source = context.getSource();
-                                    int executorId = getExecutorId(source);
-                                    if (executorId == -2) return -1;
+                                .executes(context ->
+                                        runWithTiming(context, (source, executorId) -> {
+                                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+                                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+                                            if (id == -2) return CommandResult.of(-2);
 
-                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                    if (id == -2) return -2;
+                                            String parentName = StringArgumentType.getString(context, "parent");
+                                            int parentId = group.getId(parentName);
+                                            if (isParentNotExist(source, isUser, id, parentId))
+                                                return CommandResult.of(-3);
 
-                                    String parentName = StringArgumentType.getString(context, "parent");
-                                    int parentId = group.getId(parentName);
-                                    if (isParentNotExist(source, isUser, id, parentId)) return -4;
+                                            if (isUser && (parentId == group.getId("default"))) {
+                                                sendMessage(source, "<#990000>You cannot set time for default parent.");
+                                                return CommandResult.of(-4);
+                                            }
 
-                                    if (isUser && (parentId == group.getId("default"))) {
-                                        sendMessage(source, "<#990000>You cannot set time for default parent.");
-                                        return -5;
-                                    }
+                                            String time = StringArgumentType.getString(context, "time");
+                                            long timeValue = TimeUtil.formatTime(time);
 
-                                    String time = StringArgumentType.getString(context, "time");
-                                    long timeValue = TimeUtil.formatTime(time);
+                                            if (timeValue == -2) {
+                                                sendMessage(source, "<#990000>No negative value allowed");
+                                                return CommandResult.of(-5);
+                                            }
 
-                                    if (timeValue == -2) {
-                                        sendMessage(source, "<#990000>No negative value allowed");
-                                        return -6;
-                                    }
+                                            if (timeValue == -3) {
+                                                sendMessage(source, "<#990000>Invalid time format");
+                                                return CommandResult.of(-6);
+                                            }
 
-                                    if (timeValue == -3) {
-                                        sendMessage(source, "<#990000>Invalid time format");
-                                        return -7;
-                                    }
+                                            int row;
+                                            if (isUser)
+                                                row = userParent.setExpiredAt(id, parentId, timeValue, executorId);
+                                            else row = groupParent.setExpiredAt(id, parentId, timeValue, executorId);
+                                            sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> time set to <#009999>%s</#009999>.", parentName, time);
 
-                                    int row;
-                                    if (isUser) row = userParent.setExpiredAt(id, parentId, timeValue, executorId);
-                                    else row = groupParent.setExpiredAt(id, parentId, timeValue, executorId);
-                                    sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> time set to <#009999>%s</#009999>.", parentName, time);
-
-                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "time " + parentName + " " + time);
-                                    if (user.isDebugMode(executorId)) {
-                                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                        sendDebugMessage(source, "<#999900>Parent time command executed in %s ms", durationMs);
-                                        sendDebugMessage(source, "<#999900>Row: %s", row);
-                                    }
-                                    return Command.SINGLE_SUCCESS;
-                                })
+                                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
+                                            logging(isUser, executorId, id, "time " + parentName + " " + time);
+                                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                        })
+                                )
                         )
                 );
     }
