@@ -10,14 +10,17 @@ import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.commands.PermissionCommand;
 import de.murmelmeister.essentials.commands.PlayTimeCommand;
 import de.murmelmeister.essentials.commands.RefreshCommand;
+import de.murmelmeister.essentials.commands.ShowTeamCommand;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
 import de.murmelmeister.murmelapi.time.PlayTime;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.utils.StringUtil;
+import de.murmelmeister.murmelapi.utils.TimeUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
+import java.sql.Timestamp;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -44,6 +47,7 @@ public abstract class CommandManager implements CommandBrigadier {
         addCommand(server, new PlayTimeCommand(plugin));
         addCommand(server, new PermissionCommand(plugin));
         addCommand(server, new RefreshCommand(plugin));
+        addCommand(server, new ShowTeamCommand(plugin));
     }
 
     private static void addCommand(ProxyServer server, CommandManager manager) {
@@ -122,5 +126,25 @@ public abstract class CommandManager implements CommandBrigadier {
                 .filter(s -> StringUtil.startsWithIgnoreCase(s, prefix))
                 .forEach(builder::suggest);
         return builder.buildFuture();
+    }
+
+    protected String formatTimeAgo(long agoTime) {
+        long difference = System.currentTimeMillis() - agoTime;
+        return TimeUtil.formatTimeValue(difference);
+    }
+
+    protected String formatTimeAgo(Timestamp timestamp) {
+        long time = timestamp == null ? -1 : timestamp.getTime();
+        return formatTimeAgo(time);
+    }
+
+    protected String formatTimeUntil(long futureTime) {
+        long difference = futureTime - System.currentTimeMillis();
+        return TimeUtil.formatTimeValue(difference);
+    }
+
+    protected String formatTimeUntil(Timestamp timestamp) {
+        long time = timestamp == null ? -1 : timestamp.getTime();
+        return formatTimeUntil(time);
     }
 }
