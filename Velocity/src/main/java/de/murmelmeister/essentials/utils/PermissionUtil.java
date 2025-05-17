@@ -3,6 +3,9 @@ package de.murmelmeister.essentials.utils;
 import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.murmelapi.MurmelAPI;
+
+import java.sql.Timestamp;
 
 public abstract class PermissionUtil extends CommandManager {
     public PermissionUtil(MurmelEssentials plugin) {
@@ -31,6 +34,14 @@ public abstract class PermissionUtil extends CommandManager {
     public int getUserId(CommandSource source, String username) {
         if (!existsUser(source, username)) return -2;
         return user.getId(username);
+    }
+
+    public String formatExpiredMessage(Timestamp expiredAt, String expiredDate) {
+        String currentTimeDate = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
+        String formattedTime = formatTimeUntil(expiredAt);
+        return expiredDate == null ? "" : "<#555555>(Expired: <#00cc88><hover:show_text:'<#999999>Expired: <#00cc88>" + formattedTime +
+                                          "<br><#999999>Current time: </#999999>" + currentTimeDate + "'>" +
+                                          expiredDate + "</hover></#00cc88>)";
     }
 
     public String syntax() {
