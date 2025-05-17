@@ -32,6 +32,8 @@ public final class MurmelEssentials {
     private MySQL mySQL;
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from("murmel:main");
 
+    public static final String TEAM_MEMBER_PERMISSION = "murmel.member.team";
+
     @Inject
     public MurmelEssentials(Logger logger, ProxyServer server) {
         this.logger = logger;
