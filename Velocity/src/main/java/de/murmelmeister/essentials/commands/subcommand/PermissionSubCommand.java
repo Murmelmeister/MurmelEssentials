@@ -10,6 +10,7 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.MurmelEssentials;
+import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.essentials.utils.PermissionUtil;
 import de.murmelmeister.murmelapi.group.parent.GroupParent;
 import de.murmelmeister.murmelapi.group.permission.GroupPermission;
@@ -22,7 +23,6 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 public final class PermissionSubCommand extends PermissionUtil {
     private final GroupParent groupParent;
@@ -42,73 +42,59 @@ public final class PermissionSubCommand extends PermissionUtil {
     }
 
     public int getPermissions(CommandContext<CommandSource> context, boolean isUser) {
-        long startTime = System.nanoTime();
-        CommandSource source = context.getSource();
-        int executorId = getExecutorId(source);
-        if (executorId == -2) return -1;
+        return runWithTiming(context, (source, executorId) -> {
+            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+            if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
 
-        String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-        int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-        if (isUser ? id == -2 : id == 0) return -2;
+            List<String> permissions = isUser ? userPermission.getPermissions(id) : groupPermission.getPermissions(id);
+            if (permissions.isEmpty()) {
+                sendMessage(source, "<#999900>%s <#990000>has no permissions.", name);
+                return CommandResult.of(-3);
+            }
 
-        List<String> permissions = isUser ? userPermission.getPermissions(id) : groupPermission.getPermissions(id);
-        if (permissions.isEmpty()) {
-            sendMessage(source, "<#999900>%s <#990000>has no permissions.", name);
-            return -3;
-        }
+            sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", permissions.size() == 1 ? "Permission" : "Permissions", name);
+            String clickMessage = isUser ? "/permission user " + name + " permission remove " : "/permission group " + name + " permission remove ";
+            permissions.forEach(permission -> {
+                Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
+                String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
+                sendMessage(source, "<#999999>- <#999900>" +
+                                    "<hover:show_text:'<#990000>Click to remove <#999900>\"%s\"'>" +
+                                    "<click:suggest_command:%s>%s</click></hover> %s",
+                        permission, clickMessage + (permission.equals("*") || permission.endsWith(".*") ? "\"" + permission + "\"" : permission),
+                        permission, formatExpiredMessage(expiredAt, expiredDate));
+            });
 
-        sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", permissions.size() == 1 ? "Permission" : "Permissions", name);
-        String clickMessage = isUser ? "/permission user " + name + " permission remove " : "/permission group " + name + " permission remove ";
-        permissions.forEach(permission -> {
-            Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
-            String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
-            sendMessage(source, "<#999999>- <#999900>" +
-                                "<hover:show_text:'<#990000>Click to remove <#999900>\"%s\"'>" +
-                                "<click:suggest_command:%s>%s</click></hover> %s",
-                    permission, clickMessage + (permission.equals("*") || permission.endsWith(".*") ? "\"" + permission + "\"" : permission),
-                    permission, formatExpiredMessage(expiredAt, expiredDate));
+            logging(isUser, executorId, id, "");
+            return CommandResult.of(Command.SINGLE_SUCCESS);
         });
-
-        logging(isUser, executorId, id, "");
-        if (user.isDebugMode(executorId)) {
-            long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-            sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
-        }
-        return Command.SINGLE_SUCCESS;
     }
 
     public LiteralArgumentBuilder<CommandSource> getPermissionAll(boolean isUser) {
         return BrigadierCommand.literalArgumentBuilder("all")
-                .executes(context -> {
-                    long startTime = System.nanoTime();
-                    CommandSource source = context.getSource();
-                    int executorId = getExecutorId(source);
-                    if (executorId == -2) return -1;
+                .executes(context ->
+                        runWithTiming(context, (source, executorId) -> {
+                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+                            if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
 
-                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                    if (isUser ? id == -2 : id == 0) return -2;
+                            List<String> permissions = isUser ? permission.getPermissions(id) : groupPermission.getAllPermissions(groupParent, id);
+                            if (permissions.isEmpty()) {
+                                sendMessage(source, "<#999900>%s <#990000>has no permissions.", name);
+                                return CommandResult.of(-3);
+                            }
 
-                    List<String> permissions = isUser ? permission.getPermissions(id) : groupPermission.getAllPermissions(groupParent, id);
-                    if (permissions.isEmpty()) {
-                        sendMessage(source, "<#999900>%s <#990000>has no permissions.", name);
-                        return -3;
-                    }
+                            sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", permissions.size() == 1 ? "Permission" : "Permissions", name);
+                            permissions.forEach(permission -> {
+                                Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
+                                String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
+                                sendMessage(source, "<#999999>- <#999900>%s %s", permission, formatExpiredMessage(expiredAt, expiredDate));
+                            });
 
-                    sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", permissions.size() == 1 ? "Permission" : "Permissions", name);
-                    permissions.forEach(permission -> {
-                        Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
-                        String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
-                        sendMessage(source, "<#999999>- <#999900>%s %s", permission, formatExpiredMessage(expiredAt, expiredDate));
-                    });
-
-                    logging(isUser, executorId, id, "");
-                    if (user.isDebugMode(executorId)) {
-                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                        sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
-                    }
-                    return Command.SINGLE_SUCCESS;
-                });
+                            logging(isUser, executorId, id, "");
+                            return CommandResult.of(Command.SINGLE_SUCCESS);
+                        })
+                );
     }
 
     public LiteralArgumentBuilder<CommandSource> getPermissionAdd(boolean isUser) {
@@ -118,84 +104,69 @@ public final class PermissionSubCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("permission", StringArgumentType.string())
-                        .executes(context -> {
-                            long startTime = System.nanoTime();
-                            CommandSource source = context.getSource();
-                            int executorId = getExecutorId(source);
-                            if (executorId == -2) return -1;
-
-                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                            if (isUser ? id == -2 : id == 0) return -2;
-
-                            String permission = StringArgumentType.getString(context, "permission");
-                            boolean exists = isUser ? userPermission.existsPermission(id, permission) : groupPermission.existsPermission(id, permission);
-                            if (exists) {
-                                sendMessage(source, "<#990000>Permission <#999900>%s</#999900> already exists.", permission);
-                                return -3;
-                            }
-
-                            int row;
-                            if (isUser) row = userPermission.addPermission(id, permission, -1, executorId);
-                            else row = groupPermission.addPermission(id, permission, -1, executorId);
-                            sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now added to <#990099>%s</#990099>.", permission, name);
-
-                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                            logging(isUser, executorId, id, "add " + permission);
-                            if (user.isDebugMode(executorId)) {
-                                long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
-                                sendDebugMessage(source, "<#999900>Rows: %s", row);
-                            }
-                            return Command.SINGLE_SUCCESS;
-                        })
-                        .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
-                                .suggests(this::getSuggestionTime)
-                                .executes(context -> {
-                                    long startTime = System.nanoTime();
-                                    CommandSource source = context.getSource();
-                                    int executorId = getExecutorId(source);
-                                    if (executorId == -2) return -1;
-
+                        .executes(context ->
+                                runWithTiming(context, (source, executorId) -> {
                                     String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
                                     int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                    if (isUser ? id == -2 : id == 0) return -2;
+                                    if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
 
                                     String permission = StringArgumentType.getString(context, "permission");
                                     boolean exists = isUser ? userPermission.existsPermission(id, permission) : groupPermission.existsPermission(id, permission);
                                     if (exists) {
                                         sendMessage(source, "<#990000>Permission <#999900>%s</#999900> already exists.", permission);
-                                        return -3;
-                                    }
-
-                                    String time = StringArgumentType.getString(context, "time");
-                                    long timeValue = TimeUtil.formatTime(time);
-
-                                    if (timeValue == -2) {
-                                        sendMessage(source, "<#990000>No negative value allowed");
-                                        return -4;
-                                    }
-
-                                    if (timeValue == -3) {
-                                        sendMessage(source, "<#990000>Invalid time format");
-                                        return -5;
+                                        return CommandResult.of(-3);
                                     }
 
                                     int row;
-                                    if (isUser)
-                                        row = userPermission.addPermission(id, permission, timeValue, executorId);
-                                    else row = groupPermission.addPermission(id, permission, timeValue, executorId);
-                                    sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now added to <#990099>%s</#990099> for <#009999>%s</#009999>.", permission, name, time);
+                                    if (isUser) row = userPermission.addPermission(id, permission, -1, executorId);
+                                    else row = groupPermission.addPermission(id, permission, -1, executorId);
+                                    sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now added to <#990099>%s</#990099>.", permission, name);
 
                                     RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "add " + permission + " " + time);
-                                    if (user.isDebugMode(executorId)) {
-                                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                        sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
-                                        sendDebugMessage(source, "<#999900>Rows: %s", row);
-                                    }
-                                    return Command.SINGLE_SUCCESS;
+                                    logging(isUser, executorId, id, "add " + permission);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
                                 })
+                        )
+                        .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
+                                .suggests(this::getSuggestionTime)
+                                .executes(context ->
+                                        runWithTiming(context, (source, executorId) -> {
+                                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+                                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+                                            if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
+
+                                            String permission = StringArgumentType.getString(context, "permission");
+                                            boolean exists = isUser ? userPermission.existsPermission(id, permission) : groupPermission.existsPermission(id, permission);
+                                            if (exists) {
+                                                sendMessage(source, "<#990000>Permission <#999900>%s</#999900> already exists.", permission);
+                                                return CommandResult.of(-3);
+                                            }
+
+                                            String time = StringArgumentType.getString(context, "time");
+                                            long timeValue = TimeUtil.formatTime(time);
+
+                                            if (timeValue == -2) {
+                                                sendMessage(source, "<#990000>No negative value allowed");
+                                                return CommandResult.of(-4);
+                                            }
+
+                                            if (timeValue == -3) {
+                                                sendMessage(source, "<#990000>Invalid time format");
+                                                return CommandResult.of(-5);
+                                            }
+
+                                            int row;
+                                            if (isUser)
+                                                row = userPermission.addPermission(id, permission, timeValue, executorId);
+                                            else
+                                                row = groupPermission.addPermission(id, permission, timeValue, executorId);
+                                            sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now added to <#990099>%s</#990099> for <#009999>%s</#009999>.", permission, name, time);
+
+                                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
+                                            logging(isUser, executorId, id, "add " + permission + " " + time);
+                                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                        })
+                                )
                         )
                 );
     }
@@ -208,62 +179,47 @@ public final class PermissionSubCommand extends PermissionUtil {
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("permission", StringArgumentType.string())
                         .suggests((context, builder) -> getSuggestionPermission(context, builder, isUser))
-                        .executes(context -> {
-                            long startTime = System.nanoTime();
-                            CommandSource source = context.getSource();
-                            int executorId = getExecutorId(source);
-                            if (executorId == -2) return -1;
+                        .executes(context ->
+                                runWithTiming(context, (source, executorId) -> {
+                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+                                    if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
 
-                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                            if (isUser ? id == -2 : id == 0) return -2;
+                                    String permission = StringArgumentType.getString(context, "permission");
+                                    if (isPermissionNotExist(source, isUser, id, permission))
+                                        return CommandResult.of(-3);
 
-                            String permission = StringArgumentType.getString(context, "permission");
-                            if (isPermissionNotExist(source, isUser, id, permission)) return -3;
+                                    int row;
+                                    if (isUser) row = userPermission.removePermission(id, permission);
+                                    else row = groupPermission.removePermission(id, permission);
+                                    sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now removed from <#990099>%s</#990099>.", permission, name);
 
-                            int row;
-                            if (isUser) row = userPermission.removePermission(id, permission);
-                            else row = groupPermission.removePermission(id, permission);
-                            sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now removed from <#990099>%s</#990099>.", permission, name);
-
-                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                            logging(isUser, executorId, id, "remove " + permission);
-                            if (user.isDebugMode(executorId)) {
-                                long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
-                                sendDebugMessage(source, "<#999900>Rows: %s", row);
-                            }
-                            return Command.SINGLE_SUCCESS;
-                        })
+                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
+                                    logging(isUser, executorId, id, "remove " + permission);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                })
+                        )
                 );
     }
 
     public LiteralArgumentBuilder<CommandSource> getPermissionClear(boolean isUser) {
         return BrigadierCommand.literalArgumentBuilder("clear")
-                .executes(context -> {
-                    long startTime = System.nanoTime();
-                    CommandSource source = context.getSource();
-                    int executorId = getExecutorId(source);
-                    if (executorId == -2) return -1;
+                .executes(context ->
+                        runWithTiming(context, (source, executorId) -> {
+                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+                            if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
 
-                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                    if (isUser ? id == -2 : id == 0) return -2;
+                            int row;
+                            if (isUser) row = userPermission.clearPermission(id);
+                            else row = groupPermission.clearPermission(id);
+                            sendMessage(source, "<#999999>All permissions are now removed from <#990099>%s</#990099>.", name);
 
-                    int row;
-                    if (isUser) row = userPermission.clearPermission(id);
-                    else row = groupPermission.clearPermission(id);
-                    sendMessage(source, "<#999999>All permissions are now removed from <#990099>%s</#990099>.", name);
-
-                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                    logging(isUser, executorId, id, "clear");
-                    if (user.isDebugMode(executorId)) {
-                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                        sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
-                        sendDebugMessage(source, "<#999900>Rows: %s", row);
-                    }
-                    return Command.SINGLE_SUCCESS;
-                });
+                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
+                            logging(isUser, executorId, id, "clear");
+                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                        })
+                );
     }
 
     public LiteralArgumentBuilder<CommandSource> getPermissionInfo(boolean isUser) {
@@ -274,53 +230,47 @@ public final class PermissionSubCommand extends PermissionUtil {
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("permission", StringArgumentType.string())
                         .suggests((context, builder) -> getSuggestionPermission(context, builder, isUser))
-                        .executes(context -> {
-                            long startTime = System.nanoTime();
-                            CommandSource source = context.getSource();
-                            int executorId = getExecutorId(source);
-                            if (executorId == -2) return -1;
+                        .executes(context ->
+                                runWithTiming(context, (source, executorId) -> {
+                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+                                    if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
 
-                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                            if (isUser ? id == -2 : id == 0) return -2;
+                                    String permission = StringArgumentType.getString(context, "permission");
+                                    if (isPermissionNotExist(source, isUser, id, permission))
+                                        return CommandResult.of(-3);
 
-                            String permission = StringArgumentType.getString(context, "permission");
-                            if (isPermissionNotExist(source, isUser, id, permission)) return -3;
+                                    Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
+                                    String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
 
-                            Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
-                            String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
+                                    int createdBy = isUser ? userPermission.getCreatedBy(id, permission) : groupPermission.getCreatedBy(id, permission);
+                                    String creatorName = user.getUsername(createdBy);
+                                    String createdDate = isUser ? userPermission.getCreatedDate(id, permission) : groupPermission.getCreatedDate(id, permission);
+                                    int updatedBy = isUser ? userPermission.getUpdatedBy(id, permission) : groupPermission.getUpdatedBy(id, permission);
+                                    String updaterName = user.getUsername(updatedBy);
+                                    String updatedDate = isUser ? userPermission.getUpdatedDate(id, permission) : groupPermission.getUpdatedDate(id, permission);
+                                    String nameType = isUser ? "Username" : "Group Name";
+                                    String typeId = isUser ? "User ID" : "Group ID";
 
-                            int createdBy = isUser ? userPermission.getCreatedBy(id, permission) : groupPermission.getCreatedBy(id, permission);
-                            String creatorName = user.getUsername(createdBy);
-                            String createdDate = isUser ? userPermission.getCreatedDate(id, permission) : groupPermission.getCreatedDate(id, permission);
-                            int updatedBy = isUser ? userPermission.getUpdatedBy(id, permission) : groupPermission.getUpdatedBy(id, permission);
-                            String updaterName = user.getUsername(updatedBy);
-                            String updatedDate = isUser ? userPermission.getUpdatedDate(id, permission) : groupPermission.getUpdatedDate(id, permission);
-                            String nameType = isUser ? "Username" : "Group Name";
-                            String typeId = isUser ? "User ID" : "Group ID";
+                                    String message = """
+                                            <#999999>===- Permission info
+                                            <#999999>%s: <#00cc88>%s
+                                            <#999999>%s: <#00cc88>%s
+                                            <#999999>Permission: <#00cc88>%s
+                                            <#999999>Created by: <#00cc88>%s (%s)
+                                            <#999999>Created date: <#00cc88>%s
+                                            <#999999>Updated by: <#00cc88>%s (%s)
+                                            <#999999>Updated date: <#00cc88>%s
+                                            <#999999>Expired date: <#00cc88>%s"""
+                                            .formatted(nameType, name, typeId, id, permission,
+                                                    createdBy, creatorName, createdDate,
+                                                    updatedBy, updaterName, updatedDate, formatExpiredInfoMessage(expiredAt, expiredDate));
+                                    sendMessage(source, message);
 
-                            String message = """
-                                    <#999999>===- Permission info
-                                    <#999999>%s: <#00cc88>%s
-                                    <#999999>%s: <#00cc88>%s
-                                    <#999999>Permission: <#00cc88>%s
-                                    <#999999>Created by: <#00cc88>%s (%s)
-                                    <#999999>Created date: <#00cc88>%s
-                                    <#999999>Updated by: <#00cc88>%s (%s)
-                                    <#999999>Updated date: <#00cc88>%s
-                                    <#999999>Expired date: <#00cc88>%s"""
-                                    .formatted(nameType, name, typeId, id, permission,
-                                            createdBy, creatorName, createdDate,
-                                            updatedBy, updaterName, updatedDate, formatExpiredInfoMessage(expiredAt, expiredDate));
-                            sendMessage(source, message);
-
-                            logging(isUser, executorId, id, "info " + permission);
-                            if (user.isDebugMode(executorId)) {
-                                long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
-                            }
-                            return Command.SINGLE_SUCCESS;
-                        })
+                                    logging(isUser, executorId, id, "info " + permission);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
                 );
     }
 
@@ -338,47 +288,41 @@ public final class PermissionSubCommand extends PermissionUtil {
                         })
                         .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
                                 .suggests(this::getSuggestionTime)
-                                .executes(context -> {
-                                    long startTime = System.nanoTime();
-                                    CommandSource source = context.getSource();
-                                    int executorId = getExecutorId(source);
-                                    if (executorId == -2) return -1;
+                                .executes(context ->
+                                        runWithTiming(context, (source, executorId) -> {
+                                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+                                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
+                                            if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
 
-                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                    if (isUser ? id == -2 : id == 0) return -2;
+                                            String permission = StringArgumentType.getString(context, "permission");
+                                            if (isPermissionNotExist(source, isUser, id, permission))
+                                                return CommandResult.of(-3);
 
-                                    String permission = StringArgumentType.getString(context, "permission");
-                                    if (isPermissionNotExist(source, isUser, id, permission)) return -3;
+                                            String time = StringArgumentType.getString(context, "time");
+                                            long timeValue = TimeUtil.formatTime(time);
 
-                                    String time = StringArgumentType.getString(context, "time");
-                                    long timeValue = TimeUtil.formatTime(time);
+                                            if (timeValue == -2) {
+                                                sendMessage(source, "<#990000>No negative value allowed");
+                                                return CommandResult.of(-4);
+                                            }
 
-                                    if (timeValue == -2) {
-                                        sendMessage(source, "<#990000>No negative value allowed");
-                                        return -4;
-                                    }
+                                            if (timeValue == -3) {
+                                                sendMessage(source, "<#990000>Invalid time format");
+                                                return CommandResult.of(-5);
+                                            }
 
-                                    if (timeValue == -3) {
-                                        sendMessage(source, "<#990000>Invalid time format");
-                                        return -5;
-                                    }
+                                            int row;
+                                            if (isUser)
+                                                row = userPermission.setExpiredAt(id, permission, timeValue, executorId);
+                                            else
+                                                row = groupPermission.setExpiredAt(id, permission, timeValue, executorId);
+                                            sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now set to <#009999>%s</#009999>.", permission, time);
 
-                                    int row;
-                                    if (isUser)
-                                        row = userPermission.setExpiredAt(id, permission, timeValue, executorId);
-                                    else row = groupPermission.setExpiredAt(id, permission, timeValue, executorId);
-                                    sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now set to <#009999>%s</#009999>.", permission, time);
-
-                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "time " + permission + " " + time);
-                                    if (user.isDebugMode(executorId)) {
-                                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                        sendDebugMessage(source, "<#999900>Permission command executed in %s ms", durationMs);
-                                        sendDebugMessage(source, "<#999900>Rows: %s", row);
-                                    }
-                                    return Command.SINGLE_SUCCESS;
-                                })
+                                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
+                                            logging(isUser, executorId, id, "time " + permission + " " + time);
+                                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                        })
+                                )
                         )
                 );
     }
