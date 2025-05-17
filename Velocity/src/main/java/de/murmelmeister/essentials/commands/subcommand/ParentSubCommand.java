@@ -20,6 +20,7 @@ import de.murmelmeister.murmelapi.utils.update.RefreshType;
 import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -64,11 +65,10 @@ public final class ParentSubCommand extends PermissionUtil {
                 return;
             }
             String currentTime = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
-            long expiredTime = isUser ? (userParent.getExpiredAt(id, parent) == null ? -1 : userParent.getExpiredAt(id, parent).getTime())
-                    : (groupParent.getExpiredAt(id, parent) == null ? -1 : groupParent.getExpiredAt(id, parent).getTime());
-            String formatedTime = TimeUtil.formatTimeValue(expiredTime - System.currentTimeMillis());
+            Timestamp expiredAt = isUser ? userParent.getExpiredAt(id, parent) : groupParent.getExpiredAt(id, parent);
+            String formattedTime = formatTimeUntil(expiredAt);
             String expiredDate = isUser ? userParent.getExpiredDate(id, parent) : groupParent.getExpiredDate(id, parent);
-            String expiredMessage = expiredDate != null ? "<#555555>(Expired: <#00cc88><hover:show_text:'<#999999>Expired: <#00cc88>" + formatedTime +
+            String expiredMessage = expiredDate != null ? "<#555555>(Expired: <#00cc88><hover:show_text:'<#999999>Expired: <#00cc88>" + formattedTime +
                                                           "<br><#999999>Current time: </#999999>" + currentTime + "'>" +
                                                           expiredDate + "</hover></#00cc88>)" : "";
             sendMessage(source, "<#999999>- <#999900>" +

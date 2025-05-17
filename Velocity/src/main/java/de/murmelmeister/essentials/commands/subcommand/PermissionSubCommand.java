@@ -20,6 +20,7 @@ import de.murmelmeister.murmelapi.utils.update.RefreshType;
 import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -61,11 +62,10 @@ public final class PermissionSubCommand extends PermissionUtil {
         String clickMessage = isUser ? "/permission user " + name + " permission remove " : "/permission group " + name + " permission remove ";
         permissions.forEach(permission -> {
             String currentTime = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
-            long expiredTime = isUser ? (userPermission.getExpiredAt(id, permission) == null ? -1 : userPermission.getExpiredAt(id, permission).getTime())
-                    : (groupPermission.getExpiredAt(id, permission) == null ? -1 : groupPermission.getExpiredAt(id, permission).getTime());
-            String formatedTime = TimeUtil.formatTimeValue(expiredTime - System.currentTimeMillis());
+            Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
+            String formattedTime = formatTimeUntil(expiredAt);
             String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
-            String expiredMessage = expiredDate != null ? "<#555555>(Expired: <#00cc88><hover:show_text:'<#999999>Expired: <#00cc88>" + formatedTime +
+            String expiredMessage = expiredDate != null ? "<#555555>(Expired: <#00cc88><hover:show_text:'<#999999>Expired: <#00cc88>" + formattedTime +
                                                           "<br><#999999>Current time: </#999999>" + currentTime + "'>" +
                                                           expiredDate + "</hover></#00cc88>)" : "";
             sendMessage(source, "<#999999>- <#999900>" +
@@ -104,11 +104,10 @@ public final class PermissionSubCommand extends PermissionUtil {
                     sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", permissions.size() == 1 ? "Permission" : "Permissions", name);
                     permissions.forEach(permission -> {
                         String currentTime = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
-                        long expiredTime = isUser ? (userPermission.getExpiredAt(id, permission) == null ? -1 : userPermission.getExpiredAt(id, permission).getTime())
-                                : (groupPermission.getExpiredAt(id, permission) == null ? -1 : groupPermission.getExpiredAt(id, permission).getTime());
-                        String formatedTime = TimeUtil.formatTimeValue(expiredTime - System.currentTimeMillis());
+                        Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
+                        String formattedTime = formatTimeUntil(expiredAt);
                         String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
-                        String expiredMessage = expiredDate != null ? "<#555555>(Expired: <#00cc88><hover:show_text:'<#999999>Expired: <#00cc88>" + formatedTime +
+                        String expiredMessage = expiredDate != null ? "<#555555>(Expired: <#00cc88><hover:show_text:'<#999999>Expired: <#00cc88>" + formattedTime +
                                                                       "<br><#999999>Current time: </#999999>" + currentTime + "'>" +
                                                                       expiredDate + "</hover></#00cc88>)" : "";
                         sendMessage(source, "<#999999>- <#999900>%s %s", permission, expiredMessage);
