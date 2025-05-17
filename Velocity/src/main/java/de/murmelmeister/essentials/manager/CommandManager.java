@@ -7,10 +7,7 @@ import com.velocitypowered.api.command.*;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.MurmelEssentials;
-import de.murmelmeister.essentials.commands.PermissionCommand;
-import de.murmelmeister.essentials.commands.PlayTimeCommand;
-import de.murmelmeister.essentials.commands.RefreshCommand;
-import de.murmelmeister.essentials.commands.ShowTeamCommand;
+import de.murmelmeister.essentials.commands.*;
 import de.murmelmeister.essentials.manager.command.CommandBrigadier;
 import de.murmelmeister.essentials.manager.command.CommandHandler;
 import de.murmelmeister.essentials.manager.command.CommandResult;
@@ -52,6 +49,7 @@ public abstract class CommandManager implements CommandBrigadier {
         addCommand(server, new PermissionCommand(plugin));
         addCommand(server, new RefreshCommand(plugin));
         addCommand(server, new ShowTeamCommand(plugin));
+        addCommand(server, new UserInfoCommand(plugin));
     }
 
     private static void addCommand(ProxyServer server, CommandManager manager) {
