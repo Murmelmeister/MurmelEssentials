@@ -245,14 +245,9 @@ public final class ParentSubCommand extends PermissionUtil {
                                     int parentId = group.getId(parentName);
                                     if (isParentNotExist(source, isUser, id, parentId)) return CommandResult.of(-3);
 
-                                    String currentTime = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
-                                    long expiredTime = isUser ? (userParent.getExpiredAt(id, parentId) == null ? -1 : userParent.getExpiredAt(id, parentId).getTime())
-                                            : (groupParent.getExpiredAt(id, parentId) == null ? -1 : groupParent.getExpiredAt(id, parentId).getTime());
-                                    String formatedTime = TimeUtil.formatTimeValue(expiredTime - System.currentTimeMillis());
+                                    Timestamp expiredAt = isUser ? userParent.getExpiredAt(id, parentId) : groupParent.getExpiredAt(id, parentId);
                                     String expiredDate = isUser ? userParent.getExpiredDate(id, parentId) : groupParent.getExpiredDate(id, parentId);
-                                    String expiredMessage = expiredDate != null ? "<hover:show_text:'<#999999>Expired: <#00cc88>" + formatedTime +
-                                                                                  "<br><#999999>Current time: </#999999>" + currentTime + "'>" +
-                                                                                  expiredDate + "</hover>" : "never";
+
                                     int createdBy = isUser ? userParent.getCreatedBy(id, parentId) : groupParent.getCreatedBy(id, parentId);
                                     String creatorName = user.getUsername(createdBy);
                                     String createdDate = isUser ? userParent.getCreatedDate(id, parentId) : groupParent.getCreatedDate(id, parentId);
@@ -272,7 +267,9 @@ public final class ParentSubCommand extends PermissionUtil {
                                             <#999999>Updated by: <#00cc88>%s (%s)
                                             <#999999>Updated date: <#00cc88>%s
                                             <#999999>Expired date: <#00cc88>%s"""
-                                            .formatted(nameType, name, typeId, id, parentName, createdBy, creatorName, createdDate, updatedBy, updaterName, updatedDate, expiredMessage);
+                                            .formatted(nameType, name, typeId, id, parentName,
+                                                    createdBy, creatorName, createdDate,
+                                                    updatedBy, updaterName, updatedDate, formatExpiredInfoMessage(expiredAt, expiredDate));
                                     sendMessage(source, message);
 
                                     logging(isUser, executorId, id, "info " + parentName);
