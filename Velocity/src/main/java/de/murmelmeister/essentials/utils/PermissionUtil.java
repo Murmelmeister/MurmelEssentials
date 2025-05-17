@@ -43,6 +43,14 @@ public abstract class PermissionUtil extends CommandManager {
                                           expiredDate + "</hover></#00cc88>)";
     }
 
+    public String formatExpiredInfoMessage(Timestamp expiredAt, String expiredDate) {
+        String currentTimeDate = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
+        String formattedTime = formatTimeUntil(expiredAt);
+        return expiredDate == null ? "never" : "<hover:show_text:'<#999999>Expired: <#00cc88>" + formattedTime +
+                                               "<br><#999999>Current time: </#999999>" + currentTimeDate + "'>" +
+                                               expiredDate + "</hover>";
+    }
+
     public String syntax() {
         String group = syntaxGroup();
         String user = syntaxUser();
