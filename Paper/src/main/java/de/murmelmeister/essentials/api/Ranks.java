@@ -73,7 +73,7 @@ public final class Ranks {
 
                 String formattedPrefix = prefix != null ? prefix : "";
                 String formattedSuffix = suffix != null ? suffix : "";
-                String formattedColor = color != null ? "<" + color + ">" : "";
+                String formattedColor = color != null ? "<" + color + ">" : "<gray>";
                 String formattedColorMessage = chatMessage != null ? chatMessage : " ";
 
                 String format = formattedColor + formattedPrefix + player.getName() + formattedSuffix + "<reset>";
@@ -104,7 +104,7 @@ public final class Ranks {
 
             String formattedPrefix = prefix != null ? prefix : "";
             String formattedSuffix = suffix != null ? suffix : "";
-            String formattedColor = color != null ? "<" + color + ">" : "";
+            String formattedColor = color != null ? "<" + color + ">" : "<gray>";
 
             Component baseComponent = MINI_MESSAGE.deserialize(formattedColor + formattedPrefix + player.getName() + formattedSuffix);
             player.playerListName(baseComponent);
