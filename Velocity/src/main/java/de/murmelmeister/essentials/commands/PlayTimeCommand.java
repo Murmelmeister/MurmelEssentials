@@ -6,15 +6,13 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
-import com.velocitypowered.api.proxy.Player;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 public final class PlayTimeCommand extends CommandManager {
     public PlayTimeCommand(MurmelEssentials plugin) {
@@ -25,67 +23,48 @@ public final class PlayTimeCommand extends CommandManager {
     public BrigadierCommand createCommand() {
         LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("playtime")
                 .requires(source -> source.hasPermission("murmel.command.playtime"))
-                .executes(context -> {
-                    long startTime = System.nanoTime();
-                    CommandSource source = context.getSource();
-                    Player player = getPlayer(source);
+                .executes(context ->
+                        runWithTiming(context, (source, executorId) -> {
+                            if (!playTime.existsUser(executorId)) {
+                                sendLoggerErrorPlayTime(user.getUsername(executorId));
+                                return CommandResult.of(-2);
+                            }
 
-                    if (!existsPlayer(player)) return -1;
-
-                    UUID uuid = player.getUniqueId();
-                    if (!user.existsUser(uuid)) {
-                        sendLoggerErrorUser(player.getUsername());
-                        return -2;
-                    }
-
-                    int userId = user.getId(uuid);
-                    if (!playTime.existsUser(userId)) {
-                        sendLoggerErrorPlayTime(player.getUsername());
-                        return -3;
-                    }
-
-                    String time = TimeUtil.formatTimeValue(playTime, userId);
-                    sendMessage(source, "<#999999>PlayTime: <#00cc88>%s", time);
-                    if (user.isDebugMode(userId)) {
-                        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                        sendDebugMessage(player, "<#999900>PlayTime command executed in %s ms", durationMs);
-                    }
-                    return Command.SINGLE_SUCCESS;
-                })
+                            String time = TimeUtil.formatTimeValue(playTime, executorId);
+                            sendMessage(source, "<#999999>PlayTime: <#00cc88>%s", time);
+                            return CommandResult.of(Command.SINGLE_SUCCESS);
+                        })
+                )
                 .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
                         .suggests((context, builder) -> {
                             List<String> usernames = user.getUsernames().stream().sorted().toList();
-                            for (String username : usernames)
-                                builder.suggest(username, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + username)));
+                            usernames.forEach(username ->
+                                    builder.suggest(username, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + username)))
+                            );
                             return builder.buildFuture();
                         })
-                        .executes(context -> {
-                            long startTime = System.nanoTime();
-                            CommandSource source = context.getSource();
-                            String username = context.getArgument("player", String.class);
-                            if (!user.existsUser(username)) {
-                                sendLoggerErrorUser(username);
-                                sendMessage(source, "<#990000>User %s does not exist.", username);
-                                return -1;
-                            }
+                        .executes(context ->
+                                runWithTiming(context, (source, executorId) -> {
+                                    String username = context.getArgument("player", String.class);
+                                    if (!user.existsUser(username)) {
+                                        sendLoggerErrorUser(username);
+                                        sendMessage(source, "<#990000>User %s does not exist.", username);
+                                        return CommandResult.of(-2);
+                                    }
 
-                            int userId = user.getId(username);
-                            if (!playTime.existsUser(userId)) {
-                                sendLoggerErrorPlayTime(username);
-                                sendMessage(source, "<#990000>User %s does not exist.", username);
-                                return -2;
-                            }
+                                    int userId = user.getId(username);
+                                    if (!playTime.existsUser(userId)) {
+                                        sendLoggerErrorPlayTime(username);
+                                        sendMessage(source, "<#990000>User %s does not exist.", username);
+                                        return CommandResult.of(-3);
+                                    }
 
-                            String time = TimeUtil.formatTimeValue(playTime, userId);
-                            sendMessage(source, "<#999999>PlayTime from %s: <#00cc88>%s", username, time);
-
-                            int executorId = getExecutorId(source);
-                            if (user.isDebugMode(executorId)) {
-                                long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                                sendDebugMessage(source, "<#999900>PlayTime command executed in %s ms", durationMs);
-                            }
-                            return Command.SINGLE_SUCCESS;
-                        }))
+                                    String time = TimeUtil.formatTimeValue(playTime, userId);
+                                    sendMessage(source, "<#999999>PlayTime from %s: <#00cc88>%s", username, time);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
                 .build();
         return new BrigadierCommand(node);
     }
