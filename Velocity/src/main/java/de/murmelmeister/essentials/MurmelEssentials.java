@@ -15,6 +15,7 @@ import de.murmelmeister.essentials.utils.MessagesService;
 import de.murmelmeister.essentials.utils.RefreshBridge;
 import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.group.Group;
+import de.murmelmeister.murmelapi.language.LanguageProvider;
 import de.murmelmeister.murmelapi.language.MessageProvider;
 import de.murmelmeister.murmelapi.logging.ActiveSession;
 import de.murmelmeister.murmelapi.logging.LoginHistory;
@@ -110,6 +111,10 @@ public final class MurmelEssentials {
 
     public PunishmentUser getPunishmentUser() {
         return MurmelAPI.getPunishmentUser();
+    }
+
+    public LanguageProvider getLanguageProvider() {
+        return MurmelAPI.getLanguage();
     }
 
     public MessageProvider getMessageProvider() {
