@@ -35,7 +35,7 @@ public final class RefreshCommand extends CommandManager {
                                 })
                         )
                 )
-                .then(BrigadierCommand.literalArgumentBuilder("reload") // Maybe in another command?
+                .then(BrigadierCommand.literalArgumentBuilder("messages") // Maybe in another command?
                     .executes(context ->
                                 runWithTiming(context, (source, executorId) -> {
                                     messagesService.reload();
