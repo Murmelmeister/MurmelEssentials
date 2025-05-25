@@ -11,12 +11,13 @@ import de.murmelmeister.essentials.api.PlayTimeUpdater;
 import de.murmelmeister.essentials.files.MySQL;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.ListenerManager;
-import de.murmelmeister.essentials.utils.MessagesService;
+import de.murmelmeister.essentials.utils.Messages;
 import de.murmelmeister.essentials.utils.RefreshBridge;
 import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.language.LanguageProvider;
-import de.murmelmeister.murmelapi.language.MessageProvider;
+import de.murmelmeister.murmelapi.language.message.MessageProvider;
+import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.logging.ActiveSession;
 import de.murmelmeister.murmelapi.logging.LoginHistory;
 import de.murmelmeister.murmelapi.permission.Permission;
@@ -33,7 +34,7 @@ public final class MurmelEssentials {
     private final ProxyServer server;
 
     private MySQL mySQL;
-    private MessagesService messagesService;
+    //private MessagesService messagesService;
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from("murmel:main");
 
     public static final String TEAM_MEMBER_PERMISSION = "murmel.member.team";
@@ -50,8 +51,9 @@ public final class MurmelEssentials {
         mySQL = new MySQL(logger);
         mySQL.connect();
         getLanguageProvider().loadData();
-        messagesService = new MessagesService(logger, getMessageProvider());
-        messagesService.checkAndLoad();
+        // messagesService = new MessagesService(logger, getMessageProvider());
+        // messagesService.checkAndLoad();
+        getMessageService().checkAndLoad(Messages.VALUES);
         getGroup().createDefaultGroup("default");
         CustomPermission.updatePermission(this, server);
         new RefreshBridge(this, server);
@@ -119,11 +121,11 @@ public final class MurmelEssentials {
     }
 
     public MessageProvider getMessageProvider() {
-        return MurmelAPI.getMessage();
+        return MurmelAPI.getMessageProvider();
     }
 
-    public MessagesService getMessagesService() {
-        return messagesService;
+    public MessageService getMessageService() {
+        return MurmelAPI.getMessageService();
     }
 
     public MinecraftChannelIdentifier getChannel() {
