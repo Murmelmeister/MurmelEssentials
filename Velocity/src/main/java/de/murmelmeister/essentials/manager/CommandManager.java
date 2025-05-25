@@ -11,6 +11,8 @@ import de.murmelmeister.essentials.commands.*;
 import de.murmelmeister.essentials.manager.command.CommandBrigadier;
 import de.murmelmeister.essentials.manager.command.CommandHandler;
 import de.murmelmeister.essentials.manager.command.CommandResult;
+import de.murmelmeister.essentials.utils.Messages;
+import de.murmelmeister.essentials.utils.MessagesService;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.permission.Permission;
 import de.murmelmeister.murmelapi.time.PlayTime;
@@ -33,6 +35,7 @@ public abstract class CommandManager implements CommandBrigadier {
     protected final Group group;
     protected final PlayTime playTime;
     protected final Permission permission;
+    protected final MessagesService messagesService;
 
     public CommandManager(MurmelEssentials plugin) {
         this.logger = plugin.getLogger();
@@ -41,6 +44,7 @@ public abstract class CommandManager implements CommandBrigadier {
         this.group = plugin.getGroup();
         this.playTime = plugin.getPlayTime();
         this.permission = plugin.getPermission();
+        this.messagesService = plugin.getMessagesService();
     }
 
     public static void register(MurmelEssentials plugin) {
