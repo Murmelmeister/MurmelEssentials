@@ -49,6 +49,7 @@ public final class MurmelEssentials {
     public void onEnable(ProxyInitializeEvent event) {
         mySQL = new MySQL(logger);
         mySQL.connect();
+        getLanguageProvider().loadData();
         messagesService = new MessagesService(logger, getMessageProvider());
         messagesService.checkAndLoad();
         getGroup().createDefaultGroup("default");
