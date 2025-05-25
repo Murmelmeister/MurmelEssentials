@@ -57,6 +57,7 @@ public abstract class CommandManager implements CommandBrigadier {
         addCommand(server, new RefreshCommand(plugin));
         addCommand(server, new ShowTeamCommand(plugin));
         addCommand(server, new UserInfoCommand(plugin));
+        addCommand(server, new LanguageCommand(plugin));
     }
 
     private static void addCommand(ProxyServer server, CommandManager manager) {
