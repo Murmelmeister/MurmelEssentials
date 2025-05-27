@@ -42,8 +42,10 @@ public final class LanguageCommand extends CommandManager {
 
                             sendMessage(source, "<#999999>===- %s:", languages.size() == 1 ? "Language" : "Languages");
                             languages.forEach(lang -> {
-                                String status = lang.getId() == languageId ? "<#00cc88>Current" : "<#999999>Available";
-                                sendMessage(source, "<#999999>- <#00cc88><hover:show_text:'%s'>%s</hover>", status, lang.getName());
+                                boolean isCurrent = lang.getId() == languageId;
+                                String hoverText = isCurrent ? "<#00cc88>Current" : "<#999999>Available";
+                                String langName = isCurrent ? "<#00cc88>" + lang.getName() : "<#999999>" + lang.getName();
+                                sendMessage(source, "<#999999>- <#00cc88><hover:show_text:'%s'>%s</hover>", hoverText, langName);
                             });
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
@@ -51,7 +53,8 @@ public final class LanguageCommand extends CommandManager {
                 .then(BrigadierCommand.requiredArgumentBuilder("language", StringArgumentType.word())
                         .suggests((context, builder) -> {
                             languageProvider.getLanguages().forEach(lang ->
-                                    builder.suggest(lang.getName(), VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + lang.getName())))
+                                    builder.suggest(lang.getName().toLowerCase(),
+                                            VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + lang.getName())))
                             );
                             return builder.buildFuture();
                         })
@@ -66,7 +69,7 @@ public final class LanguageCommand extends CommandManager {
                                     }
 
                                     user.setLanguage(executorId, language.getId());
-                                    sendMessage(source, "<#00cc88>Language set to %s.", language.getName());
+                                    sendMessage(source, "<#999999>Language set to <#00cc88>%s</#00cc88>.", language.getName());
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
