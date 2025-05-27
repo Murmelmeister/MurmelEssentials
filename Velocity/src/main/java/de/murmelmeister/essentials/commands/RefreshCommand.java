@@ -35,10 +35,19 @@ public final class RefreshCommand extends CommandManager {
                                 })
                         )
                 )
-                .then(BrigadierCommand.literalArgumentBuilder("messages") // Maybe in another command?
-                    .executes(context ->
+                .then(BrigadierCommand.literalArgumentBuilder("languages")
+                        .executes(context ->
                                 runWithTiming(context, (source, executorId) -> {
-                                    messageService.reload();
+                                    RefreshUtil.markAsRefreshed(RefreshType.LANGUAGES);
+                                    sendMessage(source, "<#00cc88>Reloaded languages.");
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("messages")
+                        .executes(context ->
+                                runWithTiming(context, (source, executorId) -> {
+                                    RefreshUtil.markAsRefreshed(RefreshType.MESSAGES);
                                     sendMessage(source, "<#00cc88>Reloaded messages.");
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
