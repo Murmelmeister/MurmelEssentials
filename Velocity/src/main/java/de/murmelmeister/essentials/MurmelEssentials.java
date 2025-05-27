@@ -51,8 +51,6 @@ public final class MurmelEssentials {
         mySQL = new MySQL(logger);
         mySQL.connect();
         getLanguageProvider().loadData();
-        // messagesService = new MessagesService(logger, getMessageProvider());
-        // messagesService.checkAndLoad();
         getMessageService().checkAndLoad(Messages.VALUES);
         getGroup().createDefaultGroup("default");
         CustomPermission.updatePermission(this, server);
