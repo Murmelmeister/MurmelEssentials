@@ -1,7 +1,6 @@
 package de.murmelmeister.essentials.commands;
 
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.velocitypowered.api.command.BrigadierCommand;
@@ -49,20 +48,20 @@ public final class LanguageCommand extends CommandManager {
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 )
-                .then(BrigadierCommand.requiredArgumentBuilder("language", IntegerArgumentType.integer(1))
+                .then(BrigadierCommand.requiredArgumentBuilder("language", StringArgumentType.word())
                         .suggests((context, builder) -> {
                             languageProvider.getLanguages().forEach(lang ->
-                                    builder.suggest(lang.getId(), VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + lang.getName())))
+                                    builder.suggest(lang.getName(), VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + lang.getName())))
                             );
                             return builder.buildFuture();
                         })
                         .executes(context ->
                                 runWithTiming(context, (source, executorId) -> {
-                                    int languageId = IntegerArgumentType.getInteger(context, "language");
-                                    Language language = languageProvider.getLanguage(languageId);
+                                    String languageName = StringArgumentType.getString(context, "language");
+                                    Language language = languageProvider.getLanguage(languageName);
 
                                     if (language == null) {
-                                        sendMessage(source, "<#990000>Language %s does not exist.", languageId);
+                                        sendMessage(source, "<#990000>Language %s does not exist.", languageName);
                                         return CommandResult.of(-2);
                                     }
 
