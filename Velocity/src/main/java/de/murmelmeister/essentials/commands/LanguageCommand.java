@@ -33,7 +33,7 @@ public final class LanguageCommand extends CommandManager {
                             }
 
                             int languageId = user.getLanguage(executorId);
-                            Language language = languageProvider.getLanguage(languageId);
+                            Language language = languageProvider.get(languageId);
 
                             if (language == null) {
                                 sendMessage(source, "<#990000>Language not found.");
@@ -61,7 +61,7 @@ public final class LanguageCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executorId) -> {
                                     String languageName = StringArgumentType.getString(context, "language");
-                                    Language language = languageProvider.getLanguage(languageName);
+                                    Language language = languageProvider.get(languageName);
 
                                     if (language == null) {
                                         sendMessage(source, "<#990000>Language %s does not exist.", languageName);
