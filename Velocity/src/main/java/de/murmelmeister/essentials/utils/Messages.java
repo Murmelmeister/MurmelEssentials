@@ -51,7 +51,7 @@ public enum Messages implements MessageDefinition {
         private final LanguageProvider provider = MurmelAPI.getLanguage();
 
         public int getId() {
-            return provider.getLanguage(this.name().toLowerCase()).getId();
+            return provider.get(this.name().toLowerCase()).getId();
         }
     }
 }
