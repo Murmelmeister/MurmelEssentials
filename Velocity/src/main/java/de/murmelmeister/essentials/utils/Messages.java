@@ -1,5 +1,7 @@
 package de.murmelmeister.essentials.utils;
 
+import de.murmelmeister.murmelapi.MurmelAPI;
+import de.murmelmeister.murmelapi.language.LanguageProvider;
 import de.murmelmeister.murmelapi.language.message.MessageDefinition;
 
 import java.util.Collections;
@@ -10,8 +12,8 @@ import static de.murmelmeister.murmelapi.language.message.MessageDefinition.Lang
 
 public enum Messages implements MessageDefinition {
     PLAY_TIME_COMMAND_USE(
-            of(1, "<#999999>PlayTime: <#00cc88>[TIME]"),
-            of(2, "<#999999>Spielzeit: <#00cc88>[TIME]")
+            of(getLanguageId(Lang.ENGLISH), "<#999999>PlayTime: <#00cc88>[TIME]"),
+            of(getLanguageId(Lang.GERMAN), "<#999999>Spielzeit: <#00cc88>[TIME]")
     ),
     ;
     public static final Messages[] VALUES = values();
@@ -37,5 +39,19 @@ public enum Messages implements MessageDefinition {
     @Override
     public Map<Integer, String> getMessagesMap() {
         return messagesMap;
+    }
+
+    private static int getLanguageId(Lang lang) {
+        return lang.getId();
+    }
+
+    private enum Lang {
+        ENGLISH,
+        GERMAN;
+        private final LanguageProvider provider = MurmelAPI.getLanguage();
+
+        public int getId() {
+            return provider.getLanguage(this.name().toLowerCase()).getId();
+        }
     }
 }
