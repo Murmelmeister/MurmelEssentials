@@ -25,6 +25,7 @@ import de.murmelmeister.murmelapi.punishment.PunishmentIP;
 import de.murmelmeister.murmelapi.punishment.PunishmentUser;
 import de.murmelmeister.murmelapi.punishment.log.PunishmentLog;
 import de.murmelmeister.murmelapi.punishment.reason.PunishmentReason;
+import de.murmelmeister.murmelapi.punishment.reason.ReasonProvider;
 import de.murmelmeister.murmelapi.time.PlayTime;
 import de.murmelmeister.murmelapi.user.User;
 import org.slf4j.Logger;
@@ -124,6 +125,10 @@ public final class MurmelEssentials {
 
     public MessageService getMessageService() {
         return MurmelAPI.getMessageService();
+    }
+
+    public ReasonProvider getReasonProvider() {
+        return MurmelAPI.getReasonProvider();
     }
 
     public MinecraftChannelIdentifier getChannel() {
