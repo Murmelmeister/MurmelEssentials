@@ -1,8 +1,7 @@
 package de.murmelmeister.essentials.manager;
 
 import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.suggestion.Suggestions;
-import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.velocitypowered.api.command.*;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -24,7 +23,6 @@ import org.slf4j.Logger;
 
 import java.sql.Timestamp;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -129,12 +127,14 @@ public abstract class CommandManager implements CommandBrigadier {
         return player != null ? user.getId(player.getUniqueId()) : -1;
     }
 
-    protected CompletableFuture<Suggestions> getSuggestionTime(CommandContext<CommandSource> context, SuggestionsBuilder builder) {
-        String prefix = builder.getRemaining();
-        Stream.of("1s", "1m", "1h", "1d", "1w", "1M", "1y")
-                .filter(s -> StringUtil.startsWithIgnoreCase(s, prefix))
-                .forEach(builder::suggest);
-        return builder.buildFuture();
+    protected SuggestionProvider<CommandSource> getSuggestionTime() {
+        return (context, builder) -> {
+            String prefix = builder.getRemaining();
+            Stream.of("1s", "1m", "1h", "1d", "1w", "1M", "1y")
+                    .filter(s -> StringUtil.startsWithIgnoreCase(s, prefix))
+                    .forEach(builder::suggest);
+            return builder.buildFuture();
+        };
     }
 
     protected String formatTimeAgo(long agoTime) {
