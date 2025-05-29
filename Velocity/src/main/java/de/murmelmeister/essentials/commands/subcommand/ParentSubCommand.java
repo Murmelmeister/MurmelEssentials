@@ -4,8 +4,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.suggestion.Suggestions;
-import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
@@ -22,7 +21,6 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.sql.Timestamp;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 public final class ParentSubCommand extends PermissionUtil {
     private final GroupParent groupParent;
@@ -175,7 +173,7 @@ public final class ParentSubCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
-                        .suggests((context, builder) -> getSuggestionParent(context, builder, isUser, false))
+                        .suggests(getSuggestionParent(isUser, false))
                         .executes(context ->
                                 runWithTiming(context, (source, executorId) -> {
                                     String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
@@ -233,7 +231,7 @@ public final class ParentSubCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
-                        .suggests((context, builder) -> getSuggestionParent(context, builder, isUser, true))
+                        .suggests(getSuggestionParent(isUser, true))
                         .executes(context ->
                                 runWithTiming(context, (source, executorId) -> {
                                     String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
@@ -285,7 +283,7 @@ public final class ParentSubCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
-                        .suggests((context, builder) -> getSuggestionParent(context, builder, isUser, false))
+                        .suggests(getSuggestionParent(isUser, false))
                         .executes(context -> {
                             sendMessage(context.getSource(), syntaxParent(isUser));
                             return Command.SINGLE_SUCCESS;
@@ -336,15 +334,17 @@ public final class ParentSubCommand extends PermissionUtil {
                 );
     }
 
-    private CompletableFuture<Suggestions> getSuggestionParent(CommandContext<CommandSource> context, SuggestionsBuilder builder, boolean isUser, boolean isDefaultAllowed) {
-        String prefix = builder.getRemaining();
-        int id = getId(context, isUser);
-        List<String> parents = isUser ? userParent.getParentNames(group, id) : groupParent.getParentNames(group, id);
-        parents.stream()
-                .filter(parent -> (!isUser || isDefaultAllowed) || !parent.equals("default"))
-                .filter(parent -> StringUtil.startsWithIgnoreCase(parent, prefix))
-                .forEach(parent -> builder.suggest(parent, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + parent))));
-        return builder.buildFuture();
+    private SuggestionProvider<CommandSource> getSuggestionParent(boolean isUser, boolean isDefaultAllowed) {
+        return (context, builder) -> {
+            String prefix = builder.getRemaining();
+            int id = getId(context, isUser);
+            List<String> parents = isUser ? userParent.getParentNames(group, id) : groupParent.getParentNames(group, id);
+            parents.stream()
+                    .filter(parent -> (!isUser || isDefaultAllowed) || !parent.equals("default"))
+                    .filter(parent -> StringUtil.startsWithIgnoreCase(parent, prefix))
+                    .forEach(parent -> builder.suggest(parent, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + parent))));
+            return builder.buildFuture();
+        };
     }
 
     private int getId(CommandContext<CommandSource> context, boolean isUser) {
