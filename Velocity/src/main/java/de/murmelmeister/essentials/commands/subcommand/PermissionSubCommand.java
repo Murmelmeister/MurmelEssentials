@@ -4,8 +4,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.suggestion.Suggestions;
-import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
@@ -22,7 +21,6 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.sql.Timestamp;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 public final class PermissionSubCommand extends PermissionUtil {
     private final GroupParent groupParent;
@@ -178,7 +176,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("permission", StringArgumentType.string())
-                        .suggests((context, builder) -> getSuggestionPermission(context, builder, isUser))
+                        .suggests(getSuggestionPermission(isUser))
                         .executes(context ->
                                 runWithTiming(context, (source, executorId) -> {
                                     String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
@@ -229,7 +227,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("permission", StringArgumentType.string())
-                        .suggests((context, builder) -> getSuggestionPermission(context, builder, isUser))
+                        .suggests(getSuggestionPermission(isUser))
                         .executes(context ->
                                 runWithTiming(context, (source, executorId) -> {
                                     String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
@@ -281,7 +279,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("permission", StringArgumentType.string())
-                        .suggests((context, builder) -> getSuggestionPermission(context, builder, isUser))
+                        .suggests(getSuggestionPermission(isUser))
                         .executes(context -> {
                             sendMessage(context.getSource(), syntaxPermission(isUser));
                             return Command.SINGLE_SUCCESS;
@@ -327,21 +325,23 @@ public final class PermissionSubCommand extends PermissionUtil {
                 );
     }
 
-    private CompletableFuture<Suggestions> getSuggestionPermission(CommandContext<CommandSource> context, SuggestionsBuilder builder, boolean isUser) {
-        String prefix = builder.getRemaining();
-        String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-        int id = isUser ? getUserId(context.getSource(), name) : getGroupId(context.getSource(), name);
-        List<String> permissions = isUser ? userPermission.getPermissions(id) : groupPermission.getPermissions(id);
-        if (permissions.isEmpty()) return builder.buildFuture();
-        permissions.stream()
-                .map(permission -> {
-                    if ("*".equals(permission) || permission.endsWith(".*"))
-                        return "\"" + permission + "\"";
-                    return permission;
-                })
-                .filter(permission -> permission.startsWith(prefix))
-                .forEach(permission -> builder.suggest(permission, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + permission))));
-        return builder.buildFuture();
+    private SuggestionProvider<CommandSource> getSuggestionPermission(boolean isUser) {
+        return (context, builder) -> {
+            String prefix = builder.getRemaining();
+            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+            int id = isUser ? getUserId(context.getSource(), name) : getGroupId(context.getSource(), name);
+            List<String> permissions = isUser ? userPermission.getPermissions(id) : groupPermission.getPermissions(id);
+            if (permissions.isEmpty()) return builder.buildFuture();
+            permissions.stream()
+                    .map(permission -> {
+                        if ("*".equals(permission) || permission.endsWith(".*"))
+                            return "\"" + permission + "\"";
+                        return permission;
+                    })
+                    .filter(permission -> permission.startsWith(prefix))
+                    .forEach(permission -> builder.suggest(permission, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + permission))));
+            return builder.buildFuture();
+        };
     }
 
     private boolean isPermissionNotExist(CommandSource source, boolean isUser, int id, String permission) {
