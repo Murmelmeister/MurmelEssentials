@@ -4,9 +4,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.suggestion.Suggestions;
-import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
@@ -26,7 +24,6 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 public final class PermissionCommand extends PermissionUtil {
     private final GroupColor groupColor;
@@ -93,7 +90,7 @@ public final class PermissionCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("groupName", StringArgumentType.word())
-                        .suggests(this::getGroupNames)
+                        .suggests(getGroupNames())
                         .executes(context -> {
                             sendMessage(context.getSource(), syntaxGroup());
                             return Command.SINGLE_SUCCESS;
@@ -402,7 +399,7 @@ public final class PermissionCommand extends PermissionUtil {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("username", StringArgumentType.word())
-                        .suggests(this::getUsernames)
+                        .suggests(getUsernames())
                         .executes(context -> {
                             sendMessage(context.getSource(), syntaxUser());
                             return Command.SINGLE_SUCCESS;
@@ -467,21 +464,25 @@ public final class PermissionCommand extends PermissionUtil {
                 .then(permissionSub.getPermissionTime(true));
     }
 
-    private CompletableFuture<Suggestions> getGroupNames(CommandContext<CommandSource> context, SuggestionsBuilder builder) {
-        String prefix = builder.getRemaining();
-        group.getGroupNames().stream()
-                .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
-                .sorted()
-                .forEach(builder::suggest);
-        return builder.buildFuture();
+    private SuggestionProvider<CommandSource> getGroupNames() {
+        return (context, builder) -> {
+            String prefix = builder.getRemaining();
+            group.getGroupNames().stream()
+                    .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
+                    .sorted()
+                    .forEach(builder::suggest);
+            return builder.buildFuture();
+        };
     }
 
-    private CompletableFuture<Suggestions> getUsernames(CommandContext<CommandSource> context, SuggestionsBuilder builder) {
-        String prefix = builder.getRemaining();
-        user.getUsernames().stream()
-                .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
-                .sorted()
-                .forEach(builder::suggest);
-        return builder.buildFuture();
+    private SuggestionProvider<CommandSource> getUsernames() {
+        return (context, builder) -> {
+            String prefix = builder.getRemaining();
+            user.getUsernames().stream()
+                    .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
+                    .sorted()
+                    .forEach(builder::suggest);
+            return builder.buildFuture();
+        };
     }
 }
