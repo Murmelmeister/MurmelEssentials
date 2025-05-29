@@ -14,6 +14,7 @@ import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.language.LanguageProvider;
 import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.permission.Permission;
+import de.murmelmeister.murmelapi.punishment.reason.ReasonProvider;
 import de.murmelmeister.murmelapi.time.PlayTime;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.utils.StringUtil;
@@ -35,6 +36,7 @@ public abstract class CommandManager implements CommandBrigadier {
     protected final Permission permission;
     protected final MessageService messageService;
     protected final LanguageProvider languageProvider;
+    protected final ReasonProvider reasonProvider;
 
     public CommandManager(MurmelEssentials plugin) {
         this.logger = plugin.getLogger();
@@ -45,6 +47,7 @@ public abstract class CommandManager implements CommandBrigadier {
         this.permission = plugin.getPermission();
         this.languageProvider = plugin.getLanguageProvider();
         this.messageService = plugin.getMessageService();
+        this.reasonProvider = plugin.getReasonProvider();
     }
 
     public static void register(MurmelEssentials plugin) {
