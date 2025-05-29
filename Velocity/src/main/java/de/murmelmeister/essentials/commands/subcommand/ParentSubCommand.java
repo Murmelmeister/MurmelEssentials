@@ -121,7 +121,7 @@ public final class ParentSubCommand extends PermissionUtil {
                                 })
                         )
                         .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
-                                .suggests(this::getSuggestionTime)
+                                .suggests(getSuggestionTime())
                                 .executes(context ->
                                         runWithTiming(context, (source, executorId) -> {
                                             String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
@@ -291,7 +291,7 @@ public final class ParentSubCommand extends PermissionUtil {
                             return Command.SINGLE_SUCCESS;
                         })
                         .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
-                                .suggests(this::getSuggestionTime)
+                                .suggests(getSuggestionTime())
                                 .executes(context ->
                                         runWithTiming(context, (source, executorId) -> {
                                             String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
