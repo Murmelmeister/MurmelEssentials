@@ -56,14 +56,14 @@ public final class ReasonCommand extends CommandManager {
                                 String updatedDate = reason.getUpdatedDate();
                                 String updatedByName = user.getUsername(updatedBy);
                                 String hoverText = """
-                                        ID: %d
-                                        Type: %s (%d)
-                                        Reason: %s
-                                        Duration: %s
-                                        Auto IP Flag: %s
-                                        Auto Punish: %s
-                                        Created By: %s (%d) on %s
-                                        Updated By: %s (%d) on %s"""
+                                        <#999999>ID: <#999900>%d
+                                        <#999999>Type: <#999900>%s (%d)
+                                        <#999999>Reason: <#999900>%s
+                                        <#999999>Duration: <#999900>%s
+                                        <#999999>Auto IP Flag: <#999900>%s
+                                        <#999999>Auto Punish: <#999900>%s
+                                        <#999999>Created By: <#999900>%s (%d)</#999900> on <#999900>%s
+                                        <#999999>Updated By: <#999900>%s (%d)</#999900> on <#999900>%s"""
                                         .formatted(reasonId, type.getName(), type.getId(),
                                                 reasonText, duration > 0 ? TimeUtil.formatTimeValue(duration) : "Permanent",
                                                 isAutoIpFlag ? "<#00cc88>Yes" : "<#cc0088>No",
@@ -120,7 +120,7 @@ public final class ReasonCommand extends CommandManager {
                                                                 return CommandResult.of(-5);
                                                             }
 
-                                                            String reasonText = context.getArgument("reason", String.class);
+                                                            String reasonText = StringArgumentType.getString(context, "reason");
 
                                                             reasonProvider.create(id, type.getId(), reasonText, duration, true, false, executorId);
                                                             sendMessage(source, "<#00cc88>Added new punishment reason: %s (%s)", id, reasonText);
@@ -158,6 +158,7 @@ public final class ReasonCommand extends CommandManager {
         return BrigadierCommand.literalArgumentBuilder("update")
                 .requires(source -> source.hasPermission("murmel.command.reason.update"))
                 .then(BrigadierCommand.requiredArgumentBuilder("id", IntegerArgumentType.integer(1))
+                        .suggests(getSuggestionReasons())
                         .then(BrigadierCommand.requiredArgumentBuilder("field", StringArgumentType.word())
                                 .suggests((context, builder) -> {
                                     builder.suggest("typeId", VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>Type ID")));
