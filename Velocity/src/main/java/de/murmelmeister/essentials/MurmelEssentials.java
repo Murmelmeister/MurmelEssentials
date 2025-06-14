@@ -8,7 +8,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import de.murmelmeister.essentials.api.CustomPermission;
 import de.murmelmeister.essentials.api.PlayTimeUpdater;
-import de.murmelmeister.essentials.files.MySQL;
+import de.murmelmeister.essentials.configurations.Config;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.ListenerManager;
 import de.murmelmeister.essentials.utils.Messages;
@@ -33,8 +33,9 @@ import org.slf4j.Logger;
 public final class MurmelEssentials {
     private final Logger logger;
     private final ProxyServer server;
+    public static final String PLUGIN_PATH = "./plugins/" + MurmelEssentials.class.getSimpleName() + "/";
 
-    private MySQL mySQL;
+    private final Config config;
     //private MessagesService messagesService;
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from("murmel:main");
 
@@ -44,13 +45,13 @@ public final class MurmelEssentials {
     public MurmelEssentials(Logger logger, ProxyServer server) {
         this.logger = logger;
         this.server = server;
+        this.config = new Config();
         server.getChannelRegistrar().register(channel);
     }
 
     @Subscribe
     public void onEnable(ProxyInitializeEvent event) {
-        mySQL = new MySQL(logger);
-        mySQL.connect();
+        config.connectToDatabase();
         getLanguageProvider().loadData();
         getMessageService().checkAndLoad(Messages.VALUES);
         getGroup().createDefaultGroup("default");
@@ -63,7 +64,7 @@ public final class MurmelEssentials {
 
     @Subscribe
     public void onDisable(ProxyShutdownEvent event) {
-        mySQL.disconnect();
+        config.disconnectFromDatabase();
         server.getChannelRegistrar().unregister(channel);
     }
 
