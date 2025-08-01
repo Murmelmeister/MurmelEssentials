@@ -431,7 +431,7 @@ public enum Messages implements MessageDefinition {
                     <#999999>Gruppe: <#00cc88>[GROUP_NAME]</#00cc88> <#555555>(ID: <#00cc88>[GROUP_ID]</#00cc88>)</#555555>
                     <#999999>[COLOR_TYPE]: <#00cc88>[VALUE]</#00cc88>
                     <#999999>Erstellt von: <#00cc88>[CREATED_NAME]</#00cc88> <#555555>(ID: <#00cc88>[CREATED_ID]</#00cc88>)</#555555> am <#00cc88>[CREATED_AT]</#00cc88>
-                    [GEÄNDERT]""")
+                    [CHANGED]""")
     ),
     PERMISSION_GROUP_COLOR_ADD_FAILED(
             of(getLanguageId(Lang.ENGLISH), "<#990000>Failed to add <#999900>[COLOR_TYPE]</#999900> for group <<#cc8800>[GROUP_NAME]</#cc8800>."),
