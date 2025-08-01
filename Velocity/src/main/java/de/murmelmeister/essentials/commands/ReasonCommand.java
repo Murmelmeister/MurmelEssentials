@@ -11,21 +11,26 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.essentials.manager.command.CommandException;
 import de.murmelmeister.essentials.manager.command.CommandResult;
-import de.murmelmeister.murmelapi.punishment.PunishmentType;
-import de.murmelmeister.murmelapi.punishment.reason.Reason;
-import de.murmelmeister.murmelapi.punishment.reason.ReasonProvider;
+import de.murmelmeister.murmelapi.language.message.MessageService;
+import de.murmelmeister.murmelapi.punishment.reason.PunishmentReason;
+import de.murmelmeister.murmelapi.punishment.reason.PunishmentReasonProvider;
+import de.murmelmeister.murmelapi.punishment.type.PunishmentType;
+import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.util.List;
 
 public final class ReasonCommand extends CommandManager {
-    private final ReasonProvider reasonProvider;
+    private final PunishmentReasonProvider reasonProvider;
+    private final MessageService messageService;
 
     public ReasonCommand(MurmelEssentials plugin) {
         super(plugin);
-        this.reasonProvider = plugin.getReasonProvider();
+        this.reasonProvider = plugin.getPunishmentReasonProvider();
+        this.messageService = plugin.getMessageService();
     }
 
     @Override
@@ -33,8 +38,9 @@ public final class ReasonCommand extends CommandManager {
         LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("reason")
                 .requires(source -> source.hasPermission("murmel.command.reason"))
                 .executes(context ->
-                        runWithTiming(context, (source, executorId) -> {
-                            List<Reason> reasons = reasonProvider.getReasons();
+                        runWithTiming(context, (source, executor) -> {
+                            int languageId = executor.languageId();
+                            List<PunishmentReason> reasons = reasonProvider.getAllReasons();
 
                             if (reasons.isEmpty()) {
                                 sendMessage(source, "<#990000>No punishment reasons available.");
@@ -43,18 +49,20 @@ public final class ReasonCommand extends CommandManager {
 
                             sendMessage(source, "<#999999>===- %s:", reasons.size() == 1 ? "Reason" : "Reasons");
                             reasons.forEach(reason -> {
-                                int reasonId = reason.getId();
-                                PunishmentType type = PunishmentType.fromId(reason.getTypeId());
-                                String reasonText = reason.getReason();
-                                long duration = reason.getDuration();
-                                boolean isAutoIpFlag = reason.isAutoIpFlag();
-                                boolean isAutoPunish = reason.isAutoPunish();
-                                int createdBy = reason.getCreatedBy();
-                                String createdByName = user.getUsername(createdBy);
-                                String createdDate = reason.getCreatedDate();
-                                int updatedBy = reason.getUpdatedBy();
-                                String updatedDate = reason.getUpdatedDate();
-                                String updatedByName = user.getUsername(updatedBy);
+                                int reasonId = reason.id();
+                                PunishmentType type = PunishmentType.fromId(reason.typeId());
+                                String reasonText = reason.reasonText();
+                                Long duration = reason.durationSecs();
+                                boolean isAutoIpFlag = reason.autoFlagIp();
+                                boolean isAutoPunish = reason.autoPunish();
+                                User creator = getUser(languageId, reason.createdBy());
+                                String createdDate = reason.createdAt().format(getDateTimeFormatter(languageId));
+                                User changer = reason.changedBy() == null ? null : getUser(languageId, reason.changedBy());
+                                String changedDate = reason.changedAt() == null ? null : reason.changedAt().format(getDateTimeFormatter(languageId));
+                                String changedText = (changer == null || changedDate == null) ? null :
+                                        String.format("<#999999>Changed by <#999900>%s (%d)</#999900> on <#999900>%s</#999900>",
+                                                changer.username(), changer.id(), changedDate);
+
                                 String hoverText = """
                                         <#999999>ID: <#999900>%d
                                         <#999999>Type: <#999900>%s (%d)
@@ -62,14 +70,13 @@ public final class ReasonCommand extends CommandManager {
                                         <#999999>Duration: <#999900>%s
                                         <#999999>Auto IP Flag: <#999900>%s
                                         <#999999>Auto Punish: <#999900>%s
-                                        <#999999>Created By: <#999900>%s (%d)</#999900> on <#999900>%s
-                                        <#999999>Updated By: <#999900>%s (%d)</#999900> on <#999900>%s"""
+                                        <#999999>Created by <#999900>%s (%d)</#999900> on <#999900>%s %s"""
                                         .formatted(reasonId, type.getName(), type.getId(),
-                                                reasonText, duration > 0 ? TimeUtil.formatTimeValue(duration) : "Permanent",
+                                                reasonText, duration != null ? TimeUtil.formatDuration(messageService, languageId, duration) : "Permanent",
                                                 isAutoIpFlag ? "<#00cc88>Yes" : "<#cc0088>No",
                                                 isAutoPunish ? "<#00cc88>Yes" : "<#cc0088>No",
-                                                createdByName, createdBy, createdDate,
-                                                updatedByName, updatedBy, updatedDate);
+                                                creator.username(), creator.id(), createdDate,
+                                                changedText == null ? "" : "\n" + changedText);
                                 sendMessage(source, "<#999999>- <#00cc88><hover:show_text:'%s'>%s (%s)</hover>", hoverText, reasonId, reasonText);
                             });
                             return CommandResult.of(Command.SINGLE_SUCCESS);
@@ -93,38 +100,23 @@ public final class ReasonCommand extends CommandManager {
                                         .suggests(getSuggestionTime())
                                         .then(BrigadierCommand.requiredArgumentBuilder("reason", StringArgumentType.string())
                                                 .executes(context ->
-                                                        runWithTiming(context, (source, executorId) -> {
+                                                        runWithTiming(context, (source, executor) -> {
                                                             int id = IntegerArgumentType.getInteger(context, "id");
-                                                            if (reasonProvider.get(id) != null) {
+                                                            if (reasonProvider.getReason(id) != null) {
                                                                 sendMessage(source, "<#990000>Reason with ID %d already exists.", id);
                                                                 return CommandResult.of(-2);
                                                             }
 
                                                             String typeName = StringArgumentType.getString(context, "type");
-                                                            PunishmentType type = PunishmentType.fromString(typeName);
-                                                            if (type == null) {
-                                                                sendMessage(source, "<#990000>Invalid punishment type: %s", typeName);
-                                                                return CommandResult.of(-3);
-                                                            }
+                                                            PunishmentType type = getType(typeName);
 
                                                             String time = StringArgumentType.getString(context, "duration");
-                                                            long duration = TimeUtil.formatTime(time);
-
-                                                            if (duration == -2) {
-                                                                sendMessage(source, "<#990000>No negative value allowed");
-                                                                return CommandResult.of(-4);
-                                                            }
-
-                                                            if (duration == -3) {
-                                                                sendMessage(source, "<#990000>Invalid time format");
-                                                                return CommandResult.of(-5);
-                                                            }
-
+                                                            long duration = parseTime(executor.languageId(), time);
                                                             String reasonText = StringArgumentType.getString(context, "reason");
 
-                                                            reasonProvider.create(id, type.getId(), reasonText, duration, true, false, executorId);
+                                                            PunishmentReason success = reasonProvider.create(id, type.getId(), reasonText, duration == -1 ? null : duration, true, false, executor.id());
                                                             sendMessage(source, "<#00cc88>Added new punishment reason: %s (%s)", id, reasonText);
-                                                            return CommandResult.of(Command.SINGLE_SUCCESS);
+                                                            return CommandResult.of(Command.SINGLE_SUCCESS, success != null ? 1 : null);
                                                         })
                                                 )
                                         )
@@ -139,16 +131,13 @@ public final class ReasonCommand extends CommandManager {
                 .then(BrigadierCommand.requiredArgumentBuilder("id", IntegerArgumentType.integer(1))
                         .suggests(getSuggestionReasons())
                         .executes(context ->
-                                runWithTiming(context, (source, executorId) -> {
+                                runWithTiming(context, (source, executor) -> {
                                     int id = IntegerArgumentType.getInteger(context, "id");
-                                    if (reasonProvider.get(id) == null) {
-                                        sendMessage(source, "<#990000>Reason with ID %d does not exist.", id);
-                                        return CommandResult.of(-2);
-                                    }
+                                    PunishmentReason reason = getReason(id);
 
-                                    int row = reasonProvider.delete(id);
-                                    sendMessage(source, "<#00cc88>Removed punishment reason with ID %d.", id);
-                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                    int result = reasonProvider.delete(reason.id());
+                                    sendMessage(source, "<#00cc88>Removed punishment reason with ID %d.", reason.id());
+                                    return CommandResult.of(Command.SINGLE_SUCCESS, result < 1 ? null : 1);
                                 })
                         )
                 );
@@ -179,52 +168,39 @@ public final class ReasonCommand extends CommandManager {
                                                 return builder.buildFuture();
                                         })
                                         .executes(context ->
-                                                runWithTiming(context, (source, executorId) -> {
+                                                runWithTiming(context, (source, executor) -> {
                                                     int id = IntegerArgumentType.getInteger(context, "id");
-                                                    Reason reason = reasonProvider.get(id);
-                                                    if (reason == null) {
-                                                        sendMessage(source, "<#990000>Reason with ID %d does not exist.", id);
-                                                        return CommandResult.of(-2);
-                                                    }
-
+                                                    PunishmentReason reason = getReason(id);
                                                     String field = StringArgumentType.getString(context, "field");
                                                     String value = StringArgumentType.getString(context, "value");
 
+                                                    int typeId = reason.typeId();
+                                                    String reasonText = reason.reasonText();
+                                                    Long durationSecs = reason.durationSecs();
+                                                    boolean autoFlagIp = reason.autoFlagIp();
+                                                    boolean autoPunish = reason.autoPunish();
                                                     switch (field) {
                                                         case "typeId" -> {
-                                                            PunishmentType type = PunishmentType.fromString(value);
-                                                            if (type == null) {
-                                                                sendMessage(source, "<#990000>Invalid punishment type: %s", value);
-                                                                return CommandResult.of(-3);
-                                                            }
-                                                            reason.setTypeId(type.getId());
+                                                            PunishmentType type = getType(value);
+                                                            typeId = type.getId();
                                                         }
-                                                        case "reason" -> reason.setReason(value);
+                                                        case "reason" -> reasonText = value;
                                                         case "duration" -> {
-                                                            long duration = TimeUtil.formatTime(value);
-                                                            if (duration == -2) {
-                                                                sendMessage(source, "<#990000>No negative value allowed");
-                                                                return CommandResult.of(-4);
-                                                            }
-                                                            if (duration == -3) {
-                                                                sendMessage(source, "<#990000>Invalid time format");
-                                                                return CommandResult.of(-5);
-                                                            }
-                                                            reason.setDuration(duration);
+                                                            long duration = parseTime(executor.languageId(), value);
+                                                            durationSecs = (duration == -1) ? null : duration;
                                                         }
-                                                        case "autoFlagIp" ->
-                                                                reason.setAutoIpFlag(Boolean.parseBoolean(value));
-                                                        case "autoPunish" ->
-                                                                reason.setAutoPunish(Boolean.parseBoolean(value));
+                                                        case "autoFlagIp" -> autoFlagIp = Boolean.parseBoolean(value);
+                                                        case "autoPunish" -> autoPunish = Boolean.parseBoolean(value);
                                                         default -> {
                                                             sendMessage(source, "<#990000>Unknown field: %s", field);
-                                                            return CommandResult.of(-6);
+                                                            return CommandResult.of(-2);
                                                         }
                                                     }
 
-                                                    reasonProvider.update(id, reason);
+                                                    PunishmentReason success = reasonProvider.update(reason.id(), typeId, reasonText,
+                                                            durationSecs, autoFlagIp, autoPunish, executor.id());
                                                     sendMessage(source, "<#00cc88>Updated punishment reason with ID %d.", id);
-                                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                                    return CommandResult.of(Command.SINGLE_SUCCESS, success != null ? 1 : null);
                                                 })
                                         )
                                 )
@@ -236,7 +212,7 @@ public final class ReasonCommand extends CommandManager {
         return BrigadierCommand.literalArgumentBuilder("help")
                 .requires(source -> source.hasPermission("murmel.command.reason.help"))
                 .executes(context ->
-                        runWithTiming(context, (source, executorId) -> {
+                        runWithTiming(context, (source, executor) -> {
                                     sendMessage(context.getSource(), syntax());
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 }
@@ -246,9 +222,9 @@ public final class ReasonCommand extends CommandManager {
 
     private SuggestionProvider<CommandSource> getSuggestionReasons() {
         return (context, builder) -> {
-            reasonProvider.getReasons().forEach(reason ->
-                    builder.suggest(String.valueOf(reason.getId()),
-                            VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + reason.getReason())))
+            reasonProvider.getAllReasons().forEach(reason ->
+                    builder.suggest(String.valueOf(reason.id()),
+                            VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + reason.reasonText())))
             );
             return builder.buildFuture();
         };
@@ -262,6 +238,20 @@ public final class ReasonCommand extends CommandManager {
             }
             return builder.buildFuture();
         };
+    }
+
+    private PunishmentReason getReason(int id) {
+        PunishmentReason reason = reasonProvider.getReason(id);
+        if (reason == null)
+            throw new CommandException("Reason with ID " + id + " does not exist.");
+        return reason;
+    }
+
+    private PunishmentType getType(String name) {
+        PunishmentType type = PunishmentType.fromName(name);
+        if (type == null)
+            throw new CommandException("Invalid punishment type: " + name);
+        return type;
     }
 
     private String syntax() {
