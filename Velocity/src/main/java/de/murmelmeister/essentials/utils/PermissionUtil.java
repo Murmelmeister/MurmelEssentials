@@ -1,54 +1,36 @@
 package de.murmelmeister.essentials.utils;
 
-import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
-import de.murmelmeister.murmelapi.MurmelAPI;
+import de.murmelmeister.murmelapi.language.message.MessageService;
 
-import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
 public abstract class PermissionUtil extends CommandManager {
+    private final MessageService messageService;
+
     public PermissionUtil(MurmelEssentials plugin) {
         super(plugin);
+        this.messageService = plugin.getMessageService();
     }
 
-    public String getName(boolean isUser, int id) {
-        return isUser ? user.getUsername(id) : group.getGroupName(id);
+    public String formatExpiredMessage(int languageId, LocalDateTime expiresAt) {
+        String now = LocalDateTime.now().format(getDateTimeFormatter(languageId));
+        String formattedTime = formatTimeUntil(languageId, expiresAt);
+        return expiresAt == null ? "" : messageService.getMessage(Messages.PERMISSION_FORMAT_EXPIRED_TIME, languageId)
+                .replace("[EXPIRED_TIME]", formattedTime)
+                .replace("[CURRENT_TIME]", now)
+                .replace("[EXPIRED_AT]", expiresAt.format(getDateTimeFormatter(languageId)));
     }
 
-    public void loggingToConsole(int executorId, String fullCommand) {
-        logger.info("Executor: {} (ID: {}) - Command: {}", user.getUsername(executorId), executorId, fullCommand);
-    }
-
-    public void loggingToConsole(boolean isUser, int executorId, int id, String fullCommand) {
-        logger.info("Executor: {} (ID: {}) - Target: {} ({}) (ID: {}) - Command: {}",
-                user.getUsername(executorId), executorId, getName(isUser, id), (isUser ? "User" : "Group"), id, fullCommand);
-    }
-
-    public int getGroupId(CommandSource source, String groupName) {
-        if (!existsGroup(source, groupName)) return 0;
-        return group.getId(groupName);
-    }
-
-    public int getUserId(CommandSource source, String username) {
-        if (!existsUser(source, username)) return -2;
-        return user.getId(username);
-    }
-
-    public String formatExpiredMessage(Timestamp expiredAt, String expiredDate) {
-        String currentTimeDate = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
-        String formattedTime = formatTimeUntil(expiredAt);
-        return expiredDate == null ? "" : "<#555555>(Expired: <#00cc88><hover:show_text:'<#999999>Expired: <#00cc88>" + formattedTime +
-                                          "<br><#999999>Current time: </#999999>" + currentTimeDate + "'>" +
-                                          expiredDate + "</hover></#00cc88>)";
-    }
-
-    public String formatExpiredInfoMessage(Timestamp expiredAt, String expiredDate) {
-        String currentTimeDate = MurmelAPI.getDateFormat().format(System.currentTimeMillis());
-        String formattedTime = formatTimeUntil(expiredAt);
-        return expiredDate == null ? "never" : "<hover:show_text:'<#999999>Expired: <#00cc88>" + formattedTime +
-                                               "<br><#999999>Current time: </#999999>" + currentTimeDate + "'>" +
-                                               expiredDate + "</hover>";
+    public String formatExpiredInfoMessage(int languageId, LocalDateTime expiresAt) {
+        String now = LocalDateTime.now().format(getDateTimeFormatter(languageId));
+        String formattedTime = formatTimeUntil(languageId, expiresAt);
+        return expiresAt == null ? messageService.getMessage(Messages.MESSAGE_NOT_EXPIRE, languageId)
+                : messageService.getMessage(Messages.PERMISSION_FORMAT_EXPIRED_INFO_TIME, languageId)
+                .replace("[EXPIRED_TIME]", formattedTime)
+                .replace("[CURRENT_TIME]", now)
+                .replace("[EXPIRED_AT]", expiresAt.format(getDateTimeFormatter(languageId)));
     }
 
     public String syntax() {
