@@ -8,7 +8,7 @@ public enum ConfigValue {
     DB_USERNAME("database.username", "<USERNAME>"),
     DB_PASSWORD("database.password", "<PASSWORD>"),
     ;
-    public static final ConfigValue[] VALUES = values();
+    private static final ConfigValue[] VALUES = values();
 
     private final String path;
     private final Object fallback;
