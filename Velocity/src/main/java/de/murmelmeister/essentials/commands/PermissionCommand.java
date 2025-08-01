@@ -14,27 +14,42 @@ import de.murmelmeister.essentials.commands.subcommand.ParentSubCommand;
 import de.murmelmeister.essentials.commands.subcommand.PermissionSubCommand;
 import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.essentials.utils.PermissionUtil;
+import de.murmelmeister.murmelapi.group.Group;
+import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
+import de.murmelmeister.murmelapi.group.color.GroupColorProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
+import de.murmelmeister.murmelapi.group.parent.GroupParentProvider;
+import de.murmelmeister.murmelapi.group.permission.GroupPermissionProvider;
+import de.murmelmeister.murmelapi.language.message.MessageService;
+import de.murmelmeister.murmelapi.user.User;
+import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.utils.StringUtil;
-import de.murmelmeister.murmelapi.utils.update.RefreshType;
-import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.util.List;
-import java.util.UUID;
 
 public final class PermissionCommand extends PermissionUtil {
-    private final GroupColor groupColor;
+    private final MiniMessage miniMessage = MiniMessage.miniMessage();
+    private final UserProvider userProvider;
+    private final GroupProvider groupProvider;
+    private final GroupColorProvider groupColorProvider;
+    private final GroupParentProvider groupParentProvider;
+    private final GroupPermissionProvider groupPermissionProvider;
+    private final MessageService messageService;
     private final GroupEditSubCommand groupEditSub;
     private final ParentSubCommand parentSub;
     private final PermissionSubCommand permissionSub;
-    private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     public PermissionCommand(MurmelEssentials plugin) {
         super(plugin);
-        this.groupColor = plugin.getGroup().getColor();
+        this.userProvider = plugin.getUserProvider();
+        this.groupProvider = plugin.getGroupProvider();
+        this.groupColorProvider = plugin.getGroupColorProvider();
+        this.groupParentProvider = plugin.getGroupParentProvider();
+        this.groupPermissionProvider = plugin.getGroupPermissionProvider();
+        this.messageService = plugin.getMessageService();
         this.groupEditSub = new GroupEditSubCommand(plugin);
         this.parentSub = new ParentSubCommand(plugin);
         this.permissionSub = new PermissionSubCommand(plugin);
@@ -60,8 +75,8 @@ public final class PermissionCommand extends PermissionUtil {
         // -/permission groups
         return BrigadierCommand.literalArgumentBuilder("groups")
                 .executes(context ->
-                        runWithTiming(context, (source, executorId) -> {
-                            List<String> groupNames = group.getGroupNames();
+                        runWithTiming(context, (source, executor) -> {
+                            List<String> groupNames = groupProvider.findAllGroupNames();
 
                             if (groupNames.isEmpty()) {
                                 sendMessage(source, "<#990000>No groups found.");
@@ -75,8 +90,6 @@ public final class PermissionCommand extends PermissionUtil {
                                                     "<hover:show_text:'<#999999>Click to get <#00cc88>group information'>" +
                                                     "<click:suggest_command:'%s'>%s</click></hover>", clickMessage, name);
                             });
-
-                            loggingToConsole(executorId, "/permission groups");
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 );
@@ -109,110 +122,87 @@ public final class PermissionCommand extends PermissionUtil {
         // -/permission group <groupName> info
         return BrigadierCommand.literalArgumentBuilder("info")
                 .executes(context ->
-                        runWithTiming(context, (source, executorId) -> {
+                        runWithTiming(context, (source, executor) -> {
+                            int languageId = executor.languageId();
                             String groupName = StringArgumentType.getString(context, "groupName");
+                            Group group = getGroup(languageId, groupName);
 
-                            int groupId = getGroupId(source, groupName);
-                            if (groupId == 0) return CommandResult.of(-2);
+                            int groupId = group.id();
+                            int priority = group.priority();
+                            String teamTagId = group.teamTagId();
+                            User creator = getUser(languageId, group.createdBy());
+                            User changer = group.changedBy() == null ? null : getUser(languageId, group.changedBy());
+                            String createdDate = group.createdAt().format(getDateTimeFormatter(languageId));
+                            String changedDate = group.changedAt() == null ? null : group.changedAt().format(getDateTimeFormatter(languageId));
 
-                            int priority = group.getPriority(groupId);
-                            String teamSort = group.getTeamSort(groupId);
-                            int createdBy = group.getCreatedBy(groupId);
-                            String createdName = user.getUsername(createdBy);
-                            String createdAt = group.getCreatedDate(groupId);
-                            int updatedBy = group.getUpdatedBy(groupId);
-                            String updatedName = user.getUsername(updatedBy);
-                            String updatedAt = group.getUpdatedDate(groupId);
+                            String executorName = executor.username();
+                            GroupColor chatPrefix = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_PREFIX.getId());
+                            GroupColor chatSuffix = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_SUFFIX.getId());
+                            GroupColor chatColor = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_COLOR.getId());
+                            GroupColor chatMessage = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_MESSAGE.getId());
 
-                            String executorName = user.getUsername(executorId);
-                            GroupColorType typeChat = GroupColorType.CHAT;
-                            GroupColorType typeTab = GroupColorType.TAB;
-                            GroupColorType typeTeam = GroupColorType.TEAM;
+                            GroupColor tabPrefix = groupColorProvider.getGroupColor(groupId, GroupColorType.TAB_PREFIX.getId());
+                            GroupColor tabSuffix = groupColorProvider.getGroupColor(groupId, GroupColorType.TAB_SUFFIX.getId());
+                            GroupColor tabColor = groupColorProvider.getGroupColor(groupId, GroupColorType.TAB_COLOR.getId());
 
-                            int colorCreatedBy = groupColor.getCreatedBy(groupId);
-                            String colorCreatedName = user.getUsername(colorCreatedBy);
-                            String colorCreatedAt = groupColor.getCreatedDate(groupId);
-                            int colorUpdatedBy = groupColor.getUpdatedBy(groupId);
-                            String colorUpdatedName = user.getUsername(colorUpdatedBy);
-                            String colorUpdatedAt = groupColor.getUpdatedDate(groupId);
+                            GroupColor teamPrefix = groupColorProvider.getGroupColor(groupId, GroupColorType.TEAM_PREFIX.getId());
+                            GroupColor teamSuffix = groupColorProvider.getGroupColor(groupId, GroupColorType.TEAM_SUFFIX.getId());
+                            GroupColor teamColor = groupColorProvider.getGroupColor(groupId, GroupColorType.TEAM_COLOR.getId());
+                            NamedTextColor textColor = teamColor != null ? NamedTextColor.NAMES.value(teamColor.value().toLowerCase()) : null;
 
-                            String chatPrefix = groupColor.getPrefix(groupId, typeChat);
-                            String chatSuffix = groupColor.getSuffix(groupId, typeChat);
-                            String chatColor = groupColor.getColor(groupId, typeChat);
-                            String chatMessage = groupColor.getMessage(groupId);
-                            String tabPrefix = groupColor.getPrefix(groupId, typeTab);
-                            String tabSuffix = groupColor.getSuffix(groupId, typeTab);
-                            String tabColor = groupColor.getColor(groupId, typeTab);
-                            String teamPrefix = groupColor.getPrefix(groupId, typeTeam);
-                            String teamSuffix = groupColor.getSuffix(groupId, typeTeam);
-                            String teamColor = groupColor.getColor(groupId, typeTeam);
-                            NamedTextColor textColor = teamColor != null ? NamedTextColor.NAMES.value(teamColor.toLowerCase()) : null;
-
-                            String formatChat = (chatColor != null ? "<" + chatColor + ">" : "")
-                                                + (chatPrefix != null ? chatPrefix : "")
+                            String formatChat = (chatColor != null ? "<" + chatColor.value() + ">" : "")
+                                                + (chatPrefix != null ? chatPrefix.value() : "")
                                                 + executorName
-                                                + (chatSuffix != null ? chatSuffix : "")
-                                                + (chatMessage != null ? chatMessage : " ") + "message";
-                            String formatTab = (tabColor != null ? "<" + tabColor + ">" : "")
-                                               + (tabPrefix != null ? tabPrefix : "")
+                                                + (chatSuffix != null ? chatSuffix.value() : "")
+                                                + (chatMessage != null ? chatMessage.value() : " » ") + "message";
+                            String formatTab = (tabColor != null ? "<" + tabColor.value() + ">" : "")
+                                               + (tabPrefix != null ? tabPrefix.value() : "")
                                                + executorName
-                                               + (tabSuffix != null ? tabSuffix : "");
-                            String formatTeam = (teamPrefix != null ? teamPrefix : "")
+                                               + (tabSuffix != null ? tabSuffix.value() : "");
+                            String formatTeam = (teamPrefix != null ? teamPrefix.value() : "")
                                                 + (textColor != null ? "<" + textColor + ">" : "")
                                                 + executorName
-                                                + (teamSuffix != null ? teamSuffix : "");
+                                                + (teamSuffix != null ? teamSuffix.value() : "");
 
+                            // TODO: Add created & changed stuff information for chat, tab, and team colors
                             String chatHover = """
-                                    <#999999>Chat Prefix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Chat Suffix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Chat Color: <#00cc88>%s
-                                    <#999999>Chat Message: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Created By: <#00cc88>%s (%s)
-                                    <#999999>Created At: <#00cc88>%s
-                                    <#999999>Updated By: <#00cc88>%s (%s)
-                                    <#999999>Updated At: <#00cc88>%s"""
-                                    .formatted(chatPrefix, chatSuffix, chatColor, miniMessage.escapeTags(chatMessage == null ? "" : chatMessage),
-                                            colorCreatedBy, colorCreatedName, colorCreatedAt, colorUpdatedBy, colorUpdatedName, colorUpdatedAt);
+                                    <#999999>Prefix: "<#00cc88>%s</#00cc88>"
+                                    <#999999>Suffix: "<#00cc88>%s</#00cc88>"
+                                    <#999999>Color: <#00cc88>%s
+                                    <#999999>Message: "<#00cc88>%s</#00cc88>"""
+                                    .formatted(chatPrefix, chatSuffix, chatColor, miniMessage.escapeTags(chatMessage == null ? "" : chatMessage.value()));
                             String tabHover = """
-                                    <#999999>Tab Prefix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Tab Suffix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Tab Color: <#00cc88>%s
-                                    <#999999>Created By: <#00cc88>%s (%s)
-                                    <#999999>Created At: <#00cc88>%s
-                                    <#999999>Updated By: <#00cc88>%s (%s)
-                                    <#999999>Updated At: <#00cc88>%s"""
-                                    .formatted(tabPrefix, tabSuffix, tabColor,
-                                            colorCreatedBy, colorCreatedName, colorCreatedAt, colorUpdatedBy, colorUpdatedName, colorUpdatedAt);
+                                    <#999999>Prefix: "<#00cc88>%s</#00cc88>"
+                                    <#999999>Suffix: "<#00cc88>%s</#00cc88>"
+                                    <#999999>Color: <#00cc88>%s"""
+                                    .formatted(tabPrefix, tabSuffix, tabColor);
                             String teamHover = """
-                                    <#999999>Team Prefix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Team Suffix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Team Color: <#00cc88>%s
-                                    <#999999>Created By: <#00cc88>%s (%s)
-                                    <#999999>Created At: <#00cc88>%s
-                                    <#999999>Updated By: <#00cc88>%s (%s)
-                                    <#999999>Updated At: <#00cc88>%s"""
-                                    .formatted(teamPrefix, teamSuffix, teamColor,
-                                            colorCreatedBy, colorCreatedName, colorCreatedAt, colorUpdatedBy, colorUpdatedName, colorUpdatedAt);
+                                    <#999999>Prefix: "<#00cc88>%s</#00cc88>"
+                                    <#999999>Suffix: "<#00cc88>%s</#00cc88>"
+                                    <#999999>Color: <#00cc88>%s"""
+                                    .formatted(teamPrefix, teamSuffix, teamColor);
 
+                            String changedText = (changer == null || group.changedAt() == null) ? null :
+                                    "<#999999>Changed by <#00cc88>%s (%s)</#00cc88> on <#00cc88>%s"
+                                            .formatted(changer.username(), changer.id(), changedDate);
                             String message = """
                                     <#999999>===- Group Information:
                                     <#999999>Group Name: <#00cc88>%s
                                     <#999999>Group ID: <#00cc88>%s
                                     <#999999>Priority: <#00cc88>%s
                                     <#999999>Team Sort: <#00cc88>%s
-                                    <#999999>Created By: <#00cc88>%s (%s)
-                                    <#999999>Created At: <#00cc88>%s
-                                    <#999999>Updated By: <#00cc88>%s (%s)
-                                    <#999999>Updated At: <#00cc88>%s
+                                    <#999999>Created by <#00cc88>%s (%s)</#00cc88> on <#00cc88>%s %s
                                     <#999999>Chat Format: <hover:show_text:'%s'>%s</hover>
                                     <#999999>Tab Format: <hover:show_text:'%s'>%s</hover>
                                     <#999999>Team Format: <hover:show_text:'%s'>%s</hover>"""
-                                    .formatted(groupName, groupId, priority, teamSort, createdBy, createdName, createdAt, updatedBy, updatedName, updatedAt,
-                                            chatHover, formatChat, tabHover, formatTab, teamHover, formatTeam);
+                                    .formatted(groupName, groupId, priority, teamTagId,
+                                            creator.username(), creator.id(), createdDate,
+                                            changedText == null ? "" : "\n" + changedText,
+                                            chatHover, formatChat,
+                                            tabHover, formatTab,
+                                            teamHover, formatTeam);
 
                             sendMessage(source, message);
-
-                            loggingToConsole(false, executorId, groupId, "/permission group " + groupName + " info");
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 );
@@ -232,27 +222,20 @@ public final class PermissionCommand extends PermissionUtil {
                         })
                         .then(BrigadierCommand.requiredArgumentBuilder("teamId", StringArgumentType.word())
                                 .executes(context ->
-                                        runWithTiming(context, (source, executorId) -> {
+                                        runWithTiming(context, (source, executor) -> {
                                             String groupName = StringArgumentType.getString(context, "groupName");
                                             int priority = IntegerArgumentType.getInteger(context, "priority");
-                                            String teamId = StringArgumentType.getString(context, "teamId");
+                                            String teamTagId = StringArgumentType.getString(context, "teamId");
 
-                                            if (group.existsGroup(groupName)) {
+                                            Group group = groupProvider.findByName(groupName);
+                                            if (group != null) {
                                                 sendMessage(source, "<#990000>Group %s already exists.", groupName);
                                                 return CommandResult.of(-2);
                                             }
 
-                                            int row = group.createGroup(groupName, priority, teamId, executorId);
-
-                                            int groupId = group.getId(groupName);
-                                            int colorRow = 0;
-                                            if (!groupColor.existsGroup(groupId))
-                                                colorRow = groupColor.createGroup(groupId, executorId);
-                                            sendMessage(source, "<#00cc88>Group %s was created.", groupName, row);
-
-                                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                            loggingToConsole(false, executorId, groupId, "/permission group " + groupName + " create " + priority + " " + teamId);
-                                            return CommandResult.of(Command.SINGLE_SUCCESS, row + colorRow);
+                                            Group success = groupProvider.create(groupName, priority, teamTagId, executor.id());
+                                            sendMessage(source, "<#00cc88>Group %s was created.", groupName);
+                                            return CommandResult.of(Command.SINGLE_SUCCESS, success != null ? 1 : null);
                                         })
                                 )
                         )
@@ -263,28 +246,25 @@ public final class PermissionCommand extends PermissionUtil {
         // -/permission group <groupName> delete
         return BrigadierCommand.literalArgumentBuilder("delete")
                 .executes(context ->
-                        runWithTiming(context, (source, executorId) -> {
+                        runWithTiming(context, (source, executor) -> {
+                            int languageId = executor.languageId();
                             String groupName = StringArgumentType.getString(context, "groupName");
 
-                            int groupId = getGroupId(source, groupName);
-                            if (groupId == 0) return CommandResult.of(-2);
+                            Group group = getGroup(languageId, groupName);
+                            int groupId = group.id();
 
-                            if (groupId == group.getId("default")) {
+                            if (groupId == getDefaultGroup(languageId).id()) {
                                 sendMessage(source, "<#990000>You cannot delete the default group.");
-                                return CommandResult.of(-3);
+                                return CommandResult.of(-2);
                             }
 
-                            int row = groupColor.deleteGroup(groupId)
-                                      + group.getPermission().clearPermission(groupId)
-                                      + group.getParent().clearParent(groupId)
-                                      + group.getParent().clearOtherParent(groupId)
-                                      + user.getParent().clearOtherParent(groupId);
-                            int finalRow = group.deleteGroup(groupId) + row;
+                            int result = 0;
+                            result += groupPermissionProvider.clear(groupId);
+                            result += groupParentProvider.clear(groupId);
+                            result += groupColorProvider.clear(groupId);
+                            result += groupProvider.delete(groupId);
                             sendMessage(source, "<#00cc88>Group %s was deleted.", groupName);
-
-                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name;
-                            loggingToConsole(false, executorId, groupId, "/permission group " + groupName + " delete");
-                            return CommandResult.of(Command.SINGLE_SUCCESS, finalRow);
+                            return CommandResult.of(Command.SINGLE_SUCCESS, result < 1 ? null : result);
                         })
                 );
     }
@@ -298,32 +278,28 @@ public final class PermissionCommand extends PermissionUtil {
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("newName", StringArgumentType.word())
                         .executes(context ->
-                                runWithTiming(context, (source, executorId) -> {
+                                runWithTiming(context, (source, executor) -> {
+                                    int languageId = executor.languageId();
                                     String groupName = StringArgumentType.getString(context, "groupName");
-                                    String newName = StringArgumentType.getString(context, "newName");
+                                    Group group = getGroup(languageId, groupName);
 
-                                    int groupId = getGroupId(source, groupName);
-                                    if (groupId == 0) return CommandResult.of(-2);
-
-                                    if (groupId == group.getId("default")) {
+                                    if (group.id() == getDefaultGroup(languageId).id()) {
                                         sendMessage(source, "<#990000>You cannot rename the default group.");
+                                        return CommandResult.of(-2);
+                                    }
+
+                                    String newName = StringArgumentType.getString(context, "newName");
+                                    if (group.groupName().equals(newName)) {
+                                        sendMessage(source, "<#990000>Group %s already exists.", newName);
                                         return CommandResult.of(-3);
                                     }
 
-                                    if (group.existsGroup(newName)) {
-                                        sendMessage(source, "<#990000>Group %s already exists.", newName);
-                                        return CommandResult.of(-4);
-                                    }
+                                    String teamTagId = group.teamTagId();
+                                    String newTeamTagId = teamTagId.replace(groupName, newName);
 
-                                    String teamSort = group.getTeamSort(groupId);
-
-                                    int row = group.rename(groupId, newName, executorId)
-                                              + group.setTeamSort(groupId, teamSort.replace(groupName, newName), executorId);
+                                    Group success = groupProvider.update(group.id(), newName, group.priority(), newTeamTagId, executor.id());
                                     sendMessage(source, "<#00cc88>Group %s was renamed to %s.", groupName, newName);
-
-                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    loggingToConsole(false, executorId, groupId, "/permission group " + groupName + " rename " + newName);
-                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS, success != null ? 1 : null);
                                 })
                         )
                 );
@@ -369,8 +345,8 @@ public final class PermissionCommand extends PermissionUtil {
         // -/permission users
         return BrigadierCommand.literalArgumentBuilder("users")
                 .executes(context ->
-                        runWithTiming(context, (source, executorId) -> {
-                            List<String> usernames = user.getUsernames();
+                        runWithTiming(context, (source, executor) -> {
+                            List<String> usernames = userProvider.findUsernames(); // You can also use userProvider.findAll() to get User objects
 
                             if (usernames.isEmpty()) {
                                 sendMessage(source, "<#990000>No users found.");
@@ -384,8 +360,6 @@ public final class PermissionCommand extends PermissionUtil {
                                                     "<hover:show_text:'<#999999>Click to get <#00cc88>user information'>" +
                                                     "<click:suggest_command:'%s'>%s</click></hover>", clickMessage, username);
                             });
-
-                            loggingToConsole(executorId, "/permission users");
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 );
@@ -414,15 +388,13 @@ public final class PermissionCommand extends PermissionUtil {
         // -/permission user <username> info
         return BrigadierCommand.literalArgumentBuilder("info")
                 .executes(context ->
-                        runWithTiming(context, (source, executorId) -> {
+                        runWithTiming(context, (source, executor) -> {
                             String username = StringArgumentType.getString(context, "username");
-                            int userId = getUserId(source, username);
-                            if (userId == -2) return CommandResult.of(-2);
+                            User user = getUser(executor.languageId(), username);
 
-                            UUID mojangId = user.getUniqueId(userId);
-                            String firstJoinDate = user.getFirstJoinDate(userId);
-                            String isDebugUser = user.isDebugUser(userId) ? "<#00cc88>Yes" : "<#990000>No";
-                            String isDebugMode = user.isDebugActive(userId) ? "<#00cc88>Yes" : "<#990000>No";
+                            String firstJoinDate = user.firstLogin().format(getDateTimeFormatter(executor.languageId()));
+                            String isDebugUser = user.debugUser() ? "<#00cc88>Yes" : "<#990000>No";
+                            String isDebugMode = user.debugEnabled() ? "<#00cc88>Yes" : "<#990000>No";
 
                             String message = """
                                     <#999999>===- User information:
@@ -432,10 +404,8 @@ public final class PermissionCommand extends PermissionUtil {
                                     <#999999>First join: <#00cc88>%s
                                     <#999999>Debug user: <#00cc88>%s
                                     <#999999>Debug mode: <#00cc88>%s"""
-                                    .formatted(username, userId, mojangId.toString(), firstJoinDate, isDebugUser, isDebugMode);
+                                    .formatted(user.username(), user.id(), user.mojangId().toString(), firstJoinDate, isDebugUser, isDebugMode);
                             sendMessage(source, message);
-
-                            loggingToConsole(executorId, "/permission user " + username + " info");
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 );
@@ -467,7 +437,7 @@ public final class PermissionCommand extends PermissionUtil {
     private SuggestionProvider<CommandSource> getGroupNames() {
         return (context, builder) -> {
             String prefix = builder.getRemaining();
-            group.getGroupNames().stream()
+            groupProvider.findAllGroupNames().stream()
                     .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
                     .sorted()
                     .forEach(builder::suggest);
@@ -478,7 +448,7 @@ public final class PermissionCommand extends PermissionUtil {
     private SuggestionProvider<CommandSource> getUsernames() {
         return (context, builder) -> {
             String prefix = builder.getRemaining();
-            user.getUsernames().stream()
+            userProvider.findUsernames().stream()
                     .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
                     .sorted()
                     .forEach(builder::suggest);
