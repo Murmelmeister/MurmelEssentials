@@ -5,9 +5,11 @@ import de.murmelmeister.essentials.configurations.Config;
 import de.murmelmeister.essentials.manager.ListenerManager;
 import de.murmelmeister.essentials.utils.PluginMessageRefresh;
 import de.murmelmeister.murmelapi.MurmelAPI;
-import de.murmelmeister.murmelapi.group.Group;
+import de.murmelmeister.murmelapi.group.GroupProvider;
+import de.murmelmeister.murmelapi.group.color.GroupColorProvider;
 import de.murmelmeister.murmelapi.permission.Permission;
-import de.murmelmeister.murmelapi.user.User;
+import de.murmelmeister.murmelapi.user.UserProvider;
+import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class MurmelEssentials extends JavaPlugin {
@@ -16,10 +18,16 @@ public final class MurmelEssentials extends JavaPlugin {
     public static final String PLUGIN_PATH = "./plugins/" + MurmelEssentials.class.getSimpleName() + "/";
 
     private final Config config;
+    private final Ranks ranks;
+
+    public MurmelEssentials() {
+        this.config = new Config();
+        this.ranks = new Ranks(this);
+    }
 
     @Override
     public void onDisable() {
-        Ranks.cancelTask();
+        ranks.cancelTask();
         config.disconnectFromDatabase();
         getServer().getMessenger().unregisterIncomingPluginChannel(this, CHANNEL, PLUGIN_MESSAGE_REFRESH);
     }
@@ -28,27 +36,35 @@ public final class MurmelEssentials extends JavaPlugin {
     public void onEnable() {
         config.connectToDatabase();
         ListenerManager.register(this);
-        Ranks.updatePlayers(this, getServer());
+        ranks.updatePlayers(this, getServer());
         getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, PLUGIN_MESSAGE_REFRESH);
     }
 
-    public MurmelEssentials() {
-        this.config = new Config();
-    }
-
     public MurmelEssentials getInstance() {
-        return this;
+        return getPlugin(MurmelEssentials.class);
     }
 
-    public Group getGroup() {
-        return MurmelAPI.getGroup();
+    public GroupProvider getGroupProvider() {
+        return MurmelAPI.getGroupProvider();
     }
 
-    public User getUser() {
-        return MurmelAPI.getUser();
+    public GroupColorProvider getGroupColorProvider() {
+        return MurmelAPI.getGroupColorProvider();
+    }
+
+    public UserProvider getUserProvider() {
+        return MurmelAPI.getUserProvider();
+    }
+
+    public UserParentProvider getUserParentProvider() {
+        return MurmelAPI.getUserParentProvider();
     }
 
     public Permission getPermission() {
         return MurmelAPI.getPermission();
+    }
+
+    public Ranks getRanks() {
+        return ranks;
     }
 }
