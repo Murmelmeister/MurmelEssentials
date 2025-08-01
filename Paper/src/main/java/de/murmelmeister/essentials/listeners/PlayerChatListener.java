@@ -7,13 +7,15 @@ import io.papermc.paper.event.player.AsyncChatEvent;
 import org.bukkit.event.EventHandler;
 
 public final class PlayerChatListener extends ListenerManager {
+    private final Ranks ranks;
+
     public PlayerChatListener(MurmelEssentials instance) {
-        super(instance);
+        this.ranks = instance.getRanks();
     }
 
     @EventHandler
     public void handlePlayerChat(AsyncChatEvent event) {
         // TODO: CheckPunishment
-        Ranks.setChatFormat(event, this.instance.getGroup(), this.instance.getUser());
+        ranks.setChatFormat(event);
     }
 }
