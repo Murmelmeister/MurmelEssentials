@@ -4,6 +4,8 @@ import com.google.inject.Inject;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
+import com.velocitypowered.api.plugin.Plugin;
+import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import de.murmelmeister.essentials.api.CustomPermission;
@@ -12,51 +14,72 @@ import de.murmelmeister.essentials.configurations.Config;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.ListenerManager;
 import de.murmelmeister.essentials.utils.Messages;
+import de.murmelmeister.essentials.utils.PunishmentUtil;
 import de.murmelmeister.essentials.utils.RefreshBridge;
 import de.murmelmeister.murmelapi.MurmelAPI;
-import de.murmelmeister.murmelapi.group.Group;
+import de.murmelmeister.murmelapi.group.GroupProvider;
+import de.murmelmeister.murmelapi.group.color.GroupColorProvider;
+import de.murmelmeister.murmelapi.group.parent.GroupParentProvider;
+import de.murmelmeister.murmelapi.group.permission.GroupPermissionProvider;
 import de.murmelmeister.murmelapi.language.LanguageProvider;
 import de.murmelmeister.murmelapi.language.message.MessageProvider;
 import de.murmelmeister.murmelapi.language.message.MessageService;
-import de.murmelmeister.murmelapi.logging.ActiveSession;
-import de.murmelmeister.murmelapi.logging.LoginHistory;
 import de.murmelmeister.murmelapi.permission.Permission;
-import de.murmelmeister.murmelapi.punishment.PunishmentIP;
-import de.murmelmeister.murmelapi.punishment.PunishmentUser;
-import de.murmelmeister.murmelapi.punishment.log.PunishmentLog;
-import de.murmelmeister.murmelapi.punishment.reason.PunishmentReason;
-import de.murmelmeister.murmelapi.punishment.reason.ReasonProvider;
-import de.murmelmeister.murmelapi.time.PlayTime;
-import de.murmelmeister.murmelapi.user.User;
+import de.murmelmeister.murmelapi.punishment.other.PunishmentService;
+import de.murmelmeister.murmelapi.punishment.other.audit.PunishmentLogProvider;
+import de.murmelmeister.murmelapi.punishment.other.ip.PunishmentCurrentIpProvider;
+import de.murmelmeister.murmelapi.punishment.other.reason.PunishmentReasonProvider;
+import de.murmelmeister.murmelapi.punishment.other.user.PunishmentCurrentUserProvider;
+import de.murmelmeister.murmelapi.user.UserProvider;
+import de.murmelmeister.murmelapi.user.UserService;
+import de.murmelmeister.murmelapi.user.login.UserLoginProvider;
+import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
+import de.murmelmeister.murmelapi.user.permission.UserPermissionProvider;
+import de.murmelmeister.murmelapi.user.playtime.UserPlayTimeProvider;
+import de.murmelmeister.murmelapi.user.session.UserSessionProvider;
 import org.slf4j.Logger;
 
+import java.nio.file.Path;
+import java.time.format.DateTimeFormatter;
+
+@Plugin(
+        id = "murmelessentials",
+        name = "MurmelEssentials",
+        version = "0.0.3",
+        description = "MurmelEssentials is a plugin that adds a lot of useful commands to your server.",
+        url = "https://www.youtube.com/Murmelmeister",
+        authors = {"Murmelmeister"}
+)
 public final class MurmelEssentials {
     private final Logger logger;
     private final ProxyServer server;
-    public static final String PLUGIN_PATH = "./plugins/" + MurmelEssentials.class.getSimpleName() + "/";
 
     private final Config config;
-    //private MessagesService messagesService;
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from("murmel:main");
+    private final PunishmentUtil punishmentUtil;
+    private RefreshBridge refreshBridge;
 
     public static final String TEAM_MEMBER_PERMISSION = "murmel.member.team";
+    public static final String PUNISHMENT_REASON_PERMISSION = "murmel.punishment.reason.";
+    public static final String PUNISHMENT_IMMUNITY_PERMISSION = "murmel.punishment.immunity";
+    public static final String PUNISHMENT_NOTIFY_PERMISSION = "murmel.punishment.notify";
 
     @Inject
-    public MurmelEssentials(Logger logger, ProxyServer server) {
+    public MurmelEssentials(Logger logger, ProxyServer server, @DataDirectory Path dataDirectory) {
         this.logger = logger;
         this.server = server;
-        this.config = new Config();
-        server.getChannelRegistrar().register(channel);
+        this.config = new Config(dataDirectory);
+        config.connectToDatabase(); // Initialize the database connection because it is necessary for the providers
+        this.punishmentUtil = new PunishmentUtil(this);
     }
 
     @Subscribe
     public void onEnable(ProxyInitializeEvent event) {
-        config.connectToDatabase();
-        getLanguageProvider().loadData();
-        getMessageService().checkAndLoad(Messages.VALUES);
-        getGroup().createDefaultGroup("default");
+        server.getChannelRegistrar().register(channel); // Note: Channel registration only works at the ProxyInitializeEvent not in the constructor
+        refreshBridge = new RefreshBridge(server, channel);
+        refreshBridge.register();
+        Messages.loadMessages(getMessageService());
         CustomPermission.updatePermission(this, server);
-        new RefreshBridge(this, server);
         ListenerManager.register(this, server);
         CommandManager.register(this);
         PlayTimeUpdater.startTimer(this, logger, server);
@@ -64,8 +87,9 @@ public final class MurmelEssentials {
 
     @Subscribe
     public void onDisable(ProxyShutdownEvent event) {
-        config.disconnectFromDatabase();
+        refreshBridge.unregister();
         server.getChannelRegistrar().unregister(channel);
+        config.disconnectFromDatabase();
     }
 
     public Logger getLogger() {
@@ -76,48 +100,12 @@ public final class MurmelEssentials {
         return server;
     }
 
-    public LoginHistory getLoginHistory() {
-        return MurmelAPI.getLoginHistory();
-    }
-
-    public ActiveSession getActiveSession() {
-        return MurmelAPI.getActiveSession();
-    }
-
-    public User getUser() {
-        return MurmelAPI.getUser();
-    }
-
-    public Group getGroup() {
-        return MurmelAPI.getGroup();
-    }
-
-    public PlayTime getPlayTime() {
-        return MurmelAPI.getPlayTime();
-    }
-
-    public Permission getPermission() {
-        return MurmelAPI.getPermission();
-    }
-
-    public PunishmentReason getPunishmentReason() {
-        return MurmelAPI.getPunishmentReason();
-    }
-
-    public PunishmentLog getPunishmentLog() {
-        return MurmelAPI.getPunishmentLog();
-    }
-
-    public PunishmentIP getPunishmentIP() {
-        return MurmelAPI.getPunishmentIP();
-    }
-
-    public PunishmentUser getPunishmentUser() {
-        return MurmelAPI.getPunishmentUser();
+    public DateTimeFormatter getDateTimeFormatter(int languageId) {
+        return MurmelAPI.getDateTimeFormatter(languageId);
     }
 
     public LanguageProvider getLanguageProvider() {
-        return MurmelAPI.getLanguage();
+        return MurmelAPI.getLanguageProvider();
     }
 
     public MessageProvider getMessageProvider() {
@@ -128,11 +116,79 @@ public final class MurmelEssentials {
         return MurmelAPI.getMessageService();
     }
 
-    public ReasonProvider getReasonProvider() {
-        return MurmelAPI.getReasonProvider();
+    public UserProvider getUserProvider() {
+        return MurmelAPI.getUserProvider();
+    }
+
+    public UserPlayTimeProvider getUserPlayTimeProvider() {
+        return MurmelAPI.getUserPlayTimeProvider();
+    }
+
+    public UserLoginProvider getUserLoginProvider() {
+        return MurmelAPI.getUserLoginProvider();
+    }
+
+    public UserSessionProvider getUserSessionProvider() {
+        return MurmelAPI.getUserSessionProvider();
+    }
+
+    public UserService getUserService() {
+        return MurmelAPI.getUserService();
+    }
+
+    public GroupProvider getGroupProvider() {
+        return MurmelAPI.getGroupProvider();
+    }
+
+    public GroupColorProvider getGroupColorProvider() {
+        return MurmelAPI.getGroupColorProvider();
+    }
+
+    public UserPermissionProvider getUserPermissionProvider() {
+        return MurmelAPI.getUserPermissionProvider();
+    }
+
+    public UserParentProvider getUserParentProvider() {
+        return MurmelAPI.getUserParentProvider();
+    }
+
+    public GroupPermissionProvider getGroupPermissionProvider() {
+        return MurmelAPI.getGroupPermissionProvider();
+    }
+
+    public GroupParentProvider getGroupParentProvider() {
+        return MurmelAPI.getGroupParentProvider();
+    }
+
+    public Permission getPermission() {
+        return MurmelAPI.getPermission();
+    }
+
+    public PunishmentReasonProvider getPunishmentReasonProvider() {
+        return MurmelAPI.getPunishmentReasonProvider();
+    }
+
+    public PunishmentLogProvider getPunishmentLogProvider() {
+        return MurmelAPI.getPunishmentLogProvider();
+    }
+
+    public PunishmentCurrentIpProvider getPunishmentIpProvider() {
+        return MurmelAPI.getPunishmentCurrentIpProvider();
+    }
+
+    public PunishmentCurrentUserProvider getPunishmentUserProvider() {
+        return MurmelAPI.getPunishmentCurrentUserProvider();
+    }
+
+    public PunishmentService getPunishmentService() {
+        return MurmelAPI.getPunishmentService();
     }
 
     public MinecraftChannelIdentifier getChannel() {
         return channel;
+    }
+
+    public PunishmentUtil getPunishmentUtil() {
+        return punishmentUtil;
     }
 }
