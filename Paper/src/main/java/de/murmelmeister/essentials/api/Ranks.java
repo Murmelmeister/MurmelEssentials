@@ -3,9 +3,14 @@ package de.murmelmeister.essentials.api;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.utils.ChatFormatter;
 import de.murmelmeister.murmelapi.group.Group;
+import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
+import de.murmelmeister.murmelapi.group.color.GroupColorProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
 import de.murmelmeister.murmelapi.user.User;
+import de.murmelmeister.murmelapi.user.UserProvider;
+import de.murmelmeister.murmelapi.user.parent.UserParent;
+import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
 import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
@@ -21,139 +26,169 @@ import org.bukkit.scoreboard.Team;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public final class Ranks {
-    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+import static de.murmelmeister.murmelapi.group.GroupProviderImpl.DEFAULT_GROUP_ID;
 
-    private static BukkitTask task;
-    private static final AtomicBoolean HAS_UPDATED = new AtomicBoolean(false);
+public final class Ranks implements AutoCloseable {
+    private final MiniMessage miniMessage = MiniMessage.miniMessage();
+    private final AtomicBoolean hasUpdated = new AtomicBoolean(false);
+    private BukkitTask task;
 
-    static {
-        RefreshUtil.register(cacheName -> HAS_UPDATED.set(true));
+    private final GroupProvider groupProvider;
+    private final GroupColorProvider groupColorProvider;
+    private final UserProvider userProvider;
+    private final UserParentProvider userParentProvider;
+
+    public Ranks(MurmelEssentials instance) {
+        this.groupProvider = instance.getGroupProvider();
+        this.groupColorProvider = instance.getGroupColorProvider();
+        this.userProvider = instance.getUserProvider();
+        this.userParentProvider = instance.getUserParentProvider();
+        RefreshUtil.register(cacheName -> hasUpdated.set(true));
     }
 
-    public static void cancelTask() {
+    public void cancelTask() {
         if (task != null && !task.isCancelled())
             task.cancel();
     }
 
-    public static void updatePlayers(MurmelEssentials instance, Server server) {
-        Group group = instance.getGroup();
-        User user = instance.getUser();
-
+    public void updatePlayers(MurmelEssentials instance, Server server) {
         task = server.getScheduler().runTaskTimerAsynchronously(instance, () -> {
-            if (HAS_UPDATED.get()) {
+            if (hasUpdated.get()) {
                 for (Player player : server.getOnlinePlayers()) {
-                    setPlayerTeams(group, user, player);
-                    setPlayerListName(group, user, player);
+                    setPlayerTeams(player);
+                    setPlayerListName(player);
                     player.updateCommands(); // Update the player commands
                 }
-                HAS_UPDATED.set(false);
+                hasUpdated.set(false);
             }
         }, 10L, 20L);
     }
 
-    public static void setChatFormat(AsyncChatEvent event, Group group, User user) {
+    public void setChatFormat(AsyncChatEvent event) {
+        // Get the user
         Player player = event.getPlayer();
-        int userId = user.getId(player.getUniqueId());
-        int highestSortId = user.getParent().getHighestPriority(group, userId);
-        GroupColor groupColor = group.getColor();
-        GroupColorType groupType = GroupColorType.CHAT;
+        User user = userProvider.findByMojangId(player.getUniqueId());
+        if (user == null) return;
+        int userId = user.id();
 
+        // Get the highest priority group for the user
+        Group group = getHighestPriority(userId);
+        if (group == null) return;
+        int groupId = group.id();
+
+        // Get the group colors
+        GroupColor prefix = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_PREFIX.getId());
+        GroupColor suffix = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_SUFFIX.getId());
+        GroupColor color = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_COLOR.getId());
+        GroupColor chatMessage = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_MESSAGE.getId());
+
+        // Format the chat message
+        String formattedPrefix = prefix != null ? prefix.value() : "";
+        String formattedSuffix = suffix != null ? suffix.value() : "";
+        String formattedColor = color != null ? "<" + color.value() + ">" : "<gray>";
+        String formattedColorMessage = chatMessage != null ? chatMessage.value() : " » ";
+
+        String format = formattedColor + formattedPrefix + player.getName() + formattedSuffix + "<reset>";
         event.renderer((source, sourceDisplayName, message, viewer) -> {
-            Optional<Integer> groupId = user.getParent().getParentIds(userId).stream()
-                    .filter(id -> highestSortId == group.getPriority(id))
-                    .findFirst();
-
-            if (groupId.isPresent()) {
-                int id = groupId.get();
-                String prefix = groupColor.getPrefix(id, groupType);
-                String suffix = groupColor.getSuffix(id, groupType);
-                String color = groupColor.getColor(id, groupType);
-                String chatMessage = groupColor.getMessage(id);
-
-                String formattedPrefix = prefix != null ? prefix : "";
-                String formattedSuffix = suffix != null ? suffix : "";
-                String formattedColor = color != null ? "<" + color + ">" : "<gray>";
-                String formattedColorMessage = chatMessage != null ? chatMessage : " ";
-
-                String format = formattedColor + formattedPrefix + player.getName() + formattedSuffix + "<reset>";
-                Component component = MINI_MESSAGE.deserialize(format);
-
-                String finalMessage = PlainTextComponentSerializer.plainText().serialize(message);
-                Component messageComponent = ChatFormatter.format(player, finalMessage, formattedColorMessage);
-                return component.append(messageComponent);
-            } else return message;
+            Component component = miniMessage.deserialize(format);
+            String finalMessage = PlainTextComponentSerializer.plainText().serialize(message);
+            Component messageComponent = ChatFormatter.format(player, finalMessage, formattedColorMessage);
+            return component.append(messageComponent);
         });
     }
 
-    private static void setPlayerListName(Group group, User user, Player player) {
-        int userId = user.getId(player.getUniqueId());
-        int highestSortId = user.getParent().getHighestPriority(group, userId);
-        GroupColor groupColor = group.getColor();
-        GroupColorType groupType = GroupColorType.TAB;
+    private void setPlayerListName(Player player) {
+        // Get the user
+        User user = userProvider.findByMojangId(player.getUniqueId());
+        if (user == null) return;
+        int userId = user.id();
 
-        Optional<Integer> groupId = user.getParent().getParentIds(userId).stream()
-                .filter(id -> highestSortId == group.getPriority(id))
-                .findFirst();
+        // Get the highest priority group for the user
+        Group group = getHighestPriority(userId);
+        if (group == null) return;
+        int groupId = group.id();
 
-        if (groupId.isPresent()) {
-            int id = groupId.get();
-            String prefix = groupColor.getPrefix(id, groupType);
-            String suffix = groupColor.getSuffix(id, groupType);
-            String color = groupColor.getColor(id, groupType);
+        // Get the group colors
+        GroupColor prefix = groupColorProvider.getGroupColor(groupId, GroupColorType.TAB_PREFIX.getId());
+        GroupColor suffix = groupColorProvider.getGroupColor(groupId, GroupColorType.TAB_SUFFIX.getId());
+        GroupColor color = groupColorProvider.getGroupColor(groupId, GroupColorType.TAB_COLOR.getId());
 
-            String formattedPrefix = prefix != null ? prefix : "";
-            String formattedSuffix = suffix != null ? suffix : "";
-            String formattedColor = color != null ? "<" + color + ">" : "<gray>";
+        // Format the player list name
+        String formattedPrefix = prefix != null ? prefix.value() : "";
+        String formattedSuffix = suffix != null ? suffix.value() : "";
+        String formattedColor = color != null ? "<" + color.value() + ">" : "<gray>";
 
-            Component baseComponent = MINI_MESSAGE.deserialize(formattedColor + formattedPrefix + player.getName() + formattedSuffix);
-            player.playerListName(baseComponent);
-        }
+        Component baseComponent = miniMessage.deserialize(formattedColor + formattedPrefix + player.getName() + formattedSuffix);
+        player.playerListName(baseComponent);
+
     }
 
-    private static void setPlayerTeams(Group group, User user, Player player) {
+    private void setPlayerTeams(Player player) {
+        User user = userProvider.findByMojangId(player.getUniqueId());
+        if (user == null) return;
+        Group userGroup = getHighestPriority(user.id());
+        if (userGroup == null) return;
         Scoreboard scoreboard = player.getScoreboard();
-        GroupColorType groupType = GroupColorType.TEAM;
-        GroupColor groupColor = group.getColor();
 
         Map<String, Team> existingTeams = new HashMap<>();
         for (Team team : scoreboard.getTeams())
             existingTeams.put(team.getName(), team);
 
         Map<Integer, List<String>> playersBySortId = new HashMap<>();
-        for (Player target : player.getServer().getOnlinePlayers()) {
-            int userId = user.getId(target.getUniqueId());
-            int highestSortId = user.getParent().getHighestPriority(group, userId);
-            playersBySortId.computeIfAbsent(highestSortId, k -> new ArrayList<>()).add(target.getName());
-        }
+        for (Player target : player.getServer().getOnlinePlayers())
+            playersBySortId.computeIfAbsent(userGroup.id(), k -> new ArrayList<>()).add(target.getName());
 
-        for (String groupName : group.getGroupNames()) {
-            int groupId = group.getId(groupName);
-            int groupSortId = group.getPriority(groupId);
-            String name = group.getTeamSort(groupId);
 
-            Team team = existingTeams.get(name);
-            if (team == null) team = scoreboard.registerNewTeam(name);
+        for (Group group : groupProvider.findAll()) {
+            int groupId = group.id();
+            int priority = group.priority();
+            String teamTagId = group.teamTagId();
 
-            String prefix = groupColor.getPrefix(groupId, groupType);
-            String suffix = groupColor.getSuffix(groupId, groupType);
-            String color = groupColor.getColor(groupId, groupType);
+            Team team = existingTeams.get(teamTagId);
+            if (team == null) team = scoreboard.registerNewTeam(teamTagId);
 
-            if (prefix == null) prefix = "";
-            if (suffix == null) suffix = "";
-            if (color == null) color = "gray";
+            GroupColor prefix = groupColorProvider.getGroupColor(groupId, GroupColorType.TEAM_PREFIX.getId());
+            GroupColor suffix = groupColorProvider.getGroupColor(groupId, GroupColorType.TEAM_SUFFIX.getId());
+            GroupColor color = groupColorProvider.getGroupColor(groupId, GroupColorType.TEAM_COLOR.getId());
 
-            if (!prefix.equals(MINI_MESSAGE.serialize(team.prefix()))) team.prefix(MINI_MESSAGE.deserialize(prefix));
-            if (!suffix.equals(MINI_MESSAGE.serialize(team.suffix()))) team.suffix(MINI_MESSAGE.deserialize(suffix));
+            String formattedPrefix = prefix != null ? prefix.value() : "";
+            String formattedSuffix = suffix != null ? suffix.value() : "";
+            String formattedColor = color != null ? color.value() : "gray";
+            NamedTextColor textColor = NamedTextColor.NAMES.value(formattedColor.toLowerCase());
 
-            NamedTextColor textColor = NamedTextColor.NAMES.value(color.toLowerCase());
+            if (!formattedPrefix.equals(miniMessage.serialize(team.prefix())))
+                team.prefix(miniMessage.deserialize(formattedPrefix));
+            if (!formattedSuffix.equals(miniMessage.serialize(team.suffix())))
+                team.suffix(miniMessage.deserialize(formattedSuffix));
             if (textColor != null)
                 team.color(textColor);
 
-            List<String> playerNames = playersBySortId.get(groupSortId);
+            List<String> playerNames = playersBySortId.get(priority);
             if (playerNames != null)
                 for (String playerName : playerNames)
                     team.addEntry(playerName);
         }
+    }
+
+    private Group getHighestPriority(int userId) {
+        List<Integer> parentIds = userParentProvider.getParents(userId).stream()
+                .map(UserParent::parentId)
+                .toList();
+
+        if (parentIds.isEmpty())
+            return groupProvider.findById(DEFAULT_GROUP_ID);
+
+        return parentIds.stream()
+                .map(groupProvider::findById)
+                .filter(Objects::nonNull)
+                .max(Comparator.comparingInt(Group::priority))
+                .map(Group::id)
+                .map(groupProvider::findById)
+                .orElse(groupProvider.findById(DEFAULT_GROUP_ID));
+    }
+
+    @Override
+    public void close() {
+        RefreshUtil.unregister(cacheName -> hasUpdated.set(true));
     }
 }
