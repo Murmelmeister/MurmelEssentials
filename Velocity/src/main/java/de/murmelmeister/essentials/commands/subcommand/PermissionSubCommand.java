@@ -9,29 +9,39 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.MurmelEssentials;
+import de.murmelmeister.essentials.manager.command.CommandException;
 import de.murmelmeister.essentials.manager.command.CommandResult;
+import de.murmelmeister.essentials.utils.Messages;
 import de.murmelmeister.essentials.utils.PermissionUtil;
-import de.murmelmeister.murmelapi.group.parent.GroupParent;
+import de.murmelmeister.murmelapi.group.Group;
+import de.murmelmeister.murmelapi.group.parent.GroupParentProvider;
 import de.murmelmeister.murmelapi.group.permission.GroupPermission;
+import de.murmelmeister.murmelapi.group.permission.GroupPermissionProvider;
+import de.murmelmeister.murmelapi.language.message.MessageService;
+import de.murmelmeister.murmelapi.user.User;
+import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
 import de.murmelmeister.murmelapi.user.permission.UserPermission;
-import de.murmelmeister.murmelapi.utils.TimeUtil;
-import de.murmelmeister.murmelapi.utils.update.RefreshType;
-import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
+import de.murmelmeister.murmelapi.user.permission.UserPermissionProvider;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
-import java.sql.Timestamp;
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.*;
 
 public final class PermissionSubCommand extends PermissionUtil {
-    private final GroupParent groupParent;
-    private final GroupPermission groupPermission;
-    private final UserPermission userPermission;
+    private final GroupParentProvider groupParentProvider;
+    private final GroupPermissionProvider groupPermissionProvider;
+    private final UserParentProvider userParentProvider;
+    private final UserPermissionProvider userPermissionProvider;
+
+    private final MessageService messageService;
 
     public PermissionSubCommand(MurmelEssentials plugin) {
         super(plugin);
-        this.groupParent = group.getParent();
-        this.groupPermission = group.getPermission();
-        this.userPermission = user.getPermission();
+        this.groupParentProvider = plugin.getGroupParentProvider();
+        this.groupPermissionProvider = plugin.getGroupPermissionProvider();
+        this.userParentProvider = plugin.getUserParentProvider();
+        this.userPermissionProvider = plugin.getUserPermissionProvider();
+        this.messageService = plugin.getMessageService();
     }
 
     @Override
@@ -40,59 +50,130 @@ public final class PermissionSubCommand extends PermissionUtil {
     }
 
     public int getPermissions(CommandContext<CommandSource> context, boolean isUser) {
-        return runWithTiming(context, (source, executorId) -> {
-            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-            if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
+        return runWithTiming(context, (source, executor) -> {
+            if (isUser) {
+                String username = StringArgumentType.getString(context, "username");
+                int languageId = executor.languageId();
+                User user = getUser(languageId, username);
 
-            List<String> permissions = isUser ? userPermission.getPermissions(id) : groupPermission.getPermissions(id);
-            if (permissions.isEmpty()) {
-                sendMessage(source, "<#999900>%s <#990000>has no permissions.", name);
-                return CommandResult.of(-3);
+                List<UserPermission> permissions = userPermissionProvider.getPermissions(user.id());
+                if (permissions.isEmpty()) {
+                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_LIST_EMPTY, languageId)
+                            .replace("[USER_NAME]", username));
+                    return CommandResult.of(-2);
+                }
+
+                String headerName = permissions.size() == 1
+                        ? messageService.getMessage(Messages.PERMISSIONS_LIST_SINGULAR, languageId)
+                        : messageService.getMessage(Messages.PERMISSIONS_LIST_PLURAL, languageId);
+                sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_LIST_HEADER, languageId)
+                        .replace("[HEADER_NAME]", headerName)
+                        .replace("[USER_NAME]", username)
+                        .replace("[USER_ID]", String.valueOf(user.id())));
+                String clickMessage = "/permission user " + username + " permission remove ";
+                permissions.forEach(userPermission -> sendPermissionMessage(source, clickMessage, languageId, userPermission.permission(), userPermission.expiresAt()));
+                return CommandResult.of(Command.SINGLE_SUCCESS);
+            } else {
+                String groupName = StringArgumentType.getString(context, "groupName");
+                int languageId = executor.languageId();
+                Group group = getGroup(languageId, groupName);
+
+                List<GroupPermission> permissions = groupPermissionProvider.getPermissions(group.id());
+                if (permissions.isEmpty()) {
+                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_LIST_EMPTY, languageId)
+                            .replace("[GROUP_NAME]", groupName));
+                    return CommandResult.of(-2);
+                }
+
+                String headerName = permissions.size() == 1 ? messageService.getMessage(Messages.PERMISSIONS_LIST_SINGULAR, languageId)
+                        : messageService.getMessage(Messages.PERMISSIONS_LIST_PLURAL, languageId);
+                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_LIST_HEADER, languageId)
+                        .replace("[HEADER_NAME]", headerName)
+                        .replace("[GROUP_NAME]", groupName)
+                        .replace("[GROUP_ID]", String.valueOf(group.id())));
+                String clickMessage = "/permission group " + groupName + " permission remove ";
+                permissions.forEach(groupPermission -> sendPermissionMessage(source, clickMessage, executor.languageId(), groupPermission.permission(), groupPermission.expiresAt()));
+                return CommandResult.of(Command.SINGLE_SUCCESS);
             }
-
-            sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", permissions.size() == 1 ? "Permission" : "Permissions", name);
-            String clickMessage = isUser ? "/permission user " + name + " permission remove " : "/permission group " + name + " permission remove ";
-            permissions.forEach(permission -> {
-                Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
-                String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
-                sendMessage(source, "<#999999>- <#999900>" +
-                                    "<hover:show_text:'<#990000>Click to remove <#999900>\"%s\"'>" +
-                                    "<click:suggest_command:%s>%s</click></hover> %s",
-                        permission, clickMessage + (permission.equals("*") || permission.endsWith(".*") ? "\"" + permission + "\"" : permission),
-                        permission, formatExpiredMessage(expiredAt, expiredDate));
-            });
-
-            logging(isUser, executorId, id, "");
-            return CommandResult.of(Command.SINGLE_SUCCESS);
         });
     }
 
     public LiteralArgumentBuilder<CommandSource> getPermissionAll(boolean isUser) {
         return BrigadierCommand.literalArgumentBuilder("all")
                 .executes(context ->
-                        runWithTiming(context, (source, executorId) -> {
-                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                            if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
+                        runWithTiming(context, (source, executor) -> {
+                            if (isUser) {
+                                String username = StringArgumentType.getString(context, "username");
+                                int languageId = executor.languageId();
+                                User user = getUser(languageId, username);
 
-                            List<String> permissions = isUser ? permission.getPermissions(id) : groupPermission.getAllPermissions(groupParent, id);
-                            if (permissions.isEmpty()) {
-                                sendMessage(source, "<#999900>%s <#990000>has no permissions.", name);
-                                return CommandResult.of(-3);
+                                //List<String> permissions = permissionProvider.getPermissions(user.getId());
+                                List<UserPermission> permissions = userPermissionProvider.getPermissions(user.id());
+                                List<GroupPermission> groupPermissions = getAllGroupPermissionsForUser(user.id());
+                                if (permissions.isEmpty() && groupPermissions.isEmpty()) {
+                                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_LIST_EMPTY, languageId)
+                                            .replace("[USER_NAME]", username));
+                                    return CommandResult.of(-2);
+                                }
+                                String headerName = permissions.size() == 1 ? messageService.getMessage(Messages.PERMISSIONS_LIST_SINGULAR, languageId)
+                                        : messageService.getMessage(Messages.PERMISSIONS_LIST_PLURAL, languageId);
+                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_LIST_HEADER, languageId)
+                                        .replace("[HEADER_NAME]", headerName)
+                                        .replace("[USER_NAME]", username)
+                                        .replace("[USER_ID]", String.valueOf(user.id())));
+                                sendAllGroupPermission(source, groupPermissions, languageId, null);
+
+                                String clickMessage = "/permission user " + username + " permission remove ";
+                                permissions.forEach(userPermission -> sendPermissionMessage(source, clickMessage, languageId, userPermission.permission(), userPermission.expiresAt()));
+                                return CommandResult.of(Command.SINGLE_SUCCESS);
+                            } else {
+                                String groupName = StringArgumentType.getString(context, "groupName");
+                                int languageId = executor.languageId();
+                                Group group = getGroup(languageId, groupName);
+
+                                List<GroupPermission> permissions = getAllGroupPermissionsForGroup(group.id());
+                                if (permissions.isEmpty()) {
+                                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_LIST_EMPTY, languageId)
+                                            .replace("[GROUP_NAME]", groupName));
+                                    return CommandResult.of(-2);
+                                }
+
+                                String headerName = permissions.size() == 1 ? messageService.getMessage(Messages.PERMISSIONS_LIST_SINGULAR, languageId)
+                                        : messageService.getMessage(Messages.PERMISSIONS_LIST_PLURAL, languageId);
+                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_LIST_HEADER, languageId)
+                                        .replace("[HEADER_NAME]", headerName)
+                                        .replace("[GROUP_NAME]", groupName)
+                                        .replace("[GROUP_ID]", String.valueOf(group.id())));
+                                sendAllGroupPermission(source, permissions, executor.languageId(), group.id());
+                                return CommandResult.of(Command.SINGLE_SUCCESS);
                             }
-
-                            sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", permissions.size() == 1 ? "Permission" : "Permissions", name);
-                            permissions.forEach(permission -> {
-                                Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
-                                String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
-                                sendMessage(source, "<#999999>- <#999900>%s %s", permission, formatExpiredMessage(expiredAt, expiredDate));
-                            });
-
-                            logging(isUser, executorId, id, "");
-                            return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 );
+    }
+
+    private void sendPermissionMessage(CommandSource source, String clickMessage, int executorLang, String permission, LocalDateTime expiredAt) {
+        String expiredMessage = formatExpiredMessage(executorLang, expiredAt);
+        sendMessage(source, (messageService.getMessage(Messages.PERMISSION_LIST_MESSAGE, executorLang)
+                                     .replace("[PERMISSION]", permission)
+                                     .replace("[CLICK_COMMAND]", clickMessage + (permission.equals("*") || permission.endsWith(".*") ? "\"" + permission + "\"" : permission))
+                             + " " + expiredMessage).trim());
+    }
+
+    private void sendAllGroupPermission(CommandSource source, List<GroupPermission> permissions, int executorLang, Integer groupId) {
+        permissions.forEach(groupPermission -> {
+            Group group = getGroup(executorLang, groupPermission.groupId());
+            String permission = groupPermission.permission();
+            String expiredMessage = formatExpiredMessage(executorLang, groupPermission.expiresAt());
+            String clickMessage = "/permission group " + group.groupName() + " permission remove ";
+            String existGroup = groupId == null || groupId == group.id() ? ""
+                    : messageService.getMessage(Messages.PERMISSION_LIST_FROM_GROUP_PART, executorLang)
+                    .replace("[GROUP_NAME]", group.groupName());
+            sendMessage(source, (messageService.getMessage(Messages.PERMISSION_LIST_MESSAGE, executorLang)
+                                         .replace("[PERMISSION]", permission)
+                                         .replace("[CLICK_COMMAND]", clickMessage + (permission.equals("*") || permission.endsWith(".*") ? "\"" + permission + "\"" : permission))
+                                 + " " + existGroup
+                                 + " " + expiredMessage).trim());
+        });
     }
 
     public LiteralArgumentBuilder<CommandSource> getPermissionAdd(boolean isUser) {
@@ -103,66 +184,121 @@ public final class PermissionSubCommand extends PermissionUtil {
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("permission", StringArgumentType.string())
                         .executes(context ->
-                                runWithTiming(context, (source, executorId) -> {
-                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                    if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
+                                runWithTiming(context, (source, executor) -> {
+                                    if (isUser) {
+                                        String username = StringArgumentType.getString(context, "username");
+                                        int languageId = executor.languageId();
+                                        User user = getUser(languageId, username);
 
-                                    String permission = StringArgumentType.getString(context, "permission");
-                                    boolean exists = isUser ? userPermission.existsPermission(id, permission) : groupPermission.existsPermission(id, permission);
-                                    if (exists) {
-                                        sendMessage(source, "<#990000>Permission <#999900>%s</#999900> already exists.", permission);
-                                        return CommandResult.of(-3);
+                                        String permission = StringArgumentType.getString(context, "permission");
+                                        UserPermission userPermission = userPermissionProvider.getPermission(user.id(), permission);
+                                        if (userPermission != null) {
+                                            // Permission already exists
+                                            sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_EXISTS, languageId)
+                                                    .replace("[PERMISSION]", permission)
+                                                    .replace("[USER]", username));
+                                            return CommandResult.of(-2);
+                                        }
+
+                                        UserPermission success = userPermissionProvider.add(user.id(), permission, -1, executor.id());
+                                        if (success == null)
+                                            throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_ADD_FAILED, languageId)
+                                                    .replace("[PERMISSION]", permission)
+                                                    .replace("[USER]", username));
+                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_ADD_SUCCESS, languageId)
+                                                .replace("[PERMISSION]", permission)
+                                                .replace("[USER]", username)
+                                                .replace("[EXPIRED]", formatExpiredMessage(languageId, success.expiresAt())));
+                                        return CommandResult.of(Command.SINGLE_SUCCESS, 1);
+                                    } else {
+                                        String groupName = StringArgumentType.getString(context, "groupName");
+                                        int languageId = executor.languageId();
+                                        Group group = getGroup(languageId, groupName);
+
+                                        String permission = StringArgumentType.getString(context, "permission");
+                                        GroupPermission groupPermission = groupPermissionProvider.getPermission(group.id(), permission);
+                                        if (groupPermission != null) {
+                                            // Permission already exists
+                                            sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_EXISTS, languageId)
+                                                    .replace("[PERMISSION]", permission)
+                                                    .replace("[GROUP]", groupName));
+                                            return CommandResult.of(-2);
+                                        }
+
+                                        GroupPermission success = groupPermissionProvider.add(group.id(), permission, -1, executor.id());
+                                        if (success == null)
+                                            throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_ADD_FAILED, languageId)
+                                                    .replace("[PERMISSION]", permission)
+                                                    .replace("[GROUP]", groupName));
+                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_ADD_SUCCESS, languageId)
+                                                .replace("[PERMISSION]", permission)
+                                                .replace("[GROUP]", groupName)
+                                                .replace("[EXPIRED]", formatExpiredMessage(languageId, success.expiresAt())));
+                                        return CommandResult.of(Command.SINGLE_SUCCESS, 1);
                                     }
-
-                                    int row;
-                                    if (isUser) row = userPermission.addPermission(id, permission, -1, executorId);
-                                    else row = groupPermission.addPermission(id, permission, -1, executorId);
-                                    sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now added to <#990099>%s</#990099>.", permission, name);
-
-                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "add " + permission);
-                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
                                 })
                         )
                         .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
                                 .suggests(getSuggestionTime())
                                 .executes(context ->
-                                        runWithTiming(context, (source, executorId) -> {
-                                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                            if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
+                                        runWithTiming(context, (source, executor) -> {
+                                            if (isUser) {
+                                                String username = StringArgumentType.getString(context, "username");
+                                                int languageId = executor.languageId();
+                                                User user = getUser(languageId, username);
 
-                                            String permission = StringArgumentType.getString(context, "permission");
-                                            boolean exists = isUser ? userPermission.existsPermission(id, permission) : groupPermission.existsPermission(id, permission);
-                                            if (exists) {
-                                                sendMessage(source, "<#990000>Permission <#999900>%s</#999900> already exists.", permission);
-                                                return CommandResult.of(-3);
+                                                String permission = StringArgumentType.getString(context, "permission");
+                                                UserPermission userPermission = userPermissionProvider.getPermission(user.id(), permission);
+                                                if (userPermission != null) {
+                                                    // Permission already exists
+                                                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_EXISTS, languageId)
+                                                            .replace("[PERMISSION]", permission)
+                                                            .replace("[USER]", username));
+                                                    return CommandResult.of(-2);
+                                                }
+
+                                                String time = StringArgumentType.getString(context, "time");
+                                                long duration = parseTime(languageId, time);
+
+                                                UserPermission success = userPermissionProvider.add(user.id(), permission, duration, executor.id());
+                                                if (success == null)
+                                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_ADD_FAILED, languageId)
+                                                            .replace("[PERMISSION]", permission)
+                                                            .replace("[USER]", username));
+                                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_ADD_SUCCESS, languageId)
+                                                        .replace("[PERMISSION]", permission)
+                                                        .replace("[USER]", username)
+                                                        .replace("[EXPIRED]", formatExpiredMessage(languageId, success.expiresAt())));
+                                                return CommandResult.of(Command.SINGLE_SUCCESS, 1);
+                                            } else {
+                                                String groupName = StringArgumentType.getString(context, "groupName");
+                                                int languageId = executor.languageId();
+                                                Group group = getGroup(languageId, groupName);
+
+                                                String permission = StringArgumentType.getString(context, "permission");
+                                                GroupPermission groupPermission = groupPermissionProvider.getPermission(group.id(), permission);
+                                                if (groupPermission != null) {
+                                                    // Permission already exists
+                                                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_EXISTS, languageId)
+                                                            .replace("[PERMISSION]", permission)
+                                                            .replace("[GROUP]", groupName));
+                                                    return CommandResult.of(-2);
+                                                }
+
+                                                String time = StringArgumentType.getString(context, "time");
+                                                long duration = parseTime(languageId, time);
+
+                                                GroupPermission success = groupPermissionProvider.add(group.id(), permission, duration, executor.id());
+                                                if (success == null)
+                                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_ADD_FAILED, languageId)
+                                                            .replace("[PERMISSION]", permission)
+                                                            .replace("[GROUP]", groupName));
+                                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_ADD_SUCCESS, languageId)
+                                                        .replace("[PERMISSION]", permission)
+                                                        .replace("[GROUP]", groupName)
+                                                        .replace("[EXPIRED]", formatExpiredMessage(languageId, success.expiresAt())));
+                                                return CommandResult.of(Command.SINGLE_SUCCESS, 1);
                                             }
-
-                                            String time = StringArgumentType.getString(context, "time");
-                                            long timeValue = TimeUtil.formatTime(time);
-
-                                            if (timeValue == -2) {
-                                                sendMessage(source, "<#990000>No negative value allowed");
-                                                return CommandResult.of(-4);
-                                            }
-
-                                            if (timeValue == -3) {
-                                                sendMessage(source, "<#990000>Invalid time format");
-                                                return CommandResult.of(-5);
-                                            }
-
-                                            int row;
-                                            if (isUser)
-                                                row = userPermission.addPermission(id, permission, timeValue, executorId);
-                                            else
-                                                row = groupPermission.addPermission(id, permission, timeValue, executorId);
-                                            sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now added to <#990099>%s</#990099> for <#009999>%s</#009999>.", permission, name, time);
-
-                                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                            logging(isUser, executorId, id, "add " + permission + " " + time);
-                                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
                                         })
                                 )
                         )
@@ -178,23 +314,42 @@ public final class PermissionSubCommand extends PermissionUtil {
                 .then(BrigadierCommand.requiredArgumentBuilder("permission", StringArgumentType.string())
                         .suggests(getSuggestionPermission(isUser))
                         .executes(context ->
-                                runWithTiming(context, (source, executorId) -> {
-                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                    if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
+                                runWithTiming(context, (source, executor) -> {
+                                    if (isUser) {
+                                        String username = StringArgumentType.getString(context, "username");
+                                        int languageId = executor.languageId();
+                                        User user = getUser(languageId, username);
 
-                                    String permission = StringArgumentType.getString(context, "permission");
-                                    if (isPermissionNotExist(source, isUser, id, permission))
-                                        return CommandResult.of(-3);
+                                        String permission = StringArgumentType.getString(context, "permission");
+                                        UserPermission userPermission = getUserPermission(languageId, user, permission);
 
-                                    int row;
-                                    if (isUser) row = userPermission.removePermission(id, permission);
-                                    else row = groupPermission.removePermission(id, permission);
-                                    sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now removed from <#990099>%s</#990099>.", permission, name);
+                                        int result = userPermissionProvider.remove(userPermission.userId(), userPermission.permission());
+                                        if (result < 1)
+                                            throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_REMOVE_FAILED, languageId)
+                                                    .replace("[PERMISSION]", permission)
+                                                    .replace("[USER]", username));
+                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_REMOVE_SUCCESS, languageId)
+                                                .replace("[PERMISSION]", permission)
+                                                .replace("[USER]", username));
+                                        return CommandResult.of(Command.SINGLE_SUCCESS, result);
+                                    } else {
+                                        String groupName = StringArgumentType.getString(context, "groupName");
+                                        int languageId = executor.languageId();
+                                        Group group = getGroup(languageId, groupName);
 
-                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "remove " + permission);
-                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                        String permission = StringArgumentType.getString(context, "permission");
+                                        GroupPermission groupPermission = getGroupPermission(languageId, group, permission);
+
+                                        int result = groupPermissionProvider.remove(groupPermission.groupId(), groupPermission.permission());
+                                        if (result < 1)
+                                            throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_REMOVE_FAILED, languageId)
+                                                    .replace("[PERMISSION]", permission)
+                                                    .replace("[GROUP]", groupName));
+                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_REMOVE_SUCCESS, languageId)
+                                                .replace("[PERMISSION]", permission)
+                                                .replace("[GROUP]", groupName));
+                                        return CommandResult.of(Command.SINGLE_SUCCESS, result);
+                                    }
                                 })
                         )
                 );
@@ -203,19 +358,32 @@ public final class PermissionSubCommand extends PermissionUtil {
     public LiteralArgumentBuilder<CommandSource> getPermissionClear(boolean isUser) {
         return BrigadierCommand.literalArgumentBuilder("clear")
                 .executes(context ->
-                        runWithTiming(context, (source, executorId) -> {
-                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                            if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
+                        runWithTiming(context, (source, executor) -> {
+                            if (isUser) {
+                                String username = StringArgumentType.getString(context, "username");
+                                int languageId = executor.languageId();
+                                User user = getUser(languageId, username);
 
-                            int row;
-                            if (isUser) row = userPermission.clearPermission(id);
-                            else row = groupPermission.clearPermission(id);
-                            sendMessage(source, "<#999999>All permissions are now removed from <#990099>%s</#990099>.", name);
+                                int result = userPermissionProvider.clear(user.id());
+                                if (result < 1)
+                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_CLEAR_FAILED, languageId)
+                                            .replace("[USER]", username));
+                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_CLEAR_SUCCESS, languageId)
+                                        .replace("[USER]", username));
+                                return CommandResult.of(Command.SINGLE_SUCCESS, result);
+                            } else {
+                                String groupName = StringArgumentType.getString(context, "groupName");
+                                int languageId = executor.languageId();
+                                Group group = getGroup(languageId, groupName);
 
-                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                            logging(isUser, executorId, id, "clear");
-                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                int result = groupPermissionProvider.clear(group.id());
+                                if (result < 1)
+                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_CLEAR_FAILED, languageId)
+                                            .replace("[GROUP]", groupName));
+                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_CLEAR_SUCCESS, languageId)
+                                        .replace("[GROUP]", groupName));
+                                return CommandResult.of(Command.SINGLE_SUCCESS, result);
+                            }
                         })
                 );
     }
@@ -229,44 +397,68 @@ public final class PermissionSubCommand extends PermissionUtil {
                 .then(BrigadierCommand.requiredArgumentBuilder("permission", StringArgumentType.string())
                         .suggests(getSuggestionPermission(isUser))
                         .executes(context ->
-                                runWithTiming(context, (source, executorId) -> {
-                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                    if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
+                                runWithTiming(context, (source, executor) -> {
+                                    if (isUser) {
+                                        String username = StringArgumentType.getString(context, "username");
+                                        int languageId = executor.languageId();
+                                        User user = getUser(languageId, username);
 
-                                    String permission = StringArgumentType.getString(context, "permission");
-                                    if (isPermissionNotExist(source, isUser, id, permission))
-                                        return CommandResult.of(-3);
+                                        String permission = StringArgumentType.getString(context, "permission");
+                                        UserPermission userPermission = getUserPermission(languageId, user, permission);
 
-                                    Timestamp expiredAt = isUser ? userPermission.getExpiredAt(id, permission) : groupPermission.getExpiredAt(id, permission);
-                                    String expiredDate = isUser ? userPermission.getExpiredDate(id, permission) : groupPermission.getExpiredDate(id, permission);
+                                        User creator = getUser(languageId, userPermission.createdBy());
+                                        User changer = userPermission.changedBy() == null ? null : getUser(languageId, userPermission.changedBy());
+                                        String createdDate = userPermission.createdAt().format(getDateTimeFormatter(languageId));
+                                        String changedDate = userPermission.changedAt() == null ? null : userPermission.changedAt().format(getDateTimeFormatter(languageId));
+                                        String expiredMessage = formatExpiredInfoMessage(languageId, userPermission.expiresAt());
 
-                                    int createdBy = isUser ? userPermission.getCreatedBy(id, permission) : groupPermission.getCreatedBy(id, permission);
-                                    String creatorName = user.getUsername(createdBy);
-                                    String createdDate = isUser ? userPermission.getCreatedDate(id, permission) : groupPermission.getCreatedDate(id, permission);
-                                    int updatedBy = isUser ? userPermission.getUpdatedBy(id, permission) : groupPermission.getUpdatedBy(id, permission);
-                                    String updaterName = user.getUsername(updatedBy);
-                                    String updatedDate = isUser ? userPermission.getUpdatedDate(id, permission) : groupPermission.getUpdatedDate(id, permission);
-                                    String nameType = isUser ? "Username" : "Group Name";
-                                    String typeId = isUser ? "User ID" : "Group ID";
+                                        String changedText = (changer == null || changedDate == null) ? null :
+                                                messageService.getMessage(Messages.PERMISSION_INFO_CHANGE_STUFF, languageId)
+                                                        .replace("[CHANGED_NAME]", changer.username())
+                                                        .replace("[CHANGED_ID]", String.valueOf(changer.id()))
+                                                        .replace("[CHANGED_AT]", changedDate);
 
-                                    String message = """
-                                            <#999999>===- Permission info
-                                            <#999999>%s: <#00cc88>%s
-                                            <#999999>%s: <#00cc88>%s
-                                            <#999999>Permission: <#00cc88>%s
-                                            <#999999>Created by: <#00cc88>%s (%s)
-                                            <#999999>Created date: <#00cc88>%s
-                                            <#999999>Updated by: <#00cc88>%s (%s)
-                                            <#999999>Updated date: <#00cc88>%s
-                                            <#999999>Expired date: <#00cc88>%s"""
-                                            .formatted(nameType, name, typeId, id, permission,
-                                                    createdBy, creatorName, createdDate,
-                                                    updatedBy, updaterName, updatedDate, formatExpiredInfoMessage(expiredAt, expiredDate));
-                                    sendMessage(source, message);
+                                        sendMessage(source, (messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_INFO_MESSAGE, languageId)
+                                                .replace("[USER_NAME]", user.username())
+                                                .replace("[USER_ID]", String.valueOf(user.id()))
+                                                .replace("[PERMISSION]", permission)
+                                                .replace("[EXPIRES]", expiredMessage)
+                                                .replace("[CREATED_NAME]", creator.username())
+                                                .replace("[CREATED_ID]", String.valueOf(creator.id()))
+                                                .replace("[CREATED_AT]", createdDate)
+                                                .replace("[CHANGED]", changedText == null ? "" : changedText)).trim());
+                                        return CommandResult.of(Command.SINGLE_SUCCESS);
+                                    } else {
+                                        String groupName = StringArgumentType.getString(context, "groupName");
+                                        int languageId = executor.languageId();
+                                        Group group = getGroup(languageId, groupName);
 
-                                    logging(isUser, executorId, id, "info " + permission);
-                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                        String permission = StringArgumentType.getString(context, "permission");
+                                        GroupPermission groupPermission = getGroupPermission(languageId, group, permission);
+
+                                        User creator = getUser(languageId, groupPermission.createdBy());
+                                        User changer = groupPermission.changedBy() == null ? null : getUser(languageId, groupPermission.changedBy());
+                                        String createdDate = groupPermission.createdAt().format(getDateTimeFormatter(languageId));
+                                        String changedDate = groupPermission.changedAt() == null ? null : groupPermission.changedAt().format(getDateTimeFormatter(languageId));
+                                        String expiredMessage = formatExpiredInfoMessage(languageId, groupPermission.expiresAt());
+
+                                        String changedText = (changer == null || changedDate == null) ? null :
+                                                messageService.getMessage(Messages.PERMISSION_INFO_CHANGE_STUFF, languageId)
+                                                        .replace("[CHANGED_NAME]", changer.username())
+                                                        .replace("[CHANGED_ID]", String.valueOf(changer.id()))
+                                                        .replace("[CHANGED_AT]", changedDate);
+
+                                        sendMessage(source, (messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_INFO_MESSAGE, languageId)
+                                                .replace("[GROUP_NAME]", group.groupName())
+                                                .replace("[GROUP_ID]", String.valueOf(group.id()))
+                                                .replace("[PERMISSION]", permission)
+                                                .replace("[EXPIRES]", expiredMessage)
+                                                .replace("[CREATED_NAME]", creator.username())
+                                                .replace("[CREATED_ID]", String.valueOf(creator.id()))
+                                                .replace("[CREATED_AT]", createdDate)
+                                                .replace("[CHANGED]", changedText == null ? "" : changedText)).trim());
+                                        return CommandResult.of(Command.SINGLE_SUCCESS);
+                                    }
                                 })
                         )
                 );
@@ -287,38 +479,52 @@ public final class PermissionSubCommand extends PermissionUtil {
                         .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
                                 .suggests(getSuggestionTime())
                                 .executes(context ->
-                                        runWithTiming(context, (source, executorId) -> {
-                                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                            if (isUser ? id == -2 : id == 0) return CommandResult.of(-2);
+                                        runWithTiming(context, (source, executor) -> {
+                                            if (isUser) {
+                                                String username = StringArgumentType.getString(context, "username");
+                                                int languageId = executor.languageId();
+                                                User user = getUser(languageId, username);
 
-                                            String permission = StringArgumentType.getString(context, "permission");
-                                            if (isPermissionNotExist(source, isUser, id, permission))
-                                                return CommandResult.of(-3);
+                                                String permission = StringArgumentType.getString(context, "permission");
+                                                UserPermission userPermission = getUserPermission(languageId, user, permission);
 
-                                            String time = StringArgumentType.getString(context, "time");
-                                            long timeValue = TimeUtil.formatTime(time);
+                                                String time = StringArgumentType.getString(context, "time");
+                                                long duration = parseTime(languageId, time);
 
-                                            if (timeValue == -2) {
-                                                sendMessage(source, "<#990000>No negative value allowed");
-                                                return CommandResult.of(-4);
+                                                UserPermission success = userPermissionProvider.update(userPermission.userId(), userPermission.permission(),
+                                                        duration, executor.id());
+                                                if (success == null)
+                                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_TIME_FAILED, languageId)
+                                                            .replace("[PERMISSION]", permission)
+                                                            .replace("[USER]", username));
+                                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_TIME_SUCCESS, languageId)
+                                                        .replace("[PERMISSION]", permission)
+                                                        .replace("[USER]", username)
+                                                        .replace("[EXPIRED]", formatExpiredInfoMessage(languageId, success.expiresAt())));
+                                                return CommandResult.of(Command.SINGLE_SUCCESS, 1);
+                                            } else {
+                                                String groupName = StringArgumentType.getString(context, "groupName");
+                                                int languageId = executor.languageId();
+                                                Group group = getGroup(languageId, groupName);
+
+                                                String permission = StringArgumentType.getString(context, "permission");
+                                                GroupPermission groupPermission = getGroupPermission(languageId, group, permission);
+
+                                                String time = StringArgumentType.getString(context, "time");
+                                                long duration = parseTime(languageId, time);
+
+                                                GroupPermission success = groupPermissionProvider.update(groupPermission.groupId(), groupPermission.permission(),
+                                                        duration, executor.id());
+                                                if (success == null)
+                                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_TIME_FAILED, languageId)
+                                                            .replace("[PERMISSION]", permission)
+                                                            .replace("[GROUP]", groupName));
+                                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_TIME_SUCCESS, languageId)
+                                                        .replace("[PERMISSION]", permission)
+                                                        .replace("[GROUP]", groupName)
+                                                        .replace("[EXPIRED]", formatExpiredInfoMessage(languageId, success.expiresAt())));
+                                                return CommandResult.of(Command.SINGLE_SUCCESS, 1);
                                             }
-
-                                            if (timeValue == -3) {
-                                                sendMessage(source, "<#990000>Invalid time format");
-                                                return CommandResult.of(-5);
-                                            }
-
-                                            int row;
-                                            if (isUser)
-                                                row = userPermission.setExpiredAt(id, permission, timeValue, executorId);
-                                            else
-                                                row = groupPermission.setExpiredAt(id, permission, timeValue, executorId);
-                                            sendMessage(source, "<#999999>Permission <#009999>%s</#009999> is now set to <#009999>%s</#009999>.", permission, time);
-
-                                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                            logging(isUser, executorId, id, "time " + permission + " " + time);
-                                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
                                         })
                                 )
                         )
@@ -328,10 +534,17 @@ public final class PermissionSubCommand extends PermissionUtil {
     private SuggestionProvider<CommandSource> getSuggestionPermission(boolean isUser) {
         return (context, builder) -> {
             String prefix = builder.getRemaining();
-            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-            int id = isUser ? getUserId(context.getSource(), name) : getGroupId(context.getSource(), name);
-            List<String> permissions = isUser ? userPermission.getPermissions(id) : groupPermission.getPermissions(id);
-            if (permissions.isEmpty()) return builder.buildFuture();
+            User executor = getExecutor(context.getSource());
+            int id = getId(context, executor.languageId(), isUser);
+            List<String> permissions = isUser ? userPermissionProvider.getPermissions(id)
+                    .stream().map(UserPermission::permission).toList()
+                    : groupPermissionProvider.getPermissions(id)
+                    .stream().map(GroupPermission::permission).toList();
+
+            if (permissions.isEmpty())
+                return builder.buildFuture();
+
+            // TODO: Maybe add expires date in the tooltip
             permissions.stream()
                     .map(permission -> {
                         if ("*".equals(permission) || permission.endsWith(".*"))
@@ -339,21 +552,52 @@ public final class PermissionSubCommand extends PermissionUtil {
                         return permission;
                     })
                     .filter(permission -> permission.startsWith(prefix))
-                    .forEach(permission -> builder.suggest(permission, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + permission))));
+                    .forEach(permission -> builder.suggest(permission,
+                            VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + permission))));
             return builder.buildFuture();
         };
     }
 
-    private boolean isPermissionNotExist(CommandSource source, boolean isUser, int id, String permission) {
-        boolean exist = isUser ? userPermission.existsPermission(id, permission) : groupPermission.existsPermission(id, permission);
-        if (!exist) {
-            sendMessage(source, "<#990000>Permission <#999900>%s</#999900> does not exist.", permission);
-            return true;
-        } else return false;
+    private int getId(CommandContext<CommandSource> context, int languageId, boolean isUser) {
+        String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
+        return isUser ? getUser(languageId, name).id() : getGroup(languageId, name).id();
     }
 
-    private void logging(boolean isUser, int executorId, int id, String fullCommand) {
-        String command = isUser ? "/permission user " + user.getUsername(id) + " permission " : "/permission group " + group.getGroupName(id) + " permission ";
-        loggingToConsole(isUser, executorId, id, command + fullCommand);
+    private UserPermission getUserPermission(int executorLang, User user, String permission) {
+        UserPermission userPermission = userPermissionProvider.getPermission(user.id(), permission);
+        if (userPermission == null)
+            throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PERMISSION_NOT_EXISTS, executorLang)
+                    .replace("[PERMISSION]", permission)
+                    .replace("[USER]", user.username()));
+        return userPermission;
+    }
+
+    private GroupPermission getGroupPermission(int executorLang, Group group, String permission) {
+        GroupPermission groupPermission = groupPermissionProvider.getPermission(group.id(), permission);
+        if (groupPermission == null)
+            throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PERMISSION_NOT_EXISTS, executorLang)
+                    .replace("[PERMISSION]", permission)
+                    .replace("[GROUP]", group.groupName()));
+        return groupPermission;
+    }
+
+    private List<GroupPermission> getAllGroupPermissionsForUser(int userId) {
+        Set<Integer> visited = new HashSet<>();
+        Map<String, GroupPermission> permissionMap = new LinkedHashMap<>();
+        userParentProvider.getParents(userId).forEach(parent -> collectPermissionRec(parent.parentId(), visited, permissionMap));
+        return new ArrayList<>(permissionMap.values());
+    }
+
+    private List<GroupPermission> getAllGroupPermissionsForGroup(int groupId) {
+        Set<Integer> visited = new HashSet<>();
+        Map<String, GroupPermission> permissionMap = new LinkedHashMap<>();
+        collectPermissionRec(groupId, visited, permissionMap);
+        return new ArrayList<>(permissionMap.values());
+    }
+
+    private void collectPermissionRec(int groupId, Set<Integer> visited, Map<String, GroupPermission> permissionMap) {
+        if (!visited.add(groupId)) return;
+        groupPermissionProvider.getPermissions(groupId).forEach(permission -> permissionMap.putIfAbsent(permission.permission(), permission));
+        groupParentProvider.getParents(groupId).forEach(parent -> collectPermissionRec(parent.parentId(), visited, permissionMap));
     }
 }
