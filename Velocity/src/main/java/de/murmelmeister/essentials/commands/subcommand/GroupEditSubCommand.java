@@ -115,7 +115,9 @@ public final class GroupEditSubCommand extends PermissionUtil {
                                     GroupColor groupColor = colorProvider.getGroupColor(group.id(), groupType.getId());
 
                                     if (groupColor == null) {
-                                        GroupColor success = colorProvider.add(group.id(), groupType.getId(), value, executor.id());
+                                        GroupColor success = colorProvider.add(group.id(), groupType.getId(),
+                                                value.replace("<", "").replace(">", ""),
+                                                executor.id());
                                         if (success == null)
                                             throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_ADD_FAILED, languageId)
                                                     .replace("[COLOR_TYPE]", formatLiteralName)
@@ -137,9 +139,11 @@ public final class GroupEditSubCommand extends PermissionUtil {
                                         case TEAM_ID, PRIORITY -> false;
                                     };
 
-                                    Integer row = null;
+                                    int row;
                                     if (isColor) {
-                                        GroupColor success = colorProvider.update(groupColor.groupId(), groupColor.typeId(), value, executor.id());
+                                        GroupColor success = colorProvider.update(groupColor.groupId(), groupColor.typeId(),
+                                                value.replace("<", "").replace(">", ""),
+                                                executor.id());
                                         if (success == null)
                                             throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_UPDATE_FAILED, languageId)
                                                     .replace("[COLOR_TYPE]", formatLiteralName)

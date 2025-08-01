@@ -85,7 +85,9 @@ public final class Ranks implements AutoCloseable {
         // Format the chat message
         String formattedPrefix = prefix != null ? prefix.value() : "";
         String formattedSuffix = suffix != null ? suffix.value() : "";
-        String formattedColor = color != null ? "<" + color.value() + ">" : "<gray>";
+        String formattedColor = color != null ? "<" + color.value()
+                .replace("<", "")
+                .replace(">", "") + ">" : "<gray>";
         String formattedColorMessage = chatMessage != null ? chatMessage.value() : " » ";
 
         String format = formattedColor + formattedPrefix + player.getName() + formattedSuffix + "<reset>";
@@ -116,7 +118,9 @@ public final class Ranks implements AutoCloseable {
         // Format the player list name
         String formattedPrefix = prefix != null ? prefix.value() : "";
         String formattedSuffix = suffix != null ? suffix.value() : "";
-        String formattedColor = color != null ? "<" + color.value() + ">" : "<gray>";
+        String formattedColor = color != null ? "<" + color.value()
+                .replace("<", "")
+                .replace(">", "") + ">" : "<gray>";
 
         Component baseComponent = miniMessage.deserialize(formattedColor + formattedPrefix + player.getName() + formattedSuffix);
         player.playerListName(baseComponent);
