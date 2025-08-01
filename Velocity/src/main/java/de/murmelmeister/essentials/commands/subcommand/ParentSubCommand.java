@@ -9,27 +9,39 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.MurmelEssentials;
+import de.murmelmeister.essentials.manager.command.CommandException;
 import de.murmelmeister.essentials.manager.command.CommandResult;
+import de.murmelmeister.essentials.utils.Messages;
 import de.murmelmeister.essentials.utils.PermissionUtil;
+import de.murmelmeister.murmelapi.group.Group;
+import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.group.parent.GroupParent;
+import de.murmelmeister.murmelapi.group.parent.GroupParentProvider;
+import de.murmelmeister.murmelapi.language.message.MessageService;
+import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.parent.UserParent;
+import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
 import de.murmelmeister.murmelapi.utils.StringUtil;
-import de.murmelmeister.murmelapi.utils.TimeUtil;
-import de.murmelmeister.murmelapi.utils.update.RefreshType;
-import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
-import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.List;
 
+import static de.murmelmeister.murmelapi.user.UserProviderImpl.CONSOLE_USER_ID;
+
 public final class ParentSubCommand extends PermissionUtil {
-    private final GroupParent groupParent;
-    private final UserParent userParent;
+    private final GroupProvider groupProvider;
+    private final GroupParentProvider groupParentProvider;
+    private final UserParentProvider userParentProvider;
+
+    private final MessageService messageService;
 
     public ParentSubCommand(MurmelEssentials plugin) {
         super(plugin);
-        this.groupParent = group.getParent();
-        this.userParent = user.getParent();
+        this.groupProvider = plugin.getGroupProvider();
+        this.groupParentProvider = plugin.getGroupParentProvider();
+        this.userParentProvider = plugin.getUserParentProvider();
+        this.messageService = plugin.getMessageService();
     }
 
     @Override
@@ -38,37 +50,70 @@ public final class ParentSubCommand extends PermissionUtil {
     }
 
     public int getParents(CommandContext<CommandSource> context, boolean isUser) {
-        return runWithTiming(context, (source, executorId) -> {
-            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-            if (id == -2) return CommandResult.of(-2);
+        return runWithTiming(context, (source, executor) -> {
+            if (isUser) {
+                String username = StringArgumentType.getString(context, "username");
+                int languageId = executor.languageId();
+                User user = getUser(languageId, username);
 
-            List<Integer> parents = isUser ? userParent.getParentIds(id) : groupParent.getParentIds(id);
-            if (parents.isEmpty()) {
-                sendMessage(source, "<#999900>%s <#990000>has no parents.", name);
-                return CommandResult.of(-3);
-            }
-
-            sendMessage(source, "<#999999>%s of <#00cc88>%s</#00cc88>:", parents.size() == 1 ? "Parent" : "Parents", name);
-            String clickMessage = isUser ? "/permission user " + name + " parent remove " : "/permission group " + name + " parent remove ";
-            parents.forEach(parent -> {
-                String parentName = group.getGroupName(parent);
-                if (isUser && (parent == group.getId("default"))) {
-                    sendMessage(source, "<#999999>- <#999900>%s", parentName);
-                    return;
+                List<UserParent> parents = userParentProvider.getParents(user.id());
+                if (parents.isEmpty()) {
+                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PARENT_LIST_EMPTY, languageId)
+                            .replace("[USER_NAME]", username));
+                    return CommandResult.of(-2);
                 }
 
-                Timestamp expiredAt = isUser ? userParent.getExpiredAt(id, parent) : groupParent.getExpiredAt(id, parent);
-                String expiredDate = isUser ? userParent.getExpiredDate(id, parent) : groupParent.getExpiredDate(id, parent);
-                sendMessage(source, "<#999999>- <#999900>" +
-                                    "<hover:show_text:'<#990000>Click to remove <#999900>\"%s\"'>" +
-                                    "<click:suggest_command:%s>%s</click></hover> %s",
-                        parentName, clickMessage + parentName, parentName, formatExpiredMessage(expiredAt, expiredDate));
-            });
+                String headerName = parents.size() == 1
+                        ? messageService.getMessage(Messages.PARENTS_LIST_SINGULAR, languageId)
+                        : messageService.getMessage(Messages.PARENTS_LIST_PLURAL, languageId);
+                sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_LIST_HEADER, languageId)
+                        .replace("[HEADER_NAME]", headerName)
+                        .replace("[USER_NAME]", username)
+                        .replace("[USER_ID]", String.valueOf(user.id())));
+                String clickMessage = "/permission user " + username + " parent remove ";
+                parents.forEach(parent -> sendParentsMessage(source, clickMessage, executor.languageId(), parent.parentId(), parent.expiresAt()));
+                return CommandResult.of(Command.SINGLE_SUCCESS);
+            } else {
+                String groupName = StringArgumentType.getString(context, "groupName");
+                int languageId = executor.languageId();
+                Group group = getGroup(languageId, groupName);
 
-            logging(isUser, executorId, id, "");
-            return CommandResult.of(Command.SINGLE_SUCCESS);
+                List<GroupParent> parents = groupParentProvider.getParents(group.id());
+                if (parents.isEmpty()) {
+                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_LIST_EMPTY, languageId)
+                            .replace("[GROUP_NAME]", groupName));
+                    return CommandResult.of(-2);
+                }
+
+                String headerName = parents.size() == 1
+                        ? messageService.getMessage(Messages.PARENTS_LIST_SINGULAR, languageId)
+                        : messageService.getMessage(Messages.PARENTS_LIST_PLURAL, languageId);
+                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_LIST_HEADER, languageId)
+                        .replace("[HEADER_NAME]", headerName)
+                        .replace("[GROUP_NAME]", groupName)
+                        .replace("[GROUP_ID]", String.valueOf(group.id())));
+                String clickMessage = "/permission group " + groupName + " parent remove ";
+                parents.forEach(parent -> sendParentsMessage(source, clickMessage, executor.languageId(), parent.parentId(), parent.expiresAt()));
+                return CommandResult.of(Command.SINGLE_SUCCESS);
+            }
         });
+    }
+
+    private void sendParentsMessage(CommandSource source, String clickMessage, int executorLang, int parentId, LocalDateTime expiresAt) {
+        Group parentGroup = groupProvider.findById(parentId);
+        String parentName = parentGroup.groupName();
+
+        if (parentId == getDefaultGroup(executorLang).id()) {
+            sendMessage(source, messageService.getMessage(Messages.PARENT_LIST_DEFAULT_MESSAGE, executorLang)
+                    .replace("[DEFAULT_PARENT]", parentName));
+            return;
+        }
+
+        String expiredMessage = formatExpiredMessage(executorLang, expiresAt);
+        sendMessage(source, (messageService.getMessage(Messages.PARENT_LIST_MESSAGE, executorLang)
+                                     .replace("[PARENT]", parentName)
+                                     .replace("[CLICK_COMMAND]", clickMessage + parentName)
+                             + " " + expiredMessage).trim());
     }
 
     public LiteralArgumentBuilder<CommandSource> getParentAdd(boolean isUser) {
@@ -80,86 +125,160 @@ public final class ParentSubCommand extends PermissionUtil {
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
                         .suggests((context, builder) -> {
                             String prefix = builder.getRemaining();
-                            int id = getId(context, isUser);
-                            List<String> haveParents = isUser ? userParent.getParentNames(group, id) : groupParent.getParentNames(group, id);
-                            group.getGroupNames().stream()
-                                    .filter(parent -> isUser || group.getId(parent) != id)
-                                    .filter(parent -> !haveParents.contains(parent))
-                                    .filter(parent -> StringUtil.startsWithIgnoreCase(parent, prefix))
-                                    .forEach(parent -> builder.suggest(parent, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + parent))));
+                            User executor = getExecutor(context.getSource());
+                            int id = getId(context, executor.languageId(), isUser);
+                            List<Integer> haveParents = isUser ? userParentProvider.getParents(id)
+                                    .stream().map(UserParent::parentId).toList()
+                                    : groupParentProvider.getParents(id)
+                                    .stream().map(GroupParent::parentId).toList();
+                            groupProvider.findAll().stream()
+                                    .filter(group -> isUser || group.id() != id)
+                                    .filter(group -> !haveParents.contains(group.id()))
+                                    .filter(group -> StringUtil.startsWithIgnoreCase(group.groupName(), prefix))
+                                    .forEach(group -> builder.suggest(group.groupName(),
+                                            VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + group.groupName()))));
                             return builder.buildFuture();
                         })
                         .executes(context ->
-                                runWithTiming(context, (source, executorId) -> {
-                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                    if (id == -2) return CommandResult.of(-2);
+                                runWithTiming(context, (source, executor) -> {
+                                    if (isUser) {
+                                        String username = StringArgumentType.getString(context, "username");
+                                        int languageId = executor.languageId();
+                                        User user = getUser(languageId, username);
 
-                                    String parentName = StringArgumentType.getString(context, "parent");
-                                    int parentId = group.getId(parentName);
-                                    boolean existParent = isUser ? userParent.existsParent(id, parentId) : groupParent.existsParent(id, parentId);
-                                    if (existParent) {
-                                        sendMessage(source, "<#990000>%s <#999999>is already a parent of <#00cc88>%s</#00cc88>.", parentName, name);
-                                        return CommandResult.of(-4);
+                                        String parentName = StringArgumentType.getString(context, "parent");
+                                        Group parentGroup = getGroup(languageId, parentName);
+
+                                        UserParent userParent = userParentProvider.getParent(user.id(), parentGroup.id());
+                                        if (userParent != null) {
+                                            sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PARENT_EXISTS, languageId)
+                                                    .replace("[PARENT]", parentName)
+                                                    .replace("[USER]", username));
+                                            return CommandResult.of(-2);
+                                        }
+
+                                        if (parentGroup.id() == getDefaultGroup(languageId).id()) {
+                                            sendMessage(source, messageService.getMessage(Messages.DEFAULT_GROUP_ADD, languageId));
+                                            return CommandResult.of(-3);
+                                        }
+
+                                        UserParent success = userParentProvider.add(user.id(), parentGroup.id(), -1, executor.id());
+                                        if (success == null)
+                                            throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PARENT_ADD_FAILED, languageId)
+                                                    .replace("[PARENT]", parentName)
+                                                    .replace("[USER]", username));
+                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PARENT_ADD_SUCCESS, languageId)
+                                                .replace("[PARENT]", parentName)
+                                                .replace("[USER]", username)
+                                                .replace("[EXPIRED]", formatExpiredMessage(languageId, success.expiresAt())));
+                                        return CommandResult.of(Command.SINGLE_SUCCESS, 1);
+                                    } else {
+                                        String groupName = StringArgumentType.getString(context, "groupName");
+                                        int languageId = executor.languageId();
+                                        Group group = getGroup(languageId, groupName);
+
+                                        String parentName = StringArgumentType.getString(context, "parent");
+                                        Group parentGroup = getGroup(languageId, parentName);
+
+                                        GroupParent groupParent = groupParentProvider.getParent(group.id(), parentGroup.id());
+                                        if (groupParent != null) {
+                                            sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_EXISTS, languageId)
+                                                    .replace("[PARENT]", parentName)
+                                                    .replace("[GROUP]", groupName));
+                                            return CommandResult.of(-2);
+                                        }
+
+                                        if (parentGroup.id() == getDefaultGroup(languageId).id()) {
+                                            sendMessage(source, messageService.getMessage(Messages.DEFAULT_GROUP_ADD, languageId));
+                                            return CommandResult.of(-3);
+                                        }
+
+                                        GroupParent success = groupParentProvider.add(group.id(), parentGroup.id(), -1, executor.id());
+                                        if (success == null)
+                                            throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_ADD_FAILED, languageId)
+                                                    .replace("[PARENT]", parentName)
+                                                    .replace("[GROUP]", groupName));
+                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_ADD_SUCCESS, languageId)
+                                                .replace("[PARENT]", parentName)
+                                                .replace("[GROUP]", groupName)
+                                                .replace("[EXPIRED]", formatExpiredMessage(languageId, success.expiresAt())));
+                                        return CommandResult.of(Command.SINGLE_SUCCESS, 1);
                                     }
-
-                                    if (!isUser && parentId == id) {
-                                        sendMessage(source, "<#990000>You cannot add the group as a parent to itself.");
-                                        return CommandResult.of(-5);
-                                    }
-
-                                    int row;
-                                    if (isUser) row = userParent.addParent(id, parentId, -1, executorId);
-                                    else row = groupParent.addParent(id, parentId, -1, executorId);
-                                    sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> added to <#999900>%s</#999900>.", parentName, name);
-
-                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "add " + parentName);
-                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
                                 })
                         )
                         .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
                                 .suggests(getSuggestionTime())
                                 .executes(context ->
-                                        runWithTiming(context, (source, executorId) -> {
-                                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                            if (id == -2) return CommandResult.of(-2);
+                                        runWithTiming(context, (source, executor) -> {
+                                            if (isUser) {
+                                                String username = StringArgumentType.getString(context, "username");
+                                                int languageId = executor.languageId();
+                                                User user = getUser(languageId, username);
 
-                                            String parentName = StringArgumentType.getString(context, "parent");
-                                            int parentId = group.getId(parentName);
-                                            boolean existParent = isUser ? userParent.existsParent(id, parentId) : groupParent.existsParent(id, parentId);
-                                            if (existParent) {
-                                                sendMessage(source, "<#990000>%s <#999999>is already a parent of <#00cc88>%s</#00cc88>.", parentName, name);
-                                                return CommandResult.of(-3);
+                                                String parentName = StringArgumentType.getString(context, "parent");
+                                                Group parentGroup = getGroup(languageId, parentName);
+
+                                                UserParent userParent = userParentProvider.getParent(user.id(), parentGroup.id());
+                                                if (userParent != null) {
+                                                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PARENT_EXISTS, languageId)
+                                                            .replace("[PARENT]", parentName)
+                                                            .replace("[USER]", username));
+                                                    return CommandResult.of(-2);
+                                                }
+
+                                                if (parentGroup.id() == getDefaultGroup(languageId).id()) {
+                                                    sendMessage(source, messageService.getMessage(Messages.DEFAULT_GROUP_ADD, languageId));
+                                                    return CommandResult.of(-3);
+                                                }
+
+                                                String time = StringArgumentType.getString(context, "time");
+                                                long duration = parseTime(executor.languageId(), time);
+
+                                                UserParent success = userParentProvider.add(user.id(), parentGroup.id(), duration, executor.id());
+                                                if (success == null)
+                                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PARENT_ADD_FAILED, languageId)
+                                                            .replace("[PARENT]", parentName)
+                                                            .replace("[USER]", username));
+                                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PARENT_ADD_SUCCESS, languageId)
+                                                        .replace("[PARENT]", parentName)
+                                                        .replace("[USER]", username)
+                                                        .replace("[EXPIRED]", formatExpiredMessage(languageId, success.expiresAt())));
+                                                return CommandResult.of(Command.SINGLE_SUCCESS, 1);
+                                            } else {
+                                                String groupName = StringArgumentType.getString(context, "groupName");
+                                                int languageId = executor.languageId();
+                                                Group group = getGroup(languageId, groupName);
+
+                                                String parentName = StringArgumentType.getString(context, "parent");
+                                                Group parentGroup = getGroup(languageId, parentName);
+
+                                                GroupParent groupParent = groupParentProvider.getParent(group.id(), parentGroup.id());
+                                                if (groupParent != null) {
+                                                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_EXISTS, languageId)
+                                                            .replace("[PARENT]", parentName)
+                                                            .replace("[GROUP]", groupName));
+                                                    return CommandResult.of(-2);
+                                                }
+
+                                                if (parentGroup.id() == getDefaultGroup(languageId).id()) {
+                                                    sendMessage(source, messageService.getMessage(Messages.DEFAULT_GROUP_ADD, languageId));
+                                                    return CommandResult.of(-3);
+                                                }
+
+                                                String time = StringArgumentType.getString(context, "time");
+                                                long duration = parseTime(executor.languageId(), time);
+
+                                                GroupParent success = groupParentProvider.add(group.id(), parentGroup.id(), duration, executor.id());
+                                                if (success == null)
+                                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_ADD_FAILED, languageId)
+                                                            .replace("[PARENT]", parentName)
+                                                            .replace("[GROUP]", groupName));
+                                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_ADD_SUCCESS, languageId)
+                                                        .replace("[PARENT]", parentName)
+                                                        .replace("[GROUP]", groupName)
+                                                        .replace("[EXPIRED]", formatExpiredMessage(languageId, success.expiresAt())));
+                                                return CommandResult.of(Command.SINGLE_SUCCESS, 1);
                                             }
-
-                                            if (!isUser && parentId == id) {
-                                                sendMessage(source, "<#990000>You cannot add the group as a parent to itself.");
-                                                return CommandResult.of(-4);
-                                            }
-
-                                            String time = StringArgumentType.getString(context, "time");
-                                            long timeValue = TimeUtil.formatTime(time);
-
-                                            if (timeValue == -2) {
-                                                sendMessage(source, "<#990000>No negative value allowed");
-                                                return CommandResult.of(-5);
-                                            }
-
-                                            if (timeValue == -3) {
-                                                sendMessage(source, "<#990000>Invalid time format");
-                                                return CommandResult.of(-6);
-                                            }
-
-                                            int row;
-                                            if (isUser) row = userParent.addParent(id, parentId, timeValue, executorId);
-                                            else row = groupParent.addParent(id, parentId, timeValue, executorId);
-                                            sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> added to <#999900>%s</#999900> for <#009999>%s</#009999>.", parentName, name, time);
-
-                                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                            logging(isUser, executorId, id, "add " + parentName + " " + time);
-                                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
                                         })
                                 )
                         )
@@ -175,28 +294,50 @@ public final class ParentSubCommand extends PermissionUtil {
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
                         .suggests(getSuggestionParent(isUser, false))
                         .executes(context ->
-                                runWithTiming(context, (source, executorId) -> {
-                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                    if (id == -2) return CommandResult.of(-2);
+                                runWithTiming(context, (source, executor) -> {
+                                    if (isUser) {
+                                        String username = StringArgumentType.getString(context, "username");
+                                        int languageId = executor.languageId();
+                                        User user = getUser(languageId, username);
 
-                                    String parentName = StringArgumentType.getString(context, "parent");
-                                    int parentId = group.getId(parentName);
-                                    if (isParentNotExist(source, isUser, id, parentId)) return CommandResult.of(-4);
+                                        String parentName = StringArgumentType.getString(context, "parent");
+                                        Group parent = getGroup(languageId, parentName);
 
-                                    if (isUser && (parentId == group.getId("default"))) {
-                                        sendMessage(source, "<#990000>You cannot remove default parent.");
-                                        return CommandResult.of(-3);
+                                        UserParent userParent = getUserParent(languageId, user, parent);
+                                        if (userParent.parentId() == getDefaultGroup(languageId).id()) {
+                                            sendMessage(source, messageService.getMessage(Messages.DEFAULT_GROUP_REMOVE, languageId));
+                                            return CommandResult.of(-2);
+                                        }
+
+                                        int result = userParentProvider.remove(userParent.userId(), userParent.parentId());
+                                        if (result < 1)
+                                            throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PARENT_REMOVE_FAILED, languageId)
+                                                    .replace("[PARENT]", parentName)
+                                                    .replace("[USER]", username));
+                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PARENT_REMOVE_SUCCESS, languageId)
+                                                .replace("[PARENT]", parentName)
+                                                .replace("[USER]", username));
+                                        return CommandResult.of(Command.SINGLE_SUCCESS, result);
+                                    } else {
+                                        String groupName = StringArgumentType.getString(context, "groupName");
+                                        int languageId = executor.languageId();
+                                        Group group = getGroup(languageId, groupName);
+
+                                        String parentName = StringArgumentType.getString(context, "parent");
+                                        Group parent = getGroup(languageId, parentName);
+
+                                        GroupParent groupParent = getGroupParent(languageId, group, parent);
+
+                                        int result = groupParentProvider.remove(groupParent.groupId(), groupParent.parentId());
+                                        if (result < 1)
+                                            throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_REMOVE_FAILED, languageId)
+                                                    .replace("[PARENT]", parentName)
+                                                    .replace("[GROUP]", groupName));
+                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_REMOVE_SUCCESS, languageId)
+                                                .replace("[PARENT]", parentName)
+                                                .replace("[GROUP]", groupName));
+                                        return CommandResult.of(Command.SINGLE_SUCCESS, result);
                                     }
-
-                                    int row;
-                                    if (isUser) row = userParent.removeParent(id, parentId);
-                                    else row = groupParent.removeParent(id, parentId);
-                                    sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> removed from <#999900>%s</#999900>.", parentName, name);
-
-                                    RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                    logging(isUser, executorId, id, "remove " + parentName);
-                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
                                 })
                         )
                 );
@@ -205,21 +346,40 @@ public final class ParentSubCommand extends PermissionUtil {
     public LiteralArgumentBuilder<CommandSource> getParentClear(boolean isUser) {
         return BrigadierCommand.literalArgumentBuilder("clear")
                 .executes(context ->
-                        runWithTiming(context, (source, executorId) -> {
-                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                            if (id == -2) return CommandResult.of(-2);
-
-                            int row;
+                        runWithTiming(context, (source, executor) -> {
                             if (isUser) {
-                                row = userParent.clearParent(id) +
-                                      userParent.addParent(id, group.getId("default"), -1, executorId);
-                            } else row = groupParent.clearParent(id);
-                            sendMessage(source, "<#999999>All parents removed from <#999900>%s</#999900>.", name);
+                                String username = StringArgumentType.getString(context, "username");
+                                int languageId = executor.languageId();
+                                User user = getUser(languageId, username);
+                                Group defaultGroup = getDefaultGroup(languageId);
 
-                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                            logging(isUser, executorId, id, "clear");
-                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                int result = userParentProvider.clear(user.id());
+                                if (result < 1)
+                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PARENT_CLEAR_FAILED, languageId)
+                                            .replace("[USER]", username));
+                                UserParent success = userParentProvider.add(user.id(), defaultGroup.id(), -1, CONSOLE_USER_ID); // Add default parent back
+                                result += success != null ? 1 : 0;
+                                if (result < 2)
+                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PARENT_ADD_FAILED, languageId)
+                                            .replace("[PARENT]", defaultGroup.groupName())
+                                            .replace("[USER]", username));
+
+                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PARENT_CLEAR_SUCCESS, languageId)
+                                        .replace("[USER]", username));
+                                return CommandResult.of(Command.SINGLE_SUCCESS, result);
+                            } else {
+                                String groupName = StringArgumentType.getString(context, "groupName");
+                                int languageId = executor.languageId();
+                                Group group = getGroup(languageId, groupName);
+
+                                int result = groupParentProvider.clear(group.id());
+                                if (result < 1)
+                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_CLEAR_FAILED, languageId)
+                                            .replace("[GROUP]", groupName));
+                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_CLEAR_SUCCESS, languageId)
+                                        .replace("[GROUP]", groupName));
+                                return CommandResult.of(Command.SINGLE_SUCCESS, result);
+                            }
                         })
                 );
     }
@@ -233,44 +393,75 @@ public final class ParentSubCommand extends PermissionUtil {
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
                         .suggests(getSuggestionParent(isUser, true))
                         .executes(context ->
-                                runWithTiming(context, (source, executorId) -> {
-                                    String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                    int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                    if (id == -2) return CommandResult.of(-2);
+                                runWithTiming(context, (source, executor) -> {
+                                    if (isUser) {
+                                        String username = StringArgumentType.getString(context, "username");
+                                        int languageId = executor.languageId();
+                                        User user = getUser(languageId, username);
 
-                                    String parentName = StringArgumentType.getString(context, "parent");
-                                    int parentId = group.getId(parentName);
-                                    if (isParentNotExist(source, isUser, id, parentId)) return CommandResult.of(-3);
+                                        String parentName = StringArgumentType.getString(context, "parent");
+                                        Group parentGroup = getGroup(languageId, parentName);
 
-                                    Timestamp expiredAt = isUser ? userParent.getExpiredAt(id, parentId) : groupParent.getExpiredAt(id, parentId);
-                                    String expiredDate = isUser ? userParent.getExpiredDate(id, parentId) : groupParent.getExpiredDate(id, parentId);
+                                        UserParent userParent = getUserParent(languageId, user, parentGroup);
 
-                                    int createdBy = isUser ? userParent.getCreatedBy(id, parentId) : groupParent.getCreatedBy(id, parentId);
-                                    String creatorName = user.getUsername(createdBy);
-                                    String createdDate = isUser ? userParent.getCreatedDate(id, parentId) : groupParent.getCreatedDate(id, parentId);
-                                    int updatedBy = isUser ? userParent.getUpdatedBy(id, parentId) : groupParent.getUpdatedBy(id, parentId);
-                                    String updaterName = user.getUsername(updatedBy);
-                                    String updatedDate = isUser ? userParent.getUpdatedDate(id, parentId) : groupParent.getUpdatedDate(id, parentId);
-                                    String nameType = isUser ? "Username" : "Group Name";
-                                    String typeId = isUser ? "User ID" : "Group ID";
+                                        User creator = getUser(languageId, userParent.createdBy());
+                                        User changer = userParent.changedBy() == null ? null : getUser(languageId, userParent.changedBy());
+                                        String createdDate = userParent.createdAt().format(getDateTimeFormatter(languageId));
+                                        String changedDate = userParent.changedAt() == null ? null : userParent.changedAt().format(getDateTimeFormatter(languageId));
+                                        String expiredMessage = formatExpiredInfoMessage(languageId, userParent.expiresAt());
 
-                                    String message = """
-                                            <#999999>===- Parent info
-                                            <#999999>%s: <#00cc88>%s
-                                            <#999999>%s: <#00cc88>%s
-                                            <#999999>Parent: <#00cc88>%s
-                                            <#999999>Created by: <#00cc88>%s (%s)
-                                            <#999999>Created date: <#00cc88>%s
-                                            <#999999>Updated by: <#00cc88>%s (%s)
-                                            <#999999>Updated date: <#00cc88>%s
-                                            <#999999>Expired date: <#00cc88>%s"""
-                                            .formatted(nameType, name, typeId, id, parentName,
-                                                    createdBy, creatorName, createdDate,
-                                                    updatedBy, updaterName, updatedDate, formatExpiredInfoMessage(expiredAt, expiredDate));
-                                    sendMessage(source, message);
+                                        String changedText = (changer == null || changedDate == null) ? null :
+                                                messageService.getMessage(Messages.PERMISSION_INFO_CHANGE_STUFF, languageId)
+                                                        .replace("[CHANGED_NAME]", changer.username())
+                                                        .replace("[CHANGED_ID]", String.valueOf(changer.id()))
+                                                        .replace("[CHANGED_AT]", changedDate);
 
-                                    logging(isUser, executorId, id, "info " + parentName);
-                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                        sendMessage(source, (messageService.getMessage(Messages.PERMISSION_USER_PARENT_INFO_MESSAGE, languageId)
+                                                .replace("[USER_NAME]", user.username())
+                                                .replace("[USER_ID]", String.valueOf(user.id()))
+                                                .replace("[PARENT_NAME]", parentGroup.groupName())
+                                                .replace("[PARENT_ID]", String.valueOf(parentGroup.id()))
+                                                .replace("[EXPIRES]", expiredMessage)
+                                                .replace("[CREATED_NAME]", creator.username())
+                                                .replace("[CREATED_ID]", String.valueOf(creator.id()))
+                                                .replace("[CREATED_AT]", createdDate)
+                                                .replace("[CHANGED]", changedText == null ? "" : changedText)).trim());
+
+                                        return CommandResult.of(Command.SINGLE_SUCCESS);
+                                    } else {
+                                        String groupName = StringArgumentType.getString(context, "groupName");
+                                        int languageId = executor.languageId();
+                                        Group group = getGroup(languageId, groupName);
+
+                                        String parentName = StringArgumentType.getString(context, "parent");
+                                        Group parentGroup = getGroup(languageId, parentName);
+
+                                        GroupParent groupParent = getGroupParent(languageId, group, parentGroup);
+
+                                        User creator = getUser(languageId, groupParent.createdBy());
+                                        User changer = groupParent.changedBy() == null ? null : getUser(languageId, groupParent.changedBy());
+                                        String createdDate = groupParent.createdAt().format(getDateTimeFormatter(languageId));
+                                        String changedDate = groupParent.changedAt() == null ? null : groupParent.changedAt().format(getDateTimeFormatter(languageId));
+                                        String expiredMessage = formatExpiredInfoMessage(languageId, groupParent.expiresAt());
+
+                                        String changedText = (changer == null || changedDate == null) ? null :
+                                                messageService.getMessage(Messages.PERMISSION_INFO_CHANGE_STUFF, languageId)
+                                                        .replace("[CHANGED_NAME]", changer.username())
+                                                        .replace("[CHANGED_ID]", String.valueOf(changer.id()))
+                                                        .replace("[CHANGED_AT]", changedDate);
+
+                                        sendMessage(source, (messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_INFO_MESSAGE, languageId)
+                                                .replace("[GROUP_NAME]", group.groupName())
+                                                .replace("[GROUP_ID]", String.valueOf(group.id()))
+                                                .replace("[PARENT_NAME]", parentGroup.groupName())
+                                                .replace("[PARENT_ID]", String.valueOf(parentGroup.id()))
+                                                .replace("[EXPIRES]", expiredMessage)
+                                                .replace("[CREATED_NAME]", creator.username())
+                                                .replace("[CREATED_ID]", String.valueOf(creator.id()))
+                                                .replace("[CREATED_AT]", createdDate)
+                                                .replace("[CHANGED]", changedText == null ? "" : changedText)).trim());
+                                        return CommandResult.of(Command.SINGLE_SUCCESS);
+                                    }
                                 })
                         )
                 );
@@ -291,43 +482,58 @@ public final class ParentSubCommand extends PermissionUtil {
                         .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
                                 .suggests(getSuggestionTime())
                                 .executes(context ->
-                                        runWithTiming(context, (source, executorId) -> {
-                                            String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-                                            int id = isUser ? getUserId(source, name) : getGroupId(source, name);
-                                            if (id == -2) return CommandResult.of(-2);
+                                        runWithTiming(context, (source, executor) -> {
+                                            if (isUser) {
+                                                String username = StringArgumentType.getString(context, "username");
+                                                int languageId = executor.languageId();
+                                                User user = getUser(languageId, username);
 
-                                            String parentName = StringArgumentType.getString(context, "parent");
-                                            int parentId = group.getId(parentName);
-                                            if (isParentNotExist(source, isUser, id, parentId))
-                                                return CommandResult.of(-3);
+                                                String parentName = StringArgumentType.getString(context, "parent");
+                                                Group parentGroup = getGroup(languageId, parentName);
 
-                                            if (isUser && (parentId == group.getId("default"))) {
-                                                sendMessage(source, "<#990000>You cannot set time for default parent.");
-                                                return CommandResult.of(-4);
+                                                UserParent userParent = getUserParent(languageId, user, parentGroup);
+                                                if (userParent.parentId() == getDefaultGroup(languageId).id()) {
+                                                    sendMessage(source, messageService.getMessage(Messages.DEFAULT_GROUP_TIME, languageId));
+                                                    return CommandResult.of(-2);
+                                                }
+
+                                                String time = StringArgumentType.getString(context, "time");
+                                                long duration = parseTime(executor.languageId(), time);
+
+                                                UserParent success = userParentProvider.update(userParent.userId(), userParent.parentId(), duration, executor.id());
+                                                if (success == null)
+                                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PARENT_TIME_FAILED, languageId)
+                                                            .replace("[PARENT]", parentName)
+                                                            .replace("[USER]", username));
+                                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_PARENT_TIME_SUCCESS, languageId)
+                                                        .replace("[PARENT]", parentName)
+                                                        .replace("[USER]", username)
+                                                        .replace("[EXPIRED]", formatExpiredInfoMessage(languageId, success.expiresAt())));
+                                                return CommandResult.of(Command.SINGLE_SUCCESS, 1);
+                                            } else {
+                                                String groupName = StringArgumentType.getString(context, "groupName");
+                                                int languageId = executor.languageId();
+                                                Group group = getGroup(languageId, groupName);
+
+                                                String parentName = StringArgumentType.getString(context, "parent");
+                                                Group parentGroup = getGroup(languageId, parentName);
+
+                                                GroupParent groupParent = getGroupParent(languageId, group, parentGroup);
+
+                                                String time = StringArgumentType.getString(context, "time");
+                                                long duration = parseTime(executor.languageId(), time);
+
+                                                GroupParent success = groupParentProvider.update(groupParent.groupId(), groupParent.parentId(), duration, executor.id());
+                                                if (success == null)
+                                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_TIME_FAILED, languageId)
+                                                            .replace("[PARENT]", parentName)
+                                                            .replace("[GROUP]", groupName));
+                                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_TIME_SUCCESS, languageId)
+                                                        .replace("[PARENT]", parentName)
+                                                        .replace("[GROUP]", groupName)
+                                                        .replace("[EXPIRED]", formatExpiredInfoMessage(languageId, success.expiresAt())));
+                                                return CommandResult.of(Command.SINGLE_SUCCESS, 1);
                                             }
-
-                                            String time = StringArgumentType.getString(context, "time");
-                                            long timeValue = TimeUtil.formatTime(time);
-
-                                            if (timeValue == -2) {
-                                                sendMessage(source, "<#990000>No negative value allowed");
-                                                return CommandResult.of(-5);
-                                            }
-
-                                            if (timeValue == -3) {
-                                                sendMessage(source, "<#990000>Invalid time format");
-                                                return CommandResult.of(-6);
-                                            }
-
-                                            int row;
-                                            if (isUser)
-                                                row = userParent.setExpiredAt(id, parentId, timeValue, executorId);
-                                            else row = groupParent.setExpiredAt(id, parentId, timeValue, executorId);
-                                            sendMessage(source, "<#999999>Parent <#00cc88>%s</#00cc88> time set to <#009999>%s</#009999>.", parentName, time);
-
-                                            RefreshUtil.markAsRefreshed(RefreshType.GLOBAL); // TODO: changing the right cache name
-                                            logging(isUser, executorId, id, "time " + parentName + " " + time);
-                                            return CommandResult.of(Command.SINGLE_SUCCESS, row);
                                         })
                                 )
                         )
@@ -337,31 +543,45 @@ public final class ParentSubCommand extends PermissionUtil {
     private SuggestionProvider<CommandSource> getSuggestionParent(boolean isUser, boolean isDefaultAllowed) {
         return (context, builder) -> {
             String prefix = builder.getRemaining();
-            int id = getId(context, isUser);
-            List<String> parents = isUser ? userParent.getParentNames(group, id) : groupParent.getParentNames(group, id);
+            User executor = getExecutor(context.getSource());
+            int id = getId(context, executor.languageId(), isUser);
+            List<Group> parents = isUser ? userParentProvider.getParents(id)
+                    .stream().map(UserParent::parentId).map(groupProvider::findById).toList()
+                    : groupParentProvider.getParents(id)
+                    .stream().map(GroupParent::parentId).map(groupProvider::findById).toList();
+
+            if (parents.isEmpty())
+                return builder.buildFuture();
+
             parents.stream()
-                    .filter(parent -> (!isUser || isDefaultAllowed) || !parent.equals("default"))
-                    .filter(parent -> StringUtil.startsWithIgnoreCase(parent, prefix))
-                    .forEach(parent -> builder.suggest(parent, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + parent))));
+                    .filter(group -> (!isUser || isDefaultAllowed) || group.id() != 1)
+                    .filter(group -> StringUtil.startsWithIgnoreCase(group.groupName(), prefix))
+                    .forEach(group -> builder.suggest(group.groupName(),
+                            VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + group.groupName()))));
             return builder.buildFuture();
         };
     }
 
-    private int getId(CommandContext<CommandSource> context, boolean isUser) {
+    private int getId(CommandContext<CommandSource> context, int languageId, boolean isUser) {
         String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-        return isUser ? getUserId(context.getSource(), name) : getGroupId(context.getSource(), name);
+        return isUser ? getUser(languageId, name).id() : getGroup(languageId, name).id();
     }
 
-    private boolean isParentNotExist(CommandSource source, boolean isUser, int id, int parentId) {
-        boolean exist = isUser ? userParent.existsParent(id, parentId) : groupParent.existsParent(id, parentId);
-        if (!exist) {
-            sendMessage(source, "<#990000>Parent <#999999>%s</#999999> does not exist.", parentId);
-            return true;
-        } else return false;
+    private UserParent getUserParent(int languageId, User user, Group parent) {
+        UserParent userParent = userParentProvider.getParent(user.id(), parent.id());
+        if (userParent == null)
+            throw new CommandException(messageService.getMessage(Messages.PERMISSION_USER_PARENT_NOT_EXISTS, languageId)
+                    .replace("[PARENT]", parent.groupName())
+                    .replace("[USER]", user.username()));
+        return userParent;
     }
 
-    private void logging(boolean isUser, int executorId, int id, String fullCommand) {
-        String command = isUser ? "/permission user " + user.getUsername(id) + " parent " : "/permission group " + group.getGroupName(id) + " parent ";
-        loggingToConsole(isUser, executorId, id, command + fullCommand);
+    private GroupParent getGroupParent(int languageId, Group group, Group parent) {
+        GroupParent groupParent = groupParentProvider.getParent(group.id(), parent.id());
+        if (groupParent == null)
+            throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_PARENT_NOT_EXISTS, languageId)
+                    .replace("[PARENT]", parent.groupName())
+                    .replace("[GROUP]", group.groupName()));
+        return groupParent;
     }
 }
