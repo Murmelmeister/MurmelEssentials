@@ -11,8 +11,6 @@ import com.velocitypowered.api.scheduler.ScheduledTask;
 import com.velocitypowered.api.scheduler.TaskStatus;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.murmelapi.permission.Permission;
-import de.murmelmeister.murmelapi.utils.update.RefreshType;
-import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 
 import java.util.concurrent.TimeUnit;
 
@@ -44,7 +42,7 @@ public final class CustomPermission implements PermissionProvider, PermissionFun
         task = server.getScheduler().buildTask(plugin, () -> {
                     int updatedRows = plugin.getPermission().loadExpired();
                     if (updatedRows > 0)
-                        RefreshUtil.markAsRefreshed(RefreshType.PERMISSIONS); // TODO: And group cache / parent cache etc.
+                        plugin.getLogger().info("Updated {} expired permissions.", updatedRows);
                 })
                 .repeat(1, TimeUnit.SECONDS).schedule();
     }
