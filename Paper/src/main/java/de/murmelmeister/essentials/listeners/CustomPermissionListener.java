@@ -1,21 +1,20 @@
 package de.murmelmeister.essentials.listeners;
 
-import com.destroystokyo.paper.profile.PlayerProfile;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.api.CustomPermission;
 import de.murmelmeister.essentials.manager.ListenerManager;
-import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
+import de.murmelmeister.murmelapi.permission.Permission;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.lang.reflect.Field;
 
 public final class CustomPermissionListener extends ListenerManager {
+    private final Permission permission;
+
     public CustomPermissionListener(MurmelEssentials instance) {
-        super(instance);
+        this.permission = instance.getPermission();
     }
 
     @EventHandler
@@ -23,23 +22,8 @@ public final class CustomPermissionListener extends ListenerManager {
         Player player = event.getPlayer();
         Field field = Class.forName("org.bukkit.craftbukkit.entity.CraftHumanEntity").getDeclaredField("perm");
         field.setAccessible(true);
-        field.set(player, new CustomPermission(player, this.permission));
+        field.set(player, new CustomPermission(player, permission));
         field.setAccessible(false);
-    }
-
-    @EventHandler
-    public void handleAsyncPreLogin(AsyncPlayerPreLoginEvent event) {
-        PlayerProfile player = event.getPlayerProfile();
-        int userId = user.getId(player.getId());
-        permission.preloadAsync(userId);
-        RefreshUtil.markAsRefreshed("update"); // Reloaded the Ranks#updatePlayers cache (locally)
-    }
-
-    @EventHandler
-    public void handlePlayerQuit(PlayerQuitEvent event) {
-        Player player = event.getPlayer();
-        int userId = user.getId(player.getUniqueId());
-        permission.invalidate(userId);
-        RefreshUtil.markAsRefreshed("update"); // Reloaded the Ranks#updatePlayers cache (locally)
+        // Maybe could work? -> player.getServer().getPluginManager().subscribeToDefaultPerms(false, new CustomPermission(player, permission));
     }
 }
