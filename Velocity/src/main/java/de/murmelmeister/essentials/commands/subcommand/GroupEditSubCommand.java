@@ -6,27 +6,33 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
+import de.murmelmeister.essentials.manager.command.CommandException;
 import de.murmelmeister.essentials.manager.command.CommandResult;
+import de.murmelmeister.essentials.utils.Messages;
 import de.murmelmeister.essentials.utils.PermissionUtil;
+import de.murmelmeister.murmelapi.group.Group;
+import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
+import de.murmelmeister.murmelapi.group.color.GroupColorProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
-import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
+import de.murmelmeister.murmelapi.language.message.MessageService;
+import de.murmelmeister.murmelapi.user.User;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class GroupEditSubCommand extends PermissionUtil {
-    private final GroupColor color;
+    private final GroupProvider groupProvider;
+    private final GroupColorProvider colorProvider;
 
-    private final GroupColorType typeChat = GroupColorType.CHAT;
-    private final GroupColorType typeTab = GroupColorType.TAB;
-    private final GroupColorType typeTeam = GroupColorType.TEAM;
-
+    private final MessageService messageService;
     private final Pattern teamIdPattern = Pattern.compile("^[0-9]+$");
 
     public GroupEditSubCommand(MurmelEssentials plugin) {
         super(plugin);
-        this.color = group.getColor();
+        this.groupProvider = plugin.getGroupProvider();
+        this.colorProvider = plugin.getGroupColorProvider();
+        this.messageService = plugin.getMessageService();
     }
 
     @Override // Not used
@@ -52,91 +58,145 @@ public final class GroupEditSubCommand extends PermissionUtil {
 
         return BrigadierCommand.literalArgumentBuilder(literalName)
                 .executes(context ->
-                        runWithTiming(context, (source, executorId) -> {
+                        runWithTiming(context, (source, executor) -> {
                             String groupName = StringArgumentType.getString(context, "groupName");
-                            int groupId = getGroupId(source, groupName);
-                            if (groupId == 0) return CommandResult.of(-2);
+                            int languageId = executor.languageId();
+                            Group group = getGroup(languageId, groupName);
 
-                            if (!color.existsGroup(groupId)) {
-                                sendMessage(source, "<#990000>Group does not exist.");
-                                return CommandResult.of(-3);
+                            if (colorType == ColorType.PRIORITY || colorType == ColorType.TEAM_ID) {
+                                String value = colorType == ColorType.PRIORITY ? String.valueOf(group.priority()) : group.teamTagId();
+                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_VALUE, languageId)
+                                        .replace("[COLOR_TYPE]", formatLiteralName)
+                                        .replace("[GROUP_NAME]", groupName)
+                                        .replace("[VALUE]", value));
+                                return CommandResult.of(Command.SINGLE_SUCCESS);
                             }
 
-                            String value = colorType == null ? null : switch (colorType) {
-                                case PREFIX -> color.getPrefix(groupId, groupType);
-                                case SUFFIX -> color.getSuffix(groupId, groupType);
-                                case COLOR -> color.getColor(groupId, groupType);
-                                case CHAT_MESSAGE -> color.getMessage(groupId);
-                                case TEAM_ID -> group.getTeamSort(groupId);
-                                case PRIORITY -> String.valueOf(group.getPriority(groupId));
-                            };
+                            GroupColor groupColor = colorProvider.getGroupColor(group.id(), groupType.getId());
 
-                            if (value == null) {
-                                sendMessage(source, "<#990000>%s is not set.", formatLiteralName);
-                                return CommandResult.of(-4);
+                            if (groupColor == null) {
+                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_NOT_SET, languageId)
+                                        .replace("[COLOR_TYPE]", formatLiteralName)
+                                        .replace("[GROUP_NAME]", groupName));
+                                return CommandResult.of(-2);
                             }
 
-                            sendMessage(source, "<#999999>%s of <#cc8800>%s</#cc8800>: <#00cc88>%s", formatLiteralName, groupName, value);
-                            logging(executorId, groupId, loggingCommand + " " + literalName);
+                            User creator = getUser(languageId, groupColor.createdBy());
+                            User changer = groupColor.changedBy() == null ? null : getUser(languageId, groupColor.changedBy());
+                            String createdDate = groupColor.createdAt().format(getDateTimeFormatter(languageId));
+                            String changedDate = groupColor.changedAt() == null ? null : groupColor.changedAt().format(getDateTimeFormatter(languageId));
+
+                            String changedText = (changer == null || changedDate == null) ? null :
+                                    messageService.getMessage(Messages.PERMISSION_INFO_CHANGE_STUFF, languageId)
+                                            .replace("[CHANGED_NAME]", changer.username())
+                                            .replace("[CHANGED_ID]", String.valueOf(changer.id()))
+                                            .replace("[CHANGED_AT]", changedDate);
+
+                            sendMessage(source, (messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_INFO_MESSAGE, languageId)
+                                    .replace("[GROUP_NAME]", groupName)
+                                    .replace("[GROUP_ID]", String.valueOf(group.id()))
+                                    .replace("[COLOR_TYPE]", formatLiteralName)
+                                    .replace("[VALUE]", groupColor.value())
+                                    .replace("[CREATED_NAME]", creator.username())
+                                    .replace("[CREATED_ID]", String.valueOf(creator.id()))
+                                    .replace("[CREATED_AT]", createdDate)
+                                    .replace("[CHANGED]", changedText == null ? "" : changedText)).trim());
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 )
                 .then(BrigadierCommand.requiredArgumentBuilder("value", StringArgumentType.string())
                         .executes(context ->
-                                runWithTiming(context, (source, executorId) -> {
+                                runWithTiming(context, (source, executor) -> {
                                     String groupName = StringArgumentType.getString(context, "groupName");
-                                    int groupId = getGroupId(source, groupName);
-                                    if (groupId == 0) return CommandResult.of(-2);
+                                    int languageId = executor.languageId();
+                                    Group group = getGroup(languageId, groupName);
+                                    String value = StringArgumentType.getString(context, "value");
 
-                                    if (!color.existsGroup(groupId)) {
-                                        sendMessage(source, "<#990000>Group does not exist.");
-                                        return CommandResult.of(-3);
+                                    GroupColor groupColor = colorProvider.getGroupColor(group.id(), groupType.getId());
+
+                                    if (groupColor == null) {
+                                        GroupColor success = colorProvider.add(group.id(), groupType.getId(), value, executor.id());
+                                        if (success == null)
+                                            throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_ADD_FAILED, languageId)
+                                                    .replace("[COLOR_TYPE]", formatLiteralName)
+                                                    .replace("[GROUP_NAME]", groupName));
+                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_ADD_SUCCESS, languageId)
+                                                .replace("[COLOR_TYPE]", formatLiteralName)
+                                                .replace("[GROUP_NAME]", groupName)
+                                                .replace("[VALUE]", value));
+                                        return CommandResult.of(Command.SINGLE_SUCCESS, 1);
                                     }
 
                                     if (colorType == null) {
-                                        sendMessage(source, "<#990000>Invalid color type.");
-                                        return CommandResult.of(-4);
+                                        sendMessage(source, messageService.getMessage(Messages.INVALID_COLOR_TYPE, languageId));
+                                        return CommandResult.of(-2);
                                     }
 
-                                    String value = StringArgumentType.getString(context, "value");
-                                    int row = switch (colorType) {
-                                        case PREFIX -> color.setPrefix(groupId, groupType, value, executorId);
-                                        case SUFFIX -> color.setSuffix(groupId, groupType, value, executorId);
-                                        case COLOR -> color.setColor(groupId, groupType, value, executorId);
-                                        case CHAT_MESSAGE -> color.setMessage(groupId, value, executorId);
-                                        case TEAM_ID -> {
-                                            Matcher teamIdMatcher = teamIdPattern.matcher(value);
-
-                                            if (!teamIdMatcher.matches()) {
-                                                sendMessage(source, "<#990000>Invalid team ID.");
-                                                yield -5;
-                                            }
-
-                                            String teamId = value + groupName;
-                                            yield group.setTeamSort(groupId, teamId, executorId);
-                                        }
-                                        case PRIORITY -> {
-                                            try {
-                                                int priority = Integer.parseInt(value);
-
-                                                if (priority < 0) {
-                                                    sendMessage(source, "<#990000>Priority must be a positive number.");
-                                                    yield -5;
-                                                }
-
-                                                yield group.setPriority(groupId, priority, executorId);
-                                            } catch (NumberFormatException e) {
-                                                sendMessage(source, "<#990000>Invalid priority value.");
-                                                yield -5;
-                                            }
-                                        }
+                                    boolean isColor = switch (colorType) {
+                                        case PREFIX, SUFFIX, COLOR, CHAT_MESSAGE -> true;
+                                        case TEAM_ID, PRIORITY -> false;
                                     };
 
-                                    if (row == -5) return CommandResult.of(-5);
-                                    sendMessage(source, "<#999999>%s of <#cc8800>%s</#cc8800> is now set to <#00cc88>%s", formatLiteralName, groupName, value);
+                                    Integer row = null;
+                                    if (isColor) {
+                                        GroupColor success = colorProvider.update(groupColor.groupId(), groupColor.typeId(), value, executor.id());
+                                        if (success == null)
+                                            throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_UPDATE_FAILED, languageId)
+                                                    .replace("[COLOR_TYPE]", formatLiteralName)
+                                                    .replace("[GROUP_NAME]", groupName));
+                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_UPDATE_SUCCESS, languageId)
+                                                .replace("[COLOR_TYPE]", formatLiteralName)
+                                                .replace("[GROUP_NAME]", groupName)
+                                                .replace("[VALUE]", value));
+                                        row = 1;
+                                    } else {
+                                        switch (colorType) {
+                                            case TEAM_ID -> {
+                                                Matcher teamIdMatcher = teamIdPattern.matcher(value);
+                                                if (!teamIdMatcher.matches()) {
+                                                    sendMessage(source, "<#990000>Invalid team ID.");
+                                                    return CommandResult.of(-3);
+                                                }
+                                                String teamId = value + groupName;
+                                                Group success = groupProvider.update(group.id(), groupName, group.priority(), teamId, executor.id());
+                                                if (success == null)
+                                                    throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_UPDATE_FAILED, languageId)
+                                                            .replace("[COLOR_TYPE]", formatLiteralName)
+                                                            .replace("[GROUP_NAME]", groupName));
+                                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_UPDATE_SUCCESS, languageId)
+                                                        .replace("[COLOR_TYPE]", formatLiteralName)
+                                                        .replace("[GROUP_NAME]", groupName)
+                                                        .replace("[VALUE]", teamId));
+                                                row = 1;
+                                            }
+                                            case PRIORITY -> {
+                                                try {
+                                                    int priority = Integer.parseInt(value);
+                                                    if (priority < 0) {
+                                                        sendMessage(source, messageService.getMessage(Messages.PRIORITY_NEGATIVE, languageId)
+                                                                .replace("[PRIORITY]", String.valueOf(priority)));
+                                                        return CommandResult.of(-3);
+                                                    }
 
-                                    RefreshUtil.markAsRefreshed("global"); // TODO: changing the right cache name
-                                    logging(executorId, groupId, loggingCommand + " " + literalName + " " + value);
+                                                    Group success = groupProvider.update(group.id(), groupName, priority, group.teamTagId(), executor.id());
+                                                    if (success == null)
+                                                        throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_UPDATE_FAILED, languageId)
+                                                                .replace("[COLOR_TYPE]", formatLiteralName)
+                                                                .replace("[GROUP_NAME]", groupName));
+                                                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_UPDATE_SUCCESS, languageId)
+                                                            .replace("[COLOR_TYPE]", formatLiteralName)
+                                                            .replace("[GROUP_NAME]", groupName)
+                                                            .replace("[VALUE]", String.valueOf(priority)));
+                                                    row = 1;
+                                                } catch (NumberFormatException e) {
+                                                    throw new CommandException(messageService.getMessage(Messages.PRIORITY_INVALID, languageId)
+                                                            .replace("[PRIORITY]", value));
+                                                }
+                                            }
+                                            default ->
+                                                    throw new CommandException(messageService.getMessage(Messages.INVALID_COLOR_TYPE, languageId));
+                                        }
+                                    }
                                     return CommandResult.of(Command.SINGLE_SUCCESS, row);
                                 })
                         )
@@ -150,10 +210,10 @@ public final class GroupEditSubCommand extends PermissionUtil {
                     sendMessage(context.getSource(), syntaxGroupEdit());
                     return Command.SINGLE_SUCCESS;
                 })
-                .then(createGroupValueCommand(literalName, "prefix", typeChat))
-                .then(createGroupValueCommand(literalName, "suffix", typeChat))
-                .then(createGroupValueCommand(literalName, "color", typeChat))
-                .then(createGroupValueCommand(literalName, "message", null));
+                .then(createGroupValueCommand(literalName, "prefix", GroupColorType.CHAT_PREFIX))
+                .then(createGroupValueCommand(literalName, "suffix", GroupColorType.CHAT_SUFFIX))
+                .then(createGroupValueCommand(literalName, "color", GroupColorType.CHAT_COLOR))
+                .then(createGroupValueCommand(literalName, "message", GroupColorType.CHAT_MESSAGE));
     }
 
     public LiteralArgumentBuilder<CommandSource> getEditedTabCommand() {
@@ -163,9 +223,9 @@ public final class GroupEditSubCommand extends PermissionUtil {
                     sendMessage(context.getSource(), syntaxGroupEdit());
                     return Command.SINGLE_SUCCESS;
                 })
-                .then(createGroupValueCommand(literalName, "prefix", typeTab))
-                .then(createGroupValueCommand(literalName, "suffix", typeTab))
-                .then(createGroupValueCommand(literalName, "color", typeTab));
+                .then(createGroupValueCommand(literalName, "prefix", GroupColorType.TAB_PREFIX))
+                .then(createGroupValueCommand(literalName, "suffix", GroupColorType.TAB_SUFFIX))
+                .then(createGroupValueCommand(literalName, "color", GroupColorType.TAB_COLOR));
     }
 
     public LiteralArgumentBuilder<CommandSource> getEditedTeamCommand() {
@@ -175,20 +235,15 @@ public final class GroupEditSubCommand extends PermissionUtil {
                     sendMessage(context.getSource(), syntaxGroupEdit());
                     return Command.SINGLE_SUCCESS;
                 })
-                .then(createGroupValueCommand(literalName, "prefix", typeTeam))
-                .then(createGroupValueCommand(literalName, "suffix", typeTeam))
-                .then(createGroupValueCommand(literalName, "color", typeTeam))
-                .then(createGroupValueCommand(literalName, "id", typeTeam));
+                .then(createGroupValueCommand(literalName, "prefix", GroupColorType.TEAM_PREFIX))
+                .then(createGroupValueCommand(literalName, "suffix", GroupColorType.TEAM_SUFFIX))
+                .then(createGroupValueCommand(literalName, "color", GroupColorType.TEAM_COLOR))
+                .then(createGroupValueCommand(literalName, "id", null));
     }
 
     public LiteralArgumentBuilder<CommandSource> getEditedPriorityCommand() {
         String literalName = "priority";
         return createGroupValueCommand(literalName, literalName, null);
-    }
-
-    private void logging(int executorId, int groupId, String fullCommand) {
-        String command = "/permission group " + group.getGroupName(groupId) + " edit ";
-        loggingToConsole(executorId, command + fullCommand);
     }
 
     private enum ColorType {
