@@ -1,12 +1,17 @@
 package de.murmelmeister.essentials.configurations;
 
-import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.utils.ConfigValue;
 import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.configuration.YamlMurmel;
 
+import java.nio.file.Path;
+
 public class Config {
-    private final YamlMurmel config = YamlMurmel.builder(MurmelEssentials.PLUGIN_PATH + "config.yaml").build();
+    private final YamlMurmel config;
+
+    public Config(Path dataDirectory) {
+        this.config = YamlMurmel.builder(dataDirectory.resolve("config.yaml").toString()).build();
+    }
 
     public <T> T getValue(ConfigValue value, Class<T> type) {
         return config.getValue(value.getPath(), type, type.cast(value.getFallback()));
