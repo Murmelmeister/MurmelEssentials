@@ -5,14 +5,12 @@ import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.listeners.RefreshMessageListener;
 import de.murmelmeister.essentials.listeners.ConnectionListener;
 import de.murmelmeister.essentials.listeners.PermissionListener;
-import de.murmelmeister.murmelapi.user.User;
 
 public final class ListenerManager {
     public static void register(MurmelEssentials plugin, ProxyServer server) {
-        User user = plugin.getUser();
-        addListener(plugin, server, new RefreshMessageListener(plugin, server));
-        addListener(plugin, server, new PermissionListener(user, plugin.getPermission()));
-        addListener(plugin, server, new ConnectionListener(user, plugin.getGroup(), plugin.getPlayTime(), plugin.getActiveSession()));
+        addListener(plugin, server, new RefreshMessageListener(plugin));
+        addListener(plugin, server, new PermissionListener(plugin));
+        addListener(plugin, server, new ConnectionListener(plugin));
     }
 
     private static void addListener(MurmelEssentials plugin, ProxyServer server, Object clazz) {
