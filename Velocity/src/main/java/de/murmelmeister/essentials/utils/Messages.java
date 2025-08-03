@@ -438,8 +438,8 @@ public enum Messages implements MessageDefinition {
             of(getLanguageId(Lang.GERMAN), "<#990000>Fehler beim Hinzufügen von <#999900>[COLOR_TYPE]</#999900> für die Gruppe <#cc8800>[GROUP_NAME]</#cc8800>.")
     ),
     PERMISSION_GROUP_COLOR_ADD_SUCCESS(
-            of(getLanguageId(Lang.ENGLISH), "<#999999><#009999>[COLOR_TYPE]</#009999> of group <#cc8800>[GROUP_NAME]</#cc8800> is now set to <#00cc88>[VALUE]</#00cc88>."),
-            of(getLanguageId(Lang.GERMAN), "<#999999><#009999>[COLOR_TYPE]</#009999> der Gruppe <#cc8800>[GROUP_NAME]</#cc8800> ist jetzt auf <#00cc88>[VALUE]</#00cc88> gesetzt.")
+            of(getLanguageId(Lang.ENGLISH), "<#999999><#009999>[COLOR_TYPE]</#009999> of group <#cc8800>[GROUP_NAME]</#cc8800> is now set to '<#00cc88>[VALUE]</#00cc88>'."),
+            of(getLanguageId(Lang.GERMAN), "<#999999><#009999>[COLOR_TYPE]</#009999> der Gruppe <#cc8800>[GROUP_NAME]</#cc8800> ist jetzt auf '<#00cc88>[VALUE]</#00cc88>' gesetzt.")
     ),
     INVALID_COLOR_TYPE(
             of(getLanguageId(Lang.ENGLISH), "<#990000>Invalid color type."),
@@ -450,8 +450,8 @@ public enum Messages implements MessageDefinition {
             of(getLanguageId(Lang.GERMAN), "<#990000>Fehler beim Aktualisieren von <#999900>[COLOR_TYPE]</#999900> für die Gruppe <#cc8800>[GROUP_NAME]</#cc8800>.")
     ),
     PERMISSION_GROUP_COLOR_UPDATE_SUCCESS(
-            of(getLanguageId(Lang.ENGLISH), "<#999999><#009999>[COLOR_TYPE]</#009999> of group <#cc8800>[GROUP_NAME]</#cc8800> is now updated to <#00cc88>[VALUE]</#00cc88>."),
-            of(getLanguageId(Lang.GERMAN), "<#999999><#009999>[COLOR_TYPE]</#009999> der Gruppe <#cc8800>[GROUP_NAME]</#cc8800> wurde auf <#00cc88>[VALUE]</#00cc88> aktualisiert.")
+            of(getLanguageId(Lang.ENGLISH), "<#999999><#009999>[COLOR_TYPE]</#009999> of group <#cc8800>[GROUP_NAME]</#cc8800> is now updated to '<#00cc88>[VALUE]</#00cc88>'."),
+            of(getLanguageId(Lang.GERMAN), "<#999999><#009999>[COLOR_TYPE]</#009999> der Gruppe <#cc8800>[GROUP_NAME]</#cc8800> wurde auf '<#00cc88>[VALUE]</#00cc88>' aktualisiert.")
     ),
     PRIORITY_INVALID(
             of(getLanguageId(Lang.ENGLISH), "<#990000>Invalid priority value: <#999900>[PRIORITY]</#999900>."),
