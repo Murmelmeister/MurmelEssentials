@@ -117,6 +117,60 @@ public final class RefreshCommand extends CommandManager {
                                 })
                         )
                 )
+                .then(BrigadierCommand.literalArgumentBuilder("user_permissions")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    RefreshUtil.fireCache(RefreshType.USER_PERMISSIONS);
+                                    sendMessage(source, "<#00cc88>Reloaded user permissions.");
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("user_parents")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    RefreshUtil.fireCache(RefreshType.USER_PARENTS);
+                                    sendMessage(source, "<#00cc88>Reloaded user parents.");
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("groups")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    RefreshUtil.fireCache(RefreshType.GROUPS);
+                                    sendMessage(source, "<#00cc88>Reloaded groups.");
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("group_colors")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    RefreshUtil.fireCache(RefreshType.GROUP_COLORS);
+                                    sendMessage(source, "<#00cc88>Reloaded group colors.");
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("group_permissions")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    RefreshUtil.fireCache(RefreshType.GROUP_PERMISSIONS);
+                                    sendMessage(source, "<#00cc88>Reloaded group permissions.");
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("group_parents")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    RefreshUtil.fireCache(RefreshType.GROUP_PARENTS);
+                                    sendMessage(source, "<#00cc88>Reloaded group parents.");
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
                 .then(BrigadierCommand.literalArgumentBuilder("all")
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
