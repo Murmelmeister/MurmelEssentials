@@ -28,6 +28,7 @@ public final class MurmelEssentials extends JavaPlugin {
     @Override
     public void onDisable() {
         ranks.cancelTask();
+        ranks.close();
         config.disconnectFromDatabase();
         getServer().getMessenger().unregisterIncomingPluginChannel(this, CHANNEL, PLUGIN_MESSAGE_REFRESH);
     }
