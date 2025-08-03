@@ -11,6 +11,9 @@ import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.user.parent.UserParent;
 import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
+import de.murmelmeister.murmelapi.utils.update.RefreshEvent;
+import de.murmelmeister.murmelapi.utils.update.RefreshListener;
+import de.murmelmeister.murmelapi.utils.update.RefreshType;
 import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
@@ -28,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static de.murmelmeister.murmelapi.group.GroupProviderImpl.DEFAULT_GROUP_ID;
 
-public final class Ranks implements AutoCloseable {
+public final class Ranks implements RefreshListener, AutoCloseable {
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private final AtomicBoolean hasUpdated = new AtomicBoolean(false);
     private BukkitTask task;
@@ -43,7 +46,7 @@ public final class Ranks implements AutoCloseable {
         this.groupColorProvider = instance.getGroupColorProvider();
         this.userProvider = instance.getUserProvider();
         this.userParentProvider = instance.getUserParentProvider();
-        RefreshUtil.register(cacheName -> hasUpdated.set(true));
+        RefreshUtil.register(this);
     }
 
     public void cancelTask() {
@@ -192,7 +195,33 @@ public final class Ranks implements AutoCloseable {
     }
 
     @Override
+    public void onRefresh(RefreshEvent<?> event) {
+        String cacheName = event.getType();
+        if (cacheName.equalsIgnoreCase(RefreshType.GROUP_COLORS.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP_COLOR.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.GROUPS.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.GROUP_PARENTS.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP_PARENT.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.GROUP_PERMISSIONS.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP_PERMISSION.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.USERS.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_USER.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.USER_PARENTS.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_USER_PARENT.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.USER_PERMISSIONS.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_USER_PERMISSION.getName())
+            || cacheName.equalsIgnoreCase(RefreshType.ALL.getName())) {
+            hasUpdated.set(true);
+        }
+    }
+
+    @Override
     public void close() {
-        RefreshUtil.unregister(cacheName -> hasUpdated.set(true));
+        RefreshUtil.unregister(this);
+    }
+
+    public AtomicBoolean getHasUpdated() {
+        return hasUpdated;
     }
 }
