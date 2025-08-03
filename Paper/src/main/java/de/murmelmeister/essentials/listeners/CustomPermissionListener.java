@@ -1,20 +1,19 @@
 package de.murmelmeister.essentials.listeners;
 
-import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.api.CustomPermission;
-import de.murmelmeister.essentials.manager.ListenerManager;
 import de.murmelmeister.murmelapi.permission.Permission;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 
 import java.lang.reflect.Field;
 
-public final class CustomPermissionListener extends ListenerManager {
+public final class CustomPermissionListener implements Listener {
     private final Permission permission;
 
-    public CustomPermissionListener(MurmelEssentials instance) {
-        this.permission = instance.getPermission();
+    public CustomPermissionListener(Permission permission) {
+        this.permission = permission;
     }
 
     @EventHandler
