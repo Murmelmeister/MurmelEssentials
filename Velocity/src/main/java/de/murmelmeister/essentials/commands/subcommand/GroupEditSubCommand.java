@@ -139,12 +139,18 @@ public final class GroupEditSubCommand extends PermissionUtil {
                                         case TEAM_ID, PRIORITY -> false;
                                     };
 
-                                    int row;
                                     if (isColor) {
-                                        GroupColor success = colorProvider.update(groupColor.groupId(), groupColor.typeId(),
-                                                value.replace("<", "").replace(">", ""),
-                                                executor.id());
-                                        if (success == null)
+                                        int result;
+                                        if (value.isEmpty()) {
+                                            result = colorProvider.remove(groupColor.groupId(), groupColor.typeId());
+                                        } else {
+                                            GroupColor success = colorProvider.update(groupColor.groupId(), groupColor.typeId(),
+                                                    value.replace("<", "").replace(">", ""),
+                                                    executor.id());
+                                            result = success == null ? 0 : 1;
+                                        }
+
+                                        if (result < 1)
                                             throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_UPDATE_FAILED, languageId)
                                                     .replace("[COLOR_TYPE]", formatLiteralName)
                                                     .replace("[GROUP_NAME]", groupName));
@@ -152,7 +158,6 @@ public final class GroupEditSubCommand extends PermissionUtil {
                                                 .replace("[COLOR_TYPE]", formatLiteralName)
                                                 .replace("[GROUP_NAME]", groupName)
                                                 .replace("[VALUE]", value));
-                                        row = 1;
                                     } else {
                                         switch (colorType) {
                                             case TEAM_ID -> {
@@ -171,7 +176,6 @@ public final class GroupEditSubCommand extends PermissionUtil {
                                                         .replace("[COLOR_TYPE]", formatLiteralName)
                                                         .replace("[GROUP_NAME]", groupName)
                                                         .replace("[VALUE]", teamId));
-                                                row = 1;
                                             }
                                             case PRIORITY -> {
                                                 try {
@@ -191,7 +195,6 @@ public final class GroupEditSubCommand extends PermissionUtil {
                                                             .replace("[COLOR_TYPE]", formatLiteralName)
                                                             .replace("[GROUP_NAME]", groupName)
                                                             .replace("[VALUE]", String.valueOf(priority)));
-                                                    row = 1;
                                                 } catch (NumberFormatException e) {
                                                     throw new CommandException(messageService.getMessage(Messages.PRIORITY_INVALID, languageId)
                                                             .replace("[PRIORITY]", value));
@@ -201,7 +204,7 @@ public final class GroupEditSubCommand extends PermissionUtil {
                                                     throw new CommandException(messageService.getMessage(Messages.INVALID_COLOR_TYPE, languageId));
                                         }
                                     }
-                                    return CommandResult.of(Command.SINGLE_SUCCESS, row);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS, 1);
                                 })
                         )
                 );
