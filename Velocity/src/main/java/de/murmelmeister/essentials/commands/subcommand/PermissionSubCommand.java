@@ -121,7 +121,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                                         .replace("[HEADER_NAME]", headerName)
                                         .replace("[USER_NAME]", username)
                                         .replace("[USER_ID]", String.valueOf(user.id())));
-                                sendAllGroupPermission(source, groupPermissions, languageId, null);
+                                sendAllGroupPermission(source, groupPermissions, languageId, null, true);
 
                                 String clickMessage = "/permission user " + username + " permission remove ";
                                 permissions.forEach(userPermission -> sendPermissionMessage(source, clickMessage, languageId, userPermission.permission(), userPermission.expiresAt()));
@@ -144,7 +144,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                                         .replace("[HEADER_NAME]", headerName)
                                         .replace("[GROUP_NAME]", groupName)
                                         .replace("[GROUP_ID]", String.valueOf(group.id())));
-                                sendAllGroupPermission(source, permissions, executor.languageId(), group.id());
+                                sendAllGroupPermission(source, permissions, executor.languageId(), group.id(), false);
                                 return CommandResult.of(Command.SINGLE_SUCCESS);
                             }
                         })
@@ -159,13 +159,13 @@ public final class PermissionSubCommand extends PermissionUtil {
                              + " " + expiredMessage).trim());
     }
 
-    private void sendAllGroupPermission(CommandSource source, List<GroupPermission> permissions, int executorLang, Integer groupId) {
+    private void sendAllGroupPermission(CommandSource source, List<GroupPermission> permissions, int executorLang, Integer groupId, boolean isUser) {
         permissions.forEach(groupPermission -> {
             Group group = getGroup(executorLang, groupPermission.groupId());
             String permission = groupPermission.permission();
             String expiredMessage = formatExpiredMessage(executorLang, groupPermission.expiresAt());
             String clickMessage = "/permission group " + group.groupName() + " permission remove ";
-            String existGroup = groupId == null || groupId == group.id() ? ""
+            String existGroup = (groupId == null && !isUser) || (groupId != null && groupId == group.id()) ? ""
                     : messageService.getMessage(Messages.PERMISSION_LIST_FROM_GROUP_PART, executorLang)
                     .replace("[GROUP_NAME]", group.groupName());
             sendMessage(source, (messageService.getMessage(Messages.PERMISSION_LIST_MESSAGE, executorLang)
