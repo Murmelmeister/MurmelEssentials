@@ -24,7 +24,7 @@ import de.murmelmeister.murmelapi.punishment.user.PunishmentCurrentUserProvider;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.user.login.UserLoginProvider;
-import de.murmelmeister.murmelapi.utils.StringUtil;
+import de.murmelmeister.library.utils.StringUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.net.InetAddress;

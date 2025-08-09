@@ -3,7 +3,7 @@ package de.murmelmeister.essentials.configurations;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.utils.ConfigValue;
 import de.murmelmeister.murmelapi.MurmelAPI;
-import de.murmelmeister.murmelapi.configuration.YamlMurmel;
+import de.murmelmeister.library.configuration.YamlMurmel;
 
 public class Config {
     private final YamlMurmel config = YamlMurmel.builder(MurmelEssentials.PLUGIN_PATH + "config.yaml").build();
@@ -25,7 +25,7 @@ public class Config {
 
         MurmelAPI.setDatabaseName(databaseName);
         String url = String.format("jdbc:%s://%s:%s/%s", dbDriver, dbHostname, dbPort, databaseName);
-        MurmelAPI.connect(url, dbUsername, dbPassword);
+        MurmelAPI.connect("com.mysql.cj.jdbc.Driver", url, dbUsername, dbPassword);
     }
 
     public void disconnectFromDatabase() {

@@ -21,7 +21,7 @@ import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.parent.UserParent;
 import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
-import de.murmelmeister.murmelapi.utils.StringUtil;
+import de.murmelmeister.library.utils.StringUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.time.LocalDateTime;
