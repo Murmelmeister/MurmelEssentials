@@ -395,6 +395,14 @@ public enum Messages implements MessageDefinition {
             of(getLanguageId(Lang.ENGLISH), "<#990000>You cannot remove default parent."),
             of(getLanguageId(Lang.GERMAN), "<#990000>Du kannst den Standard-Elternteil nicht entfernen.")
     ),
+    DEFAULT_GROUP_DELETE(
+            of(getLanguageId(Lang.ENGLISH), "<#990000>You cannot delete default group."),
+            of(getLanguageId(Lang.GERMAN), "<#990000>Du kannst die Standardgruppe nicht löschen.")
+    ),
+    DEFAULT_GROUP_RENAME(
+            of(getLanguageId(Lang.ENGLISH), "<#990000>You cannot rename default group."),
+            of(getLanguageId(Lang.GERMAN), "<#990000>Du kannst die Standardgruppe nicht umbenennen.")
+    ),
     DEFAULT_GROUP_TIME(
             of(getLanguageId(Lang.ENGLISH), "<#990000>You cannot set time for default group."),
             of(getLanguageId(Lang.GERMAN), "<#990000>Du kannst keine Zeit für die Standardgruppe setzen.")
@@ -460,6 +468,78 @@ public enum Messages implements MessageDefinition {
     PRIORITY_NEGATIVE(
             of(getLanguageId(Lang.ENGLISH), "<#990000>Priority cannot be negative: <#999900>[PRIORITY]</#999900>."),
             of(getLanguageId(Lang.GERMAN), "<#990000>Priorität kann nicht negativ sein: <#999900>[PRIORITY]</#999900>.")
+    ),
+    LIST_GROUP_SINGULAR(
+            of(getLanguageId(Lang.ENGLISH), "Group"),
+            of(getLanguageId(Lang.GERMAN), "Gruppe")
+    ),
+    LIST_USER_SINGULAR(
+            of(getLanguageId(Lang.ENGLISH), "User"),
+            of(getLanguageId(Lang.GERMAN), "Benutzer")
+    ),
+    LIST_GROUP_PLURAL(
+            of(getLanguageId(Lang.ENGLISH), "Groups"),
+            of(getLanguageId(Lang.GERMAN), "Gruppen")
+    ),
+    LIST_USER_PLURAL(
+            of(getLanguageId(Lang.ENGLISH), "Users"),
+            of(getLanguageId(Lang.GERMAN), "Benutzer")
+    ),
+    LIST_GROUP_EMPTY(
+            of(getLanguageId(Lang.ENGLISH), "<#990000>No groups found."),
+            of(getLanguageId(Lang.GERMAN), "<#990000>Keine Gruppen gefunden.")
+    ),
+    LIST_USER_EMPTY(
+            of(getLanguageId(Lang.ENGLISH), "<#990000>No users found."),
+            of(getLanguageId(Lang.GERMAN), "<#990000>Keine Benutzer gefunden.")
+    ),
+    LIST_GROUP_HEADER(
+            of(getLanguageId(Lang.ENGLISH), "<#999999>===- [HEADER_NAME]"),
+            of(getLanguageId(Lang.GERMAN), "<#999999>===- [HEADER_NAME]")
+    ),
+    LIST_USER_HEADER(
+            of(getLanguageId(Lang.ENGLISH), "<#999999>===- [HEADER_NAME]"),
+            of(getLanguageId(Lang.GERMAN), "<#999999>===- [HEADER_NAME]")
+    ),
+    LIST_GROUP_MESSAGE(
+            of(getLanguageId(Lang.ENGLISH), "<#999999>- <#00cc88><hover:show_text:'<#999999>Click to get <#00cc88>group information</#00cc88>'><click:suggest_command:'[CLICK_COMMAND]'>[GROUP_NAME]</click></hover>"),
+            of(getLanguageId(Lang.GERMAN), "<#999999>- <#00cc88><hover:show_text:'<#999999>Klicke um <#00cc88>Gruppeninformationen</#00cc88> zu erhalten'><click:suggest_command:'[CLICK_COMMAND]'>[GROUP_NAME]</click></hover>")
+    ),
+    LIST_USER_MESSAGE(
+            of(getLanguageId(Lang.ENGLISH), "<#999999>- <#00cc88><hover:show_text:'<#999999>Click to get <#00cc88>user information</#00cc88>'><click:suggest_command:'[CLICK_COMMAND]'>[USER_NAME]</click></hover>"),
+            of(getLanguageId(Lang.GERMAN), "<#999999>- <#00cc88><hover:show_text:'<#999999>Klicke um <#00cc88>Benutzerinformationen</#00cc88> zu erhalten'><click:suggest_command:'[CLICK_COMMAND]'>[USER_NAME]</click></hover>")
+    ),
+    PERMISSION_GROUP_EXISTS(
+            of(getLanguageId(Lang.ENGLISH), "<#990000>Group [GROUP_NAME] already exists."),
+            of(getLanguageId(Lang.GERMAN), "<#990000>Gruppe [GROUP_NAME] existiert bereits.")
+    ),
+    PERMISSION_GROUP_CREATE(
+            of(getLanguageId(Lang.ENGLISH), "<#999999>Group <#00cc88>[GROUP_NAME]</#00cc88> has been created successfully."),
+            of(getLanguageId(Lang.GERMAN), "<#999999>Gruppe <#00cc88>[GROUP_NAME]</#00cc88> wurde erfolgreich erstellt.")
+    ),
+    PERMISSION_GROUP_DELETE(
+            of(getLanguageId(Lang.ENGLISH), "<#999999>Group <#00cc88>[GROUP_NAME]</#00cc88> has been deleted successfully."),
+            of(getLanguageId(Lang.GERMAN), "<#999999>Gruppe <#00cc88>[GROUP_NAME]</#00cc88> wurde erfolgreich gelöscht.")
+    ),
+    PERMISSION_GROUP_RENAME(
+            of(getLanguageId(Lang.ENGLISH), "<#999999>Group <#00cc88>[GROUP_NAME]</#00cc88> has been renamed to <#00cc88>[NEW_GROUP_NAME]</#00cc88>."),
+            of(getLanguageId(Lang.GERMAN), "<#999999>Gruppe <#00cc88>[GROUP_NAME]</#00cc88> wurde zu <#00cc88>[NEW_GROUP_NAME]</#00cc88> umbenannt.")
+    ),
+    PERMISSION_USER_INFO(
+            of(getLanguageId(Lang.ENGLISH), """
+                    <#999999>===- User information:
+                    <#999999>User: <#00cc88>[USER_NAME]</#00cc88> <#555555>(ID: <#00cc88>[USER_ID]</#00cc88>)</#555555>
+                    <#999999>Mojang ID: <#00cc88>[MOJANG_ID]</#00cc88>
+                    <#999999>First join: <#00cc88>[FIRST_JOIN]</#00cc88>
+                    <#999999>Debug user: [DEBUG_USER]
+                    <#999999>Debug mode: [DEBUG_MODE]"""),
+            of(getLanguageId(Lang.GERMAN), """
+                    <#999999>===- Benutzerinformationen:
+                    <#999999>Benutzer: <#00cc88>[USER_NAME]</#00cc88> <#555555>(ID: <#00cc88>[USER_ID]</#00cc88>)</#555555>
+                    <#999999>Mojang ID: <#00cc88>[MOJANG_ID]</#00cc88>
+                    <#999999>Erster Beitritt: <#00cc88>[FIRST_JOIN]</#00cc88>
+                    <#999999>Debug-Benutzer: [DEBUG_USER]
+                    <#999999>Debug-Modus: [DEBUG_MODE]""")
     ),
     ;
     private static final Messages[] VALUES = values();

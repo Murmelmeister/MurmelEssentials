@@ -13,6 +13,7 @@ import de.murmelmeister.essentials.commands.subcommand.GroupEditSubCommand;
 import de.murmelmeister.essentials.commands.subcommand.ParentSubCommand;
 import de.murmelmeister.essentials.commands.subcommand.PermissionSubCommand;
 import de.murmelmeister.essentials.manager.command.CommandResult;
+import de.murmelmeister.essentials.utils.Messages;
 import de.murmelmeister.essentials.utils.PermissionUtil;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.GroupProvider;
@@ -76,19 +77,24 @@ public final class PermissionCommand extends PermissionUtil {
         return BrigadierCommand.literalArgumentBuilder("groups")
                 .executes(context ->
                         runWithTiming(context, (source, executor) -> {
+                            int languageId = executor.languageId();
                             List<String> groupNames = groupProvider.findAllGroupNames();
 
                             if (groupNames.isEmpty()) {
-                                sendMessage(source, "<#990000>No groups found.");
+                                sendMessage(source, messageService.getMessage(Messages.LIST_GROUP_EMPTY, languageId));
                                 return CommandResult.of(-2);
                             }
 
-                            sendMessage(source, "<#999999>%s: ", groupNames.size() == 1 ? "Group" : "Groups");
+                            String headerName = groupNames.size() == 1
+                                    ? messageService.getMessage(Messages.LIST_GROUP_SINGULAR, languageId)
+                                    : messageService.getMessage(Messages.LIST_GROUP_PLURAL, languageId);
+                            sendMessage(source, messageService.getMessage(Messages.LIST_GROUP_HEADER, languageId)
+                                    .replace("[HEADER_NAME]", headerName));
                             groupNames.forEach(name -> {
                                 String clickMessage = "/permission group " + name + " info";
-                                sendMessage(source, "<#999999>- <#00cc88>" +
-                                                    "<hover:show_text:'<#999999>Click to get <#00cc88>group information'>" +
-                                                    "<click:suggest_command:'%s'>%s</click></hover>", clickMessage, name);
+                                sendMessage(source, (messageService.getMessage(Messages.LIST_GROUP_MESSAGE, languageId)
+                                        .replace("[GROUP_NAME]", name)
+                                        .replace("[CLICK_COMMAND]", clickMessage)).trim());
                             });
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
@@ -151,20 +157,20 @@ public final class PermissionCommand extends PermissionUtil {
                             NamedTextColor textColor = teamColor != null ? NamedTextColor.NAMES.value(teamColor.value().toLowerCase()) : null;
 
                             String formatChat = (chatColor != null ? "<" + chatColor.value() + ">" : "")
-                                                + (chatPrefix != null ? chatPrefix.value() : "")
-                                                + executorName
-                                                + (chatSuffix != null ? chatSuffix.value() : "")
-                                                + (chatMessage != null ? chatMessage.value() : " » ") + "message";
+                                    + (chatPrefix != null ? chatPrefix.value() : "")
+                                    + executorName
+                                    + (chatSuffix != null ? chatSuffix.value() : "")
+                                    + (chatMessage != null ? chatMessage.value() : " » ") + "message";
                             String formatTab = (tabColor != null ? "<" + tabColor.value() + ">" : "")
-                                               + (tabPrefix != null ? tabPrefix.value() : "")
-                                               + executorName
-                                               + (tabSuffix != null ? tabSuffix.value() : "");
+                                    + (tabPrefix != null ? tabPrefix.value() : "")
+                                    + executorName
+                                    + (tabSuffix != null ? tabSuffix.value() : "");
                             String formatTeam = (teamPrefix != null ? teamPrefix.value() : "")
-                                                + (textColor != null ? "<" + textColor + ">" : "")
-                                                + executorName
-                                                + (teamSuffix != null ? teamSuffix.value() : "");
+                                    + (textColor != null ? "<" + textColor + ">" : "")
+                                    + executorName
+                                    + (teamSuffix != null ? teamSuffix.value() : "");
 
-                            // TODO: Add created & changed stuff information for chat, tab, and team colors
+                            // TODO: Add created & changed stuff information for chat, tab, and team colors - add language support
                             String chatHover = """
                                     <#999999>Prefix: "<#00cc88>%s</#00cc88>"
                                     <#999999>Suffix: "<#00cc88>%s</#00cc88>"
@@ -202,7 +208,7 @@ public final class PermissionCommand extends PermissionUtil {
                                             tabHover, formatTab,
                                             teamHover, formatTeam);
 
-                            sendMessage(source, message);
+                            sendMessage(source, message.trim());
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 );
@@ -223,18 +229,21 @@ public final class PermissionCommand extends PermissionUtil {
                         .then(BrigadierCommand.requiredArgumentBuilder("teamId", StringArgumentType.word())
                                 .executes(context ->
                                         runWithTiming(context, (source, executor) -> {
+                                            int languageId = executor.languageId();
                                             String groupName = StringArgumentType.getString(context, "groupName");
                                             int priority = IntegerArgumentType.getInteger(context, "priority");
                                             String teamTagId = StringArgumentType.getString(context, "teamId");
 
                                             Group group = groupProvider.findByName(groupName);
                                             if (group != null) {
-                                                sendMessage(source, "<#990000>Group %s already exists.", groupName);
+                                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_EXISTS, languageId)
+                                                        .replace("[GROUP_NAME]", groupName));
                                                 return CommandResult.of(-2);
                                             }
 
                                             Group success = groupProvider.create(groupName, priority, teamTagId, executor.id());
-                                            sendMessage(source, "<#00cc88>Group %s was created.", groupName);
+                                            sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_CREATE, languageId)
+                                                    .replace("[GROUP_NAME]", groupName));
                                             return CommandResult.of(Command.SINGLE_SUCCESS, success != null ? 1 : null);
                                         })
                                 )
@@ -254,7 +263,7 @@ public final class PermissionCommand extends PermissionUtil {
                             int groupId = group.id();
 
                             if (groupId == getDefaultGroup(languageId).id()) {
-                                sendMessage(source, "<#990000>You cannot delete the default group.");
+                                sendMessage(source, messageService.getMessage(Messages.DEFAULT_GROUP_DELETE, languageId));
                                 return CommandResult.of(-2);
                             }
 
@@ -263,7 +272,8 @@ public final class PermissionCommand extends PermissionUtil {
                             result += groupParentProvider.clear(groupId);
                             result += groupColorProvider.clear(groupId);
                             result += groupProvider.delete(groupId);
-                            sendMessage(source, "<#00cc88>Group %s was deleted.", groupName);
+                            sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_DELETE, languageId)
+                                    .replace("[GROUP_NAME]", groupName));
                             return CommandResult.of(Command.SINGLE_SUCCESS, result < 1 ? null : result);
                         })
                 );
@@ -284,13 +294,14 @@ public final class PermissionCommand extends PermissionUtil {
                                     Group group = getGroup(languageId, groupName);
 
                                     if (group.id() == getDefaultGroup(languageId).id()) {
-                                        sendMessage(source, "<#990000>You cannot rename the default group.");
+                                        sendMessage(source, messageService.getMessage(Messages.DEFAULT_GROUP_RENAME, languageId));
                                         return CommandResult.of(-2);
                                     }
 
                                     String newName = StringArgumentType.getString(context, "newName");
                                     if (group.groupName().equals(newName)) {
-                                        sendMessage(source, "<#990000>Group %s already exists.", newName);
+                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_EXISTS, languageId)
+                                                .replace("[GROUP_NAME]", newName));
                                         return CommandResult.of(-3);
                                     }
 
@@ -298,7 +309,9 @@ public final class PermissionCommand extends PermissionUtil {
                                     String newTeamTagId = teamTagId.replace(groupName, newName);
 
                                     Group success = groupProvider.update(group.id(), newName, group.priority(), newTeamTagId, executor.id());
-                                    sendMessage(source, "<#00cc88>Group %s was renamed to %s.", groupName, newName);
+                                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_RENAME, languageId)
+                                            .replace("[GROUP_NAME]", groupName)
+                                            .replace("[NEW_GROUP_NAME]", newName));
                                     return CommandResult.of(Command.SINGLE_SUCCESS, success != null ? 1 : null);
                                 })
                         )
@@ -346,19 +359,24 @@ public final class PermissionCommand extends PermissionUtil {
         return BrigadierCommand.literalArgumentBuilder("users")
                 .executes(context ->
                         runWithTiming(context, (source, executor) -> {
+                            int languageId = executor.languageId();
                             List<String> usernames = userProvider.findUsernames(); // You can also use userProvider.findAll() to get User objects
 
                             if (usernames.isEmpty()) {
-                                sendMessage(source, "<#990000>No users found.");
+                                sendMessage(source, messageService.getMessage(Messages.LIST_USER_EMPTY, languageId));
                                 return CommandResult.of(-2);
                             }
 
-                            sendMessage(source, "<#999999>%s: ", usernames.size() == 1 ? "User" : "Users");
+                            String headerName = usernames.size() == 1
+                                    ? messageService.getMessage(Messages.LIST_USER_SINGULAR, languageId)
+                                    : messageService.getMessage(Messages.LIST_USER_PLURAL, languageId);
+                            sendMessage(source, messageService.getMessage(Messages.LIST_USER_HEADER, languageId)
+                                    .replace("[HEADER_NAME]", headerName));
                             usernames.forEach(username -> {
                                 String clickMessage = "/permission user " + username + " info";
-                                sendMessage(source, "<#999999>- <#00cc88>" +
-                                                    "<hover:show_text:'<#999999>Click to get <#00cc88>user information'>" +
-                                                    "<click:suggest_command:'%s'>%s</click></hover>", clickMessage, username);
+                                sendMessage(source, messageService.getMessage(Messages.LIST_USER_MESSAGE, languageId)
+                                        .replace("[CLICK_COMMAND]", clickMessage)
+                                        .replace("[USER_NAME]", username));
                             });
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
@@ -389,23 +407,25 @@ public final class PermissionCommand extends PermissionUtil {
         return BrigadierCommand.literalArgumentBuilder("info")
                 .executes(context ->
                         runWithTiming(context, (source, executor) -> {
+                            int languageId = executor.languageId();
                             String username = StringArgumentType.getString(context, "username");
-                            User user = getUser(executor.languageId(), username);
+                            User user = getUser(languageId, username);
 
-                            String firstJoinDate = user.firstLogin().format(getDateTimeFormatter(executor.languageId()));
-                            String isDebugUser = user.debugUser() ? "<#00cc88>Yes" : "<#990000>No";
-                            String isDebugMode = user.debugEnabled() ? "<#00cc88>Yes" : "<#990000>No";
+                            String firstJoinDate = user.firstLogin().format(getDateTimeFormatter(languageId));
 
-                            String message = """
-                                    <#999999>===- User information:
-                                    <#999999>Username: <#00cc88>%s
-                                    <#999999>User ID: <#00cc88>%s
-                                    <#999999>Mojang ID: <#00cc88>%s
-                                    <#999999>First join: <#00cc88>%s
-                                    <#999999>Debug user: <#00cc88>%s
-                                    <#999999>Debug mode: <#00cc88>%s"""
-                                    .formatted(user.username(), user.id(), user.mojangId().toString(), firstJoinDate, isDebugUser, isDebugMode);
-                            sendMessage(source, message);
+                            String yes = messageService.getMessage(Messages.MESSAGE_YES,languageId),
+                                    no = messageService.getMessage(Messages.MESSAGE_NO, languageId);
+
+                            String isDebugUser = user.debugUser() ? yes : no;
+                            String isDebugMode = user.debugEnabled() ? yes : no;
+
+                            sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_INFO, languageId)
+                                    .replace("[USER_NAME]", username)
+                                    .replace("[USER_ID]", String.valueOf(user.id()))
+                                    .replace("[MOJANG_ID]", user.mojangId().toString())
+                                    .replace("[FIRST_JOIN]", firstJoinDate)
+                                    .replace("[DEBUG_USER]", isDebugUser)
+                                    .replace("[DEBUG_MODE]", isDebugMode));
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 );
