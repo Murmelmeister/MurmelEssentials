@@ -4,8 +4,9 @@ import de.murmelmeister.essentials.api.CustomPermission;
 import de.murmelmeister.murmelapi.permission.Permission;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 
 import java.lang.reflect.Field;
 
@@ -16,8 +17,8 @@ public final class CustomPermissionListener implements Listener {
         this.permission = permission;
     }
 
-    @EventHandler
-    public void handlePlayerLogin(PlayerLoginEvent event) throws ClassNotFoundException, NoSuchFieldException, IllegalAccessException {
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void handlePlayerLogin(PlayerJoinEvent event) throws ClassNotFoundException, NoSuchFieldException, IllegalAccessException {
         Player player = event.getPlayer();
         Field field = Class.forName("org.bukkit.craftbukkit.entity.CraftHumanEntity").getDeclaredField("perm");
         field.setAccessible(true);
