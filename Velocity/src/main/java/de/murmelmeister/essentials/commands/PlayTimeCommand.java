@@ -10,6 +10,7 @@ import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.essentials.utils.Messages;
+import de.murmelmeister.library.utils.StringUtil;
 import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
@@ -43,10 +44,13 @@ public final class PlayTimeCommand extends CommandManager {
                 )
                 .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
                         .suggests((context, builder) -> {
-                            List<String> usernames = userProvider.findUsernames().stream().sorted().toList();
-                            usernames.forEach(username ->
-                                    builder.suggest(username, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + username)))
-                            );
+                            String prefix = builder.getRemaining();
+                            userProvider.findUsernames().stream()
+                                    .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
+                                    .sorted()
+                                    .forEach(username ->
+                                            builder.suggest(username, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + username)))
+                                    );
                             return builder.buildFuture();
                         })
                         .executes(context ->
