@@ -10,7 +10,7 @@ public class Config {
     private final YamlMurmel config;
 
     public Config(Path dataDirectory) {
-        this.config = YamlMurmel.builder(dataDirectory.resolve("config.yaml").toString()).build();
+        this.config = YamlMurmel.builder(dataDirectory.resolve("config.yml").toString()).build();
     }
 
     public <T> T getValue(ConfigValue value, Class<T> type) {
@@ -26,7 +26,7 @@ public class Config {
         String dbPassword = getValue(ConfigValue.DB_PASSWORD, String.class);
         if (databaseName == null || dbDriver == null || dbHostname == null || dbPort == null || dbUsername == null || dbPassword == null ||
             dbUsername.equalsIgnoreCase("<USERNAME>") || dbPassword.equalsIgnoreCase("<PASSWORD>"))
-            throw new IllegalArgumentException("Database configuration is incomplete or contains placeholder. Please check your config.yaml file.");
+            throw new IllegalArgumentException("Database configuration is incomplete or contains placeholder. Please check your config.yml file.");
 
         MurmelAPI.setDatabaseName(databaseName);
         String url = String.format("jdbc:%s://%s:%s/%s", dbDriver, dbHostname, dbPort, databaseName);
