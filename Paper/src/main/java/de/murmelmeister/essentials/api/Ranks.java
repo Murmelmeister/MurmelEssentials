@@ -129,8 +129,6 @@ public final class Ranks implements RefreshListener, AutoCloseable {
     private void setPlayerTeams(Player player) {
         User user = userProvider.findByMojangId(player.getUniqueId());
         if (user == null) return;
-        Group userGroup = getHighestPriority(user.id());
-        if (userGroup == null) return;
         Scoreboard scoreboard = player.getScoreboard();
 
         Map<String, Team> existingTeams = new HashMap<>();
@@ -138,8 +136,13 @@ public final class Ranks implements RefreshListener, AutoCloseable {
             existingTeams.put(team.getName(), team);
 
         Map<Integer, List<String>> playersBySortId = new HashMap<>();
-        for (Player target : player.getServer().getOnlinePlayers())
-            playersBySortId.computeIfAbsent(userGroup.id(), k -> new ArrayList<>()).add(target.getName());
+        player.getServer().getOnlinePlayers().forEach(target -> {
+            User targetUser = userProvider.findByMojangId(target.getUniqueId());
+            if (targetUser == null) return;
+            Group targetGroup = getHighestPriority(targetUser.id());
+            if (targetGroup == null) return;
+            playersBySortId.computeIfAbsent(targetGroup.id(), k -> new ArrayList<>()).add(target.getName());
+        });
 
 
         for (Group group : groupProvider.findAll()) {
