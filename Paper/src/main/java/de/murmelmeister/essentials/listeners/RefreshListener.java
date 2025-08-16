@@ -1,6 +1,8 @@
 package de.murmelmeister.essentials.listeners;
 
 import de.murmelmeister.essentials.events.ReceiveRefreshEvent;
+import de.murmelmeister.murmelapi.user.User;
+import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.utils.update.RefreshType;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.entity.Player;
@@ -10,9 +12,11 @@ import org.slf4j.Logger;
 
 public class RefreshListener implements Listener {
     private final Logger logger;
+    private final UserProvider userProvider;
 
-    public RefreshListener(Logger logger) {
+    public RefreshListener(Logger logger, UserProvider userProvider) {
         this.logger = logger;
+        this.userProvider = userProvider;
     }
 
     @EventHandler
@@ -21,7 +25,11 @@ public class RefreshListener implements Listener {
         if (cache.equalsIgnoreCase(RefreshType.SINGLE_USER_PLAY_TIME.getName())) return;
         String key = event.getKey();
         Player player = event.getPlayer();
-        logger.info("Cache: {}, Key: {}", cache, key);
-        player.sendMessage(MiniMessage.miniMessage().deserialize("<#8800cc>CacheName: " + cache + ", Key: " + key));
+        User user = userProvider.findByMojangId(player.getUniqueId());
+        if (user == null) return;
+        if (user.debugMode()) {
+            logger.info("Cache: {}, Key: {}", cache, key);
+            player.sendMessage(MiniMessage.miniMessage().deserialize("<#8800cc>CacheName: " + cache + ", Key: " + key));
+        }
     }
 }
