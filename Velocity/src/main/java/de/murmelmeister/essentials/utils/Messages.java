@@ -40,12 +40,12 @@ public enum Messages implements MessageDefinition {
                     <#999999>Sperr-ID: <#999900>[PUNISHMENT_ID]""")
     ),
     MESSAGE_YES(
-            of(getLanguageId(Lang.ENGLISH), "<#00cc88>Yes"),
-            of(getLanguageId(Lang.GERMAN), "<#00cc88>Ja")
+            of(getLanguageId(Lang.ENGLISH), "<#00cc88>Yes</#00cc88>"),
+            of(getLanguageId(Lang.GERMAN), "<#00cc88>Ja</#00cc88>")
     ),
     MESSAGE_NO(
-            of(getLanguageId(Lang.ENGLISH), "<#cc0088>No"),
-            of(getLanguageId(Lang.GERMAN), "<#cc0088>Nein")
+            of(getLanguageId(Lang.ENGLISH), "<#cc0088>No</#cc0088>"),
+            of(getLanguageId(Lang.GERMAN), "<#cc0088>Nein</#cc0088>")
     ),
     MESSAGE_NOT_EXPIRE(
             of(getLanguageId(Lang.ENGLISH), "Never"),
