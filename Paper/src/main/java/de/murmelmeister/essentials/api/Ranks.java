@@ -88,9 +88,7 @@ public final class Ranks implements RefreshListener, AutoCloseable {
         // Format the chat message
         String formattedPrefix = prefix != null ? prefix.value() : "";
         String formattedSuffix = suffix != null ? suffix.value() : "";
-        String formattedColor = color != null ? "<" + color.value()
-                .replace("<", "")
-                .replace(">", "") + ">" : "<gray>";
+        String formattedColor = color != null ? color.value() : "<gray>";
         String formattedColorMessage = chatMessage != null ? chatMessage.value() : " » ";
 
         String format = formattedColor + formattedPrefix + player.getName() + formattedSuffix + "<reset>";
@@ -121,9 +119,7 @@ public final class Ranks implements RefreshListener, AutoCloseable {
         // Format the player list name
         String formattedPrefix = prefix != null ? prefix.value() : "";
         String formattedSuffix = suffix != null ? suffix.value() : "";
-        String formattedColor = color != null ? "<" + color.value()
-                .replace("<", "")
-                .replace(">", "") + ">" : "<gray>";
+        String formattedColor = color != null ? color.value() : "<gray>";
 
         Component baseComponent = miniMessage.deserialize(formattedColor + formattedPrefix + player.getName() + formattedSuffix);
         player.playerListName(baseComponent);
@@ -198,20 +194,20 @@ public final class Ranks implements RefreshListener, AutoCloseable {
     public void onRefresh(RefreshEvent<?> event) {
         String cacheName = event.getType();
         if (cacheName.equalsIgnoreCase(RefreshType.GROUP_COLORS.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP_COLOR.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.GROUPS.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.GROUP_PARENTS.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP_PARENT.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.GROUP_PERMISSIONS.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP_PERMISSION.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.USERS.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_USER.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.USER_PARENTS.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_USER_PARENT.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.USER_PERMISSIONS.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.SINGLE_USER_PERMISSION.getName())
-            || cacheName.equalsIgnoreCase(RefreshType.ALL.getName())) {
+                || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP_COLOR.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.GROUPS.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.GROUP_PARENTS.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP_PARENT.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.GROUP_PERMISSIONS.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP_PERMISSION.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.USERS.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.SINGLE_USER.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.USER_PARENTS.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.SINGLE_USER_PARENT.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.USER_PERMISSIONS.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.SINGLE_USER_PERMISSION.getName())
+                || cacheName.equalsIgnoreCase(RefreshType.ALL.getName())) {
             hasUpdated.set(true);
         }
     }

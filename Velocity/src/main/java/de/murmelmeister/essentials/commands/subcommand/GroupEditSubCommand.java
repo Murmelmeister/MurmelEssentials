@@ -96,7 +96,7 @@ public final class GroupEditSubCommand extends PermissionUtil {
                                     .replace("[GROUP_NAME]", groupName)
                                     .replace("[GROUP_ID]", String.valueOf(group.id()))
                                     .replace("[COLOR_TYPE]", formatLiteralName)
-                                    .replace("[VALUE]", groupColor.value())
+                                    .replace("[VALUE]", groupColor.value().replace("<", "").replace(">", ""))
                                     .replace("[CREATED_NAME]", creator.username())
                                     .replace("[CREATED_ID]", String.valueOf(creator.id()))
                                     .replace("[CREATED_AT]", createdDate)
@@ -115,9 +115,7 @@ public final class GroupEditSubCommand extends PermissionUtil {
                                     GroupColor groupColor = colorProvider.getGroupColor(group.id(), groupType.getId());
 
                                     if (groupColor == null) {
-                                        GroupColor success = colorProvider.add(group.id(), groupType.getId(),
-                                                value.replace("<", "").replace(">", ""),
-                                                executor.id());
+                                        GroupColor success = colorProvider.add(group.id(), groupType.getId(), value, executor.id());
                                         if (success == null)
                                             throw new CommandException(messageService.getMessage(Messages.PERMISSION_GROUP_COLOR_ADD_FAILED, languageId)
                                                     .replace("[COLOR_TYPE]", formatLiteralName)
@@ -144,9 +142,7 @@ public final class GroupEditSubCommand extends PermissionUtil {
                                         if (value.isEmpty()) {
                                             result = colorProvider.remove(groupColor.groupId(), groupColor.typeId());
                                         } else {
-                                            GroupColor success = colorProvider.update(groupColor.groupId(), groupColor.typeId(),
-                                                    value.replace("<", "").replace(">", ""),
-                                                    executor.id());
+                                            GroupColor success = colorProvider.update(groupColor.groupId(), groupColor.typeId(), value, executor.id());
                                             result = success == null ? 0 : 1;
                                         }
 
