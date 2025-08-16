@@ -15,9 +15,12 @@ import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
+import de.murmelmeister.murmelapi.user.login.UserLogin;
+import de.murmelmeister.murmelapi.user.login.UserLoginProvider;
 import de.murmelmeister.murmelapi.user.playtime.UserPlayTime;
 import de.murmelmeister.murmelapi.user.playtime.UserPlayTimeProvider;
 import de.murmelmeister.library.utils.StringUtil;
+import de.murmelmeister.murmelapi.user.session.UserSessionProvider;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
@@ -37,6 +40,8 @@ public abstract class CommandManager implements CommandBrigadier {
     private final Logger logger;
     private final UserProvider userProvider;
     private final UserPlayTimeProvider userPlayTimeProvider;
+    private final UserSessionProvider userSessionProvider;
+    private final UserLoginProvider userLoginProvider;
     private final GroupProvider groupProvider;
     private final MessageService messageService;
 
@@ -45,6 +50,8 @@ public abstract class CommandManager implements CommandBrigadier {
         this.logger = plugin.getLogger();
         this.userProvider = plugin.getUserProvider();
         this.userPlayTimeProvider = plugin.getUserPlayTimeProvider();
+        this.userSessionProvider = plugin.getUserSessionProvider();
+        this.userLoginProvider = plugin.getUserLoginProvider();
         this.groupProvider = plugin.getGroupProvider();
         this.messageService = plugin.getMessageService();
     }
@@ -156,6 +163,12 @@ public abstract class CommandManager implements CommandBrigadier {
         if (playTime == null)
             throw new CommandException("User playtime not found for user ID: " + userId); // TODO: Add language support
         return playTime;
+    }
+
+    public String getOnlineStatus(int languageId, int userId) {
+        UserLogin lastLogin = userLoginProvider.getLastLogin(userId);
+        return userSessionProvider.isOnline(userId) ? "<#00cc88>online" :
+                (lastLogin != null ? "<#cc0099>" + lastLogin.logoutTime().format(getDateTimeFormatter(languageId)) : "<#cc0099>unknown");
     }
 
     public SuggestionProvider<CommandSource> getSuggestionTime() {

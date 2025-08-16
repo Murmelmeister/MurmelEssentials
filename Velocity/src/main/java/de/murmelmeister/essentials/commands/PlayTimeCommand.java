@@ -14,27 +14,18 @@ import de.murmelmeister.library.utils.StringUtil;
 import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
-import de.murmelmeister.murmelapi.user.login.UserLogin;
-import de.murmelmeister.murmelapi.user.login.UserLoginProvider;
 import de.murmelmeister.murmelapi.user.playtime.UserPlayTime;
-import de.murmelmeister.murmelapi.user.session.UserSessionProvider;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-
-import java.time.LocalDateTime;
 
 public final class PlayTimeCommand extends CommandManager {
     private final MessageService messageService;
     private final UserProvider userProvider;
-    private final UserSessionProvider sessionProvider;
-    private final UserLoginProvider loginProvider;
 
     public PlayTimeCommand(MurmelEssentials plugin) {
         super(plugin);
         this.messageService = plugin.getMessageService();
         this.userProvider = plugin.getUserProvider();
-        this.sessionProvider = plugin.getUserSessionProvider();
-        this.loginProvider = plugin.getUserLoginProvider();
     }
 
     @Override
@@ -68,9 +59,7 @@ public final class PlayTimeCommand extends CommandManager {
                                     int userId = user.id();
                                     UserPlayTime playTime = getUserPlayTime(userId);
 
-                                    UserLogin lastLogin = loginProvider.getLastLogin(userId);
-                                    String online = sessionProvider.isOnline(userId) ? "<#00cc88>online" :
-                                            (lastLogin != null ? "<#cc0099>" + lastLogin.logoutTime().format(getDateTimeFormatter(languageId)) : "<#cc0099>unknown");
+                                    String online = getOnlineStatus(languageId, userId);
                                     String time = TimeUtil.formatDuration(messageService, languageId, playTime.getPlayTime());
 
                                     sendMessage(source, "<#e6c200>%s <#999999>online mode: %s", username, online);
