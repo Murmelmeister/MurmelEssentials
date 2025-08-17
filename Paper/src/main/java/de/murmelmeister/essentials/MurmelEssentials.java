@@ -8,9 +8,15 @@ import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColorProvider;
 import de.murmelmeister.murmelapi.permission.Permission;
+import de.murmelmeister.murmelapi.punishment.PunishmentService;
+import de.murmelmeister.murmelapi.punishment.audit.PunishmentLogProvider;
+import de.murmelmeister.murmelapi.punishment.ip.PunishmentCurrentIpProvider;
+import de.murmelmeister.murmelapi.punishment.user.PunishmentCurrentUserProvider;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.time.format.DateTimeFormatter;
 
 public final class MurmelEssentials extends JavaPlugin {
     public static final String CHANNEL = "murmel:main";
@@ -67,5 +73,25 @@ public final class MurmelEssentials extends JavaPlugin {
 
     public Ranks getRanks() {
         return ranks;
+    }
+
+    public DateTimeFormatter getDateTimeFormatter(int languageId) {
+        return MurmelAPI.getDateTimeFormatter(languageId);
+    }
+
+    public PunishmentLogProvider getPunishmentLogProvider() {
+        return MurmelAPI.getPunishmentLogProvider();
+    }
+
+    public PunishmentCurrentUserProvider getPunishmentUserProvider() {
+        return MurmelAPI.getPunishmentCurrentUserProvider();
+    }
+
+    public PunishmentCurrentIpProvider getPunishmentIpProvider() {
+        return MurmelAPI.getPunishmentCurrentIpProvider();
+    }
+
+    public PunishmentService getPunishmentService() {
+        return MurmelAPI.getPunishmentService();
     }
 }
