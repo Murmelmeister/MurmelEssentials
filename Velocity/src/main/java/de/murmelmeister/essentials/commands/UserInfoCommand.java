@@ -288,7 +288,7 @@ public final class UserInfoCommand extends CommandManager {
                                                 .map(time -> time.format(getDateTimeFormatter(languageId)))
                                                 .orElse("<#009999>unknown</#009999>");
                                         int count = loginList.size();
-                                        sendMessage(source, "<#999999>- <#00999999>%s</#009999> <#555555>(%d logins, first: %s, last: %s)</#555555>",
+                                        sendMessage(source, "<#999999>- <#009999>%s</#009999> <#555555>(%d logins, first: %s, last: %s)</#555555>",
                                                 ip, count, fistTime, lastTime);
                                     });
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
