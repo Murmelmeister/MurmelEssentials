@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public final class UserInfoCommand extends CommandManager {
@@ -50,6 +51,8 @@ public final class UserInfoCommand extends CommandManager {
     private final PunishmentCurrentUserProvider punishedUserProvider;
     private final MessageService messageService;
 
+    private final Map<User, Boolean> showWarning;
+
     public UserInfoCommand(MurmelEssentials plugin) {
         super(plugin);
         this.userProvider = plugin.getUserProvider();
@@ -61,6 +64,7 @@ public final class UserInfoCommand extends CommandManager {
         this.punishmentLogProvider = plugin.getPunishmentLogProvider();
         this.punishedUserProvider = plugin.getPunishmentUserProvider();
         this.messageService = plugin.getMessageService();
+        this.showWarning = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -263,10 +267,14 @@ public final class UserInfoCommand extends CommandManager {
                                     }
 
                                     // Maybe make it so that the command only works once you have accepted this information and saved it in the database.
-                                    sendMessage(source, """
-                                    <#FF0000>--- <bold>WARNING</bold> ---
-                                    <#FF0000>Do <bold>NOT</bold> share this information with anyone!
-                                    <#FF0000>If you share this information, it may have following <bold>consequences</bold>!!!""");
+                                    Boolean hasWarn = showWarning.get(executor);
+                                    if (hasWarn == null || !hasWarn) {
+                                        sendMessage(source, """
+                                                <#FF0000>--- <bold>WARNING</bold> ---
+                                                <#FF0000>Do <bold>NOT</bold> share this information with anyone!
+                                                <#FF0000>If you share this information, it may have following <bold>consequences</bold>!!!""");
+                                        showWarning.put(executor, true);
+                                    }
 
                                     Map<String, List<UserLogin>> byIp = logins.stream()
                                             .filter(login -> login.ipAddress() != null && !login.ipAddress().isBlank())
