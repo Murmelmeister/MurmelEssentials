@@ -10,7 +10,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.slf4j.Logger;
 
-public class RefreshListener implements Listener {
+public final class RefreshListener implements Listener {
     private final Logger logger;
     private final UserProvider userProvider;
 
