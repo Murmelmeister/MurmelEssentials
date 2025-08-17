@@ -34,9 +34,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -263,14 +261,35 @@ public final class UserInfoCommand extends CommandManager {
                                         sendMessage(source, "<#990000>User %s has no login information.", username);
                                         return CommandResult.of(-2);
                                     }
+
                                     // Maybe make it so that the command only works once you have accepted this information and saved it in the database.
                                     sendMessage(source, """
                                     <#FF0000>--- <bold>WARNING</bold> ---
                                     <#FF0000>Do <bold>NOT</bold> share this information with anyone!
                                     <#FF0000>If you share this information, it may have following <bold>consequences</bold>!!!""");
 
-                                    logins.forEach(login -> {
-                                        // TODO: Finish this
+                                    Map<String, List<UserLogin>> byIp = logins.stream()
+                                            .filter(login -> login.ipAddress() != null && !login.ipAddress().isBlank())
+                                            .collect(Collectors.groupingBy(UserLogin::ipAddress));
+
+                                    sendMessage(source, "<#999999>===- IP overview for <#00cc88>%s</#00cc88> ", username);
+
+                                    byIp.forEach((ip, loginList) -> {
+                                        String fistTime = loginList.stream()
+                                                .map(UserLogin::loginTime)
+                                                .filter(Objects::nonNull)
+                                                .min(Comparator.naturalOrder())
+                                                .map(time -> time.format(getDateTimeFormatter(languageId)))
+                                                .orElse("<#009999>unknown</#009999>");
+                                        String lastTime = loginList.stream()
+                                                .map(UserLogin::loginTime)
+                                                .filter(Objects::nonNull)
+                                                .max(Comparator.naturalOrder())
+                                                .map(time -> time.format(getDateTimeFormatter(languageId)))
+                                                .orElse("<#009999>unknown</#009999>");
+                                        int count = loginList.size();
+                                        sendMessage(source, "<#999999>- <#00999999>%s</#009999> <#555555>(%d logins, first: %s, last: %s)</#555555>",
+                                                ip, count, fistTime, lastTime);
                                     });
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
