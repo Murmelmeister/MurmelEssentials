@@ -54,7 +54,9 @@ public final class ChatFormatter {
             safeRaw = applyLegacyColorCode(safeRaw);
 
         // Deserialize into a MiniMessage component
-        safeRaw = safeRaw.replace("\\$", "$");
+        safeRaw = safeRaw.replace("\\$", "$")
+                .replace("\\<", "<")
+                .replace("\\>", ">");
         return MINI_MESSAGE.deserialize(fallbackPrefix + safeRaw);
     }
 
