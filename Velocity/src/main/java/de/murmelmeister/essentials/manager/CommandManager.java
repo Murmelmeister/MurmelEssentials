@@ -89,13 +89,29 @@ public abstract class CommandManager implements CommandBrigadier {
         server.getCommandManager().register(meta, command);
     }
 
+    public void sendRawMessage(CommandSource source, String message) {
+        source.sendMessage(MiniMessage.miniMessage().deserialize(message));
+    }
+
     public void sendMessage(CommandSource source, String message, Object... args) {
-        source.sendMessage(MiniMessage.miniMessage().deserialize(String.format(message, args)));
+        sendRawMessage(source, String.format(message, args));
     }
 
     public void sendDebugMessage(CommandSource source, int languageId, String message, Object... args) {
         String debugPrefix = messageService.getMessage(Messages.DEBUG_PREFIX, languageId);
         sendMessage(source, debugPrefix + message, args);
+    }
+
+    public void sendMessage(CommandSource source, int languageId, Messages message, Object... args) {
+        String msg = messageService.getMessage(message, languageId);
+        for (int i = 0; i < args.length; i++) {
+            if (i % 2 != 0) continue; // Skip odd indices, they are values
+            if (i + 1 >= args.length) break; // Prevent ArrayIndexOutOf
+            String part = String.valueOf(args[i]);
+            String value = String.valueOf(args[i + 1]);
+            msg = msg.replace(part, value);
+        }
+        sendRawMessage(source, msg);
     }
 
     public DateTimeFormatter getDateTimeFormatter(int languageId) {
