@@ -288,16 +288,16 @@ public final class UserInfoCommand extends CommandManager {
                                                 .filter(Objects::nonNull)
                                                 .min(Comparator.naturalOrder())
                                                 .map(time -> time.format(getDateTimeFormatter(languageId)))
-                                                .orElse("<#009999>unknown</#009999>");
+                                                .orElse("unknown");
                                         String lastTime = loginList.stream()
-                                                .map(UserLogin::loginTime)
+                                                .map(UserLogin::logoutTime)
                                                 .filter(Objects::nonNull)
                                                 .max(Comparator.naturalOrder())
                                                 .map(time -> time.format(getDateTimeFormatter(languageId)))
-                                                .orElse("<#009999>unknown</#009999>");
+                                                .orElse("unknown");
                                         int count = loginList.size();
-                                        sendMessage(source, "<#999999>- <#009999>%s</#009999> <#555555>(%d logins, first: %s, last: %s)</#555555>",
-                                                ip, count, fistTime, lastTime);
+                                        sendMessage(source, "<#999999>- <#009999>%s</#009999> <#555555>(%d %s, first: %s, last: %s)</#555555>",
+                                                ip, count, count == 1 ? "login" : "logins", fistTime, lastTime);
                                     });
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
