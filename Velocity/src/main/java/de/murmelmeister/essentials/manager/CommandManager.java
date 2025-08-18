@@ -275,7 +275,8 @@ public abstract class CommandManager implements CommandBrigadier {
             return -1;
         } catch (Exception e) {
             logger.error("Error executing command", e);
-            sendMessage(source, messageService.getMessage(Messages.COMMAND_ERROR_MESSAGE, languageId));
+            sendMessage(source, messageService.getMessage(Messages.COMMAND_ERROR_MESSAGE, languageId)
+                    .replace("[ERROR]", e.getMessage()));
             return -1;
         }
 
