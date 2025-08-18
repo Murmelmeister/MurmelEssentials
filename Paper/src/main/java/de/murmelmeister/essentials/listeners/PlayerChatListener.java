@@ -13,6 +13,7 @@ import de.murmelmeister.murmelapi.punishment.user.PunishmentCurrentUserProvider;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -65,7 +66,7 @@ public final class PlayerChatListener implements Listener {
                 punishmentService.autoUnpunishedUser(userId, typeMuteId);
             else {
                 event.setCancelled(true);
-                player.sendMessage(getPunishMessage(languageId, logId));
+                player.sendMessage(MiniMessage.miniMessage().deserialize(getPunishMessage(languageId, logId)));
                 return;
             }
         }
@@ -77,7 +78,7 @@ public final class PlayerChatListener implements Listener {
                 punishmentService.autoUnpunishedUser(userId, typeIpMuteId);
             else {
                 event.setCancelled(true);
-                player.sendMessage(getPunishMessage(languageId, logId));
+                player.sendMessage(MiniMessage.miniMessage().deserialize(getPunishMessage(languageId, logId)));
                 return;
             }
         }
@@ -101,7 +102,7 @@ public final class PlayerChatListener implements Listener {
                 punishmentService.autoUnpunishedIp(ipAddress, typeMuteId);
             else {
                 event.setCancelled(true);
-                player.sendMessage(getPunishMessage(languageId, logId));
+                player.sendMessage(MiniMessage.miniMessage().deserialize(getPunishMessage(languageId, logId)));
                 return;
             }
         }
@@ -113,7 +114,7 @@ public final class PlayerChatListener implements Listener {
                 punishmentService.autoUnpunishedIp(ipAddress, typeIpMuteId);
             else {
                 event.setCancelled(true);
-                player.sendMessage(getPunishMessage(languageId, logId));
+                player.sendMessage(MiniMessage.miniMessage().deserialize(getPunishMessage(languageId, logId)));
             }
         }
     }
