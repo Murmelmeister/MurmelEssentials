@@ -22,6 +22,7 @@ import de.murmelmeister.murmelapi.punishment.ip.PunishmentCurrentIp;
 import de.murmelmeister.murmelapi.punishment.ip.PunishmentCurrentIpProvider;
 import de.murmelmeister.murmelapi.punishment.reason.PunishmentReason;
 import de.murmelmeister.murmelapi.punishment.reason.PunishmentReasonProvider;
+import de.murmelmeister.murmelapi.punishment.type.PunishmentType;
 import de.murmelmeister.murmelapi.punishment.user.PunishmentCurrentUser;
 import de.murmelmeister.murmelapi.punishment.user.PunishmentCurrentUserProvider;
 import de.murmelmeister.murmelapi.user.User;
@@ -122,30 +123,38 @@ public final class PunishCommand extends CommandManager {
 
                                             PunishmentCurrentUser punishedUser = punishmentUserProvider.getPunishedUser(userId, reason.typeId());
                                             if (punishedUser != null) {
-                                                PunishmentLog punishedLog = punishmentLogProvider.getLog(punishedUser.logId());
+                                                PunishmentLog logUser = punishmentLogProvider.getLog(punishedUser.logId());
 
-                                                if (punishedLog == null) {
+                                                if (logUser == null) {
                                                     sendMessage(source, "<#990000>Failed to retrieve punishment log for user %s.", username);
                                                     return CommandResult.of(-7);
                                                 }
 
-                                                UUID logId = punishedLog.id();
-                                                Integer logReasonId = punishedLog.reasonId();
-                                                int logTypeId = punishedLog.reasonTypeId();
-                                                if (punishmentService.isExpiredUser(logId)) {
+                                                Integer logReasonId = logUser.reasonId();
+                                                int logTypeId = logUser.reasonTypeId();
+                                                if (punishmentService.isExpiredUser(logUser.id())) {
                                                     punishmentService.autoUnpunishedUser(userId, logTypeId);
                                                     punishedUser = null; // Reset punishedUser to allow re-punishment
                                                 }
 
-                                                if (punishedLog.reasonAutoFlagIp()) {
+                                                if (logUser.reasonAutoFlagIp()) {
                                                     PunishmentCurrentIp punishedIp = punishmentIpProvider.getPunishedIp(inetAddress.getHostAddress(), logTypeId);
-                                                    if (punishedIp != null && punishmentService.isExpiredIp(logId))
-                                                        punishmentService.autoUnpunishedIp(inetAddress.getHostAddress(), logTypeId);
+                                                    if (punishedIp != null) {
+                                                        PunishmentLog logIp = punishmentLogProvider.getLog(punishedIp.logId());
+
+                                                        if (logIp == null) {
+                                                            sendMessage(source, "<#990000>Failed to retrieve punishment log for IP %s.", ipAddress);
+                                                            return CommandResult.of(-8);
+                                                        }
+
+                                                        if (punishmentService.isExpiredIp(logIp.id()))
+                                                            punishmentService.autoUnpunishedIp(inetAddress.getHostAddress(), logTypeId);
+                                                    }
                                                 }
 
                                                 if (punishedUser != null && logReasonId != null && reasonId == logReasonId) {
-                                                    sendMessage(source, "<#990000>User %s is already punished with reason %s.", username, punishedLog.reasonText());
-                                                    return CommandResult.of(-8);
+                                                    sendMessage(source, "<#990000>User %s is already punished with reason %s.", username, logUser.reasonText());
+                                                    return CommandResult.of(-9);
                                                 }
                                             }
 
@@ -154,7 +163,7 @@ public final class PunishCommand extends CommandManager {
                                                     : punishmentService.updatedPunishedUser(userId, reasonId, executorId));
                                             if (rowsAffected.get() <= 0) {
                                                 sendMessage(source, "<#990000>Failed to punish user %s.", username);
-                                                return CommandResult.of(-9);
+                                                return CommandResult.of(-10);
                                             }
 
                                             if (reason.autoFlagIp())
@@ -162,7 +171,10 @@ public final class PunishCommand extends CommandManager {
                                                         : punishmentService.updatedPunishedIp(inetAddress.getHostAddress(), reasonId, executorId));
 
                                             PunishmentCurrentUser finalPunishedUser = punishedUser != null ? punishedUser : punishmentUserProvider.getPunishedUser(userId, reason.typeId());
-                                            server.getPlayer(username).ifPresent(player -> punishmentUtil.disconnectPunishMessage(player, languageId, finalPunishedUser.logId()));
+                                            server.getPlayer(username).ifPresent(player -> {
+                                                if (isBanType(reason.typeId()))
+                                                    punishmentUtil.disconnectPunishMessage(player, languageId, finalPunishedUser.logId());
+                                            });
                                             sendMessage(source, "<#00cc88>Successfully punished user <#999999>%s</#999999> with reason <#00cc88>%s</#00cc88>."
                                                     .formatted(username, reason.reasonText()));
 
@@ -172,21 +184,23 @@ public final class PunishCommand extends CommandManager {
                                                 int targetLanguageId = target.languageId();
 
                                                 if (reason.autoFlagIp() && player.getRemoteAddress().getAddress().equals(inetAddress)) {
-                                                    if (reason.autoPunish()) {
-                                                        if (permission.hasPermission(target, MurmelEssentials.PUNISHMENT_IMMUNITY_PERMISSION)) {
-                                                            sendMessage(source, "<#990000>Auto-punishment failed: User %s is immune to punishment.", player.getUsername());
-                                                            return;
-                                                        }
+                                                    if (permission.hasPermission(target, MurmelEssentials.PUNISHMENT_IMMUNITY_PERMISSION)) {
+                                                        sendMessage(source, "<#990000>Auto-punishment failed: User %s is immune to punishment.", player.getUsername());
+                                                        return;
+                                                    }
 
+                                                    if (reason.autoPunish()) {
                                                         rowsAffected.addAndGet(punishmentService.punishedUser(targetId, reasonId, executorId));
                                                         sendMessage(source, "<#00cc88>Successfully auto-punished user <#999999>%s</#999999> with reason <#00cc88>%s</#00cc88>."
                                                                 .formatted(player.getUsername(), reason.reasonText()));
                                                     }
-                                                    punishmentUtil.disconnectPunishMessage(player, targetLanguageId, finalPunishedUser.logId());
+
+                                                    if (isBanType(reason.typeId()))
+                                                        punishmentUtil.disconnectPunishMessage(player, targetLanguageId, finalPunishedUser.logId());
                                                 }
 
                                                 if (targetId != executorId
-                                                    && permission.hasPermission(player.getUniqueId(), MurmelEssentials.PUNISHMENT_NOTIFY_PERMISSION))
+                                                        && permission.hasPermission(player.getUniqueId(), MurmelEssentials.PUNISHMENT_NOTIFY_PERMISSION))
                                                     sendMessage(player, "<#00cc88>User <#999999>%s</#999999> has been punished with reason <#00cc88>%s</#00cc88>."
                                                             .formatted(username, reason.reasonText())); // TODO: Add punishment message notification
                                             });
@@ -268,27 +282,29 @@ public final class PunishCommand extends CommandManager {
                                                 int targetLanguageId = target.languageId();
 
                                                 if (targetId != executorId
-                                                    && permission.hasPermission(player.getUniqueId(), MurmelEssentials.PUNISHMENT_NOTIFY_PERMISSION)) {
+                                                        && permission.hasPermission(player.getUniqueId(), MurmelEssentials.PUNISHMENT_NOTIFY_PERMISSION)) {
                                                     sendMessage(player, "<#00cc88>IP <#999999>%s</#999999> has been punished with reason <#00cc88>%s</#00cc88>."
                                                             .formatted(ipAddress, reason.reasonText())); // TODO: Add punishment message notification
                                                 }
 
                                                 if (player.getRemoteAddress().getAddress().equals(inetAddress)) {
-                                                    if (reason.autoPunish()) {
-                                                        if (permission.hasPermission(target, MurmelEssentials.PUNISHMENT_IMMUNITY_PERMISSION)) {
-                                                            sendMessage(source, "<#990000>Auto-punishment failed: User %s is immune to punishment.", player.getUsername());
-                                                            return;
-                                                        }
+                                                    if (permission.hasPermission(target, MurmelEssentials.PUNISHMENT_IMMUNITY_PERMISSION)) {
+                                                        sendMessage(source, "<#990000>Auto-punishment failed: User %s is immune to punishment.", player.getUsername());
+                                                        return;
+                                                    }
 
+                                                    if (reason.autoPunish()) {
                                                         rowsAffected.addAndGet(punishmentService.punishedUser(targetId, reasonId, executorId));
                                                         sendMessage(source, "<#00cc88>Successfully auto-punished user <#999999>%s</#999999> with reason <#00cc88>%s</#00cc88>."
                                                                 .formatted(player.getUsername(), reason.reasonText()));
                                                     }
-                                                    punishmentUtil.disconnectPunishMessage(player, targetLanguageId, finalPunishedIp.logId());
+
+                                                    if (isBanType(reason.typeId()))
+                                                        punishmentUtil.disconnectPunishMessage(player, targetLanguageId, finalPunishedIp.logId());
                                                 }
 
                                                 if (targetId != executorId
-                                                    && permission.hasPermission(player.getUniqueId(), MurmelEssentials.PUNISHMENT_NOTIFY_PERMISSION))
+                                                        && permission.hasPermission(player.getUniqueId(), MurmelEssentials.PUNISHMENT_NOTIFY_PERMISSION))
                                                     sendMessage(player, "<#00cc88>User <#999999>%s</#999999> has been punished with reason <#00cc88>%s</#00cc88>."
                                                             .formatted(player.getUsername(), reason.reasonText())); // TODO: Add punishment message notification
                                             });
@@ -325,5 +341,9 @@ public final class PunishCommand extends CommandManager {
                 <#009999>Syntax:
                 <#454545>- <#999999>/punish user <username> <reasonId> <reset>- Punish a user or change their punishment.
                 <#454545>- <#999999>/punish ip <ipAddress> <reasonId> <reset>- Punish a ip address or change its punishment.""";
+    }
+
+    private boolean isBanType(int typeId) {
+        return typeId == PunishmentType.BAN.getId() || typeId == PunishmentType.IP_BAN.getId();
     }
 }
