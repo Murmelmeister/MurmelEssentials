@@ -218,8 +218,7 @@ public final class UserInfoCommand extends CommandManager {
                                             }
 
                                             String message = """
-                                                    <#999999>===- Login information
-                                                    <#999999>Login <#009999><hover:show_text:'<#999900>Click to copy the loginId'><click:copy_to_clipboard:%s>%s</click></hover> <#999999>information:
+                                                    <#999999>===- Login <#009999><hover:show_text:'<#999900>Click to copy the loginId'><click:copy_to_clipboard:%s>%s</click></hover> <#999999>information:
                                                     <#999999>Username: <#009999><hover:show_text:'<#999900>Click to copy the username'><click:copy_to_clipboard:%s>%s</click></hover> <#555555>(ID: <#009999>%d</#009999>)</#555555>
                                                     <#999999>IP-Address: <#009999><hover:show_text:'<#999900>Click to copy the ip-address'><click:copy_to_clipboard:'%s'>%s</click></hover>
                                                     <#999999>Login time: <#009999>%s
