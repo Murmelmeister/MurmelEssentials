@@ -31,4 +31,8 @@ public class Config {
     public void disconnectFromDatabase() {
         MurmelAPI.disconnect();
     }
+
+    public boolean getAutoRefresh() {
+        return getValue(ConfigValue.CACHE_AUTO_UPDATE, Boolean.class);
+    }
 }

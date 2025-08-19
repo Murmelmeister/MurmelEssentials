@@ -7,6 +7,7 @@ public enum ConfigValue {
     DB_PORT("database.port", 3306),
     DB_USERNAME("database.username", "<USERNAME>"),
     DB_PASSWORD("database.password", "<PASSWORD>"),
+    CACHE_AUTO_UPDATE("cache.auto-update", true),
     ;
     private static final ConfigValue[] VALUES = values();
 

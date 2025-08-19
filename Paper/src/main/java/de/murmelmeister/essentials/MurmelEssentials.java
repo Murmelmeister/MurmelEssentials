@@ -14,6 +14,7 @@ import de.murmelmeister.murmelapi.punishment.ip.PunishmentCurrentIpProvider;
 import de.murmelmeister.murmelapi.punishment.user.PunishmentCurrentUserProvider;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
+import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.format.DateTimeFormatter;
@@ -45,6 +46,8 @@ public final class MurmelEssentials extends JavaPlugin {
         ListenerManager.register(this);
         ranks.updatePlayers(this, getServer());
         getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, PLUGIN_MESSAGE_REFRESH);
+        if (config.getAutoRefresh())
+            RefreshUtil.fireAll(); // Get all cached data from the database
     }
 
     public MurmelEssentials getInstance() {

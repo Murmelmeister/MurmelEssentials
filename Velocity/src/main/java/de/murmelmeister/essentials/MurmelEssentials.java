@@ -37,6 +37,7 @@ import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
 import de.murmelmeister.murmelapi.user.permission.UserPermissionProvider;
 import de.murmelmeister.murmelapi.user.playtime.UserPlayTimeProvider;
 import de.murmelmeister.murmelapi.user.session.UserSessionProvider;
+import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
@@ -83,6 +84,8 @@ public final class MurmelEssentials {
         ListenerManager.register(this, server);
         CommandManager.register(this);
         PlayTimeUpdater.startTimer(this, logger, server);
+        if (config.getAutoRefresh())
+            RefreshUtil.fireAll(); // Get all cached data from the database
     }
 
     @Subscribe

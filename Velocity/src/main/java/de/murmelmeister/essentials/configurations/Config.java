@@ -13,7 +13,7 @@ public class Config {
         this.config = YamlMurmel.builder(dataDirectory.resolve("config.yml").toString()).build();
     }
 
-    public <T> T getValue(ConfigValue value, Class<T> type) {
+    private <T> T getValue(ConfigValue value, Class<T> type) {
         return config.getValue(value.getPath(), type, type.cast(value.getFallback()));
     }
 
@@ -35,5 +35,9 @@ public class Config {
 
     public void disconnectFromDatabase() {
         MurmelAPI.disconnect();
+    }
+
+    public boolean getAutoRefresh() {
+        return getValue(ConfigValue.CACHE_AUTO_UPDATE, Boolean.class);
     }
 }
