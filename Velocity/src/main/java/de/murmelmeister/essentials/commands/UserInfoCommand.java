@@ -30,7 +30,9 @@ import de.murmelmeister.murmelapi.user.login.UserLogin;
 import de.murmelmeister.murmelapi.user.login.UserLoginProvider;
 import de.murmelmeister.murmelapi.user.playtime.UserPlayTimeProvider;
 import de.murmelmeister.murmelapi.user.session.UserSessionProvider;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -217,6 +219,9 @@ public final class UserInfoCommand extends CommandManager {
                                                 return CommandResult.of(-4);
                                             }
 
+                                            Component legacyFormat = LegacyComponentSerializer.legacySection().deserialize(userLogin.clientVersion());
+                                            String normalFormat = MiniMessage.miniMessage().serialize(legacyFormat);
+
                                             String message = """
                                                     <#999999>===- Login <#009999><hover:show_text:'<#999900>Click to copy the loginId'><click:copy_to_clipboard:%s>%s</click></hover> <#999999>information:
                                                     <#999999>Username: <#009999><hover:show_text:'<#999900>Click to copy the username'><click:copy_to_clipboard:%s>%s</click></hover> <#555555>(ID: <#009999>%d</#009999>)</#555555>
@@ -235,7 +240,7 @@ public final class UserInfoCommand extends CommandManager {
                                                             userLogin.ipAddress(),
                                                             userLogin.loginTime().format(getDateTimeFormatter(languageId)),
                                                             userLogin.logoutTime() != null ? userLogin.logoutTime().format(getDateTimeFormatter(languageId)) : "<#009999>unknown</#009999>",
-                                                            userLogin.clientVersion(),
+                                                            normalFormat,
                                                             userLogin.protocolVersion()
                                                     );
 
