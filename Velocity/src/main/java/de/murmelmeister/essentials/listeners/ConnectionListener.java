@@ -67,8 +67,9 @@ public final class ConnectionListener {
     public void handlePostLogin(PostLoginEvent event) {
         Player player = event.getPlayer();
         User user = processUserJoin(player);
+        if (!checkPunishment(player, user))
+            return;
         processSessionStart(player, user.id());
-        checkPunishment(player);
     }
 
     @Subscribe
@@ -79,11 +80,10 @@ public final class ConnectionListener {
             userService.closeSession(user.id());
     }
 
-    private void checkPunishment(Player player) {
-        User user = userProvider.findByMojangId(player.getUniqueId());
+    private boolean checkPunishment(Player player, User user) {
         if (user == null) {
             player.disconnect(MiniMessage.miniMessage().deserialize("<red>Something went wrong, please try again..."));
-            return; // Disconnect the player if they are not registered
+            return false; // Disconnect the player if they are not registered
         }
         int userId = user.id();
         int languageId = user.languageId();
@@ -95,7 +95,7 @@ public final class ConnectionListener {
                 punishmentService.autoUnpunishedUser(userId, typeBanId);
             else {
                 punishmentUtil.disconnectPunishMessage(player, languageId, logId);
-                return; // Disconnect the player if they are banned
+                return false; // Disconnect the player if they are banned
             }
         }
 
@@ -106,14 +106,14 @@ public final class ConnectionListener {
                 punishmentService.autoUnpunishedUser(userId, typeIpBanId);
             else {
                 punishmentUtil.disconnectPunishMessage(player, languageId, logId);
-                return; // Disconnect the player if they are IP banned
+                return false; // Disconnect the player if they are IP banned
             }
         }
 
-        checkPunishmentIp(player, languageId);
+        return checkPunishmentIp(player, languageId);
     }
 
-    private void checkPunishmentIp(Player player, int languageId) {
+    private boolean checkPunishmentIp(Player player, int languageId) {
         String ipAddress = player.getRemoteAddress().getAddress().getHostAddress();
 
         if (punishmentService.isPunishedIp(ipAddress, typeBanId)) {
@@ -123,7 +123,7 @@ public final class ConnectionListener {
                 punishmentService.autoUnpunishedIp(ipAddress, typeBanId);
             else {
                 punishmentUtil.disconnectPunishMessage(player, languageId, logId);
-                return; // Disconnect the player if their IP is banned
+                return false; // Disconnect the player if their IP is banned
             }
         }
 
@@ -132,7 +132,11 @@ public final class ConnectionListener {
             UUID logId = punishedIp.logId();
             if (punishmentService.isExpiredIp(logId))
                 punishmentService.autoUnpunishedIp(ipAddress, typeIpBanId);
-            else punishmentUtil.disconnectPunishMessage(player, languageId, logId);
+            else {
+                punishmentUtil.disconnectPunishMessage(player, languageId, logId);
+                return false;
+            }
         }
+        return true;
     }
 }
