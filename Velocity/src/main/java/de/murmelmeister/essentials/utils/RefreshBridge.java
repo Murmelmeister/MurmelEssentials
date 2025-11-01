@@ -28,9 +28,9 @@ public final class RefreshBridge {
 
     private void broadcastToBackends(RefreshEvent<?> event) {
         JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("type", event.getType());
-        if (event.getKey() != null)
-            jsonObject.addProperty("key", event.getKey().toString());
+        jsonObject.addProperty("type", event.type());
+        if (event.key() != null)
+            jsonObject.addProperty("key", event.key().toString());
         String json = gson.toJson(jsonObject);
         byte[] data = BufferUtils.encodeUTF(json);
         server.getAllServers()
