@@ -10,12 +10,12 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import de.murmelmeister.essentials.api.CustomPermission;
 import de.murmelmeister.essentials.api.PlayTimeUpdater;
+import de.murmelmeister.essentials.configs.DatabaseConfig;
+import de.murmelmeister.essentials.configs.MessageConfig;
 import de.murmelmeister.essentials.configurations.Config;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.ListenerManager;
-import de.murmelmeister.essentials.utils.Messages;
-import de.murmelmeister.essentials.utils.PunishmentUtil;
-import de.murmelmeister.essentials.utils.RefreshBridge;
+import de.murmelmeister.essentials.utils.*;
 import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColorProvider;
@@ -38,10 +38,12 @@ import de.murmelmeister.murmelapi.user.permission.UserPermissionProvider;
 import de.murmelmeister.murmelapi.user.playtime.UserPlayTimeProvider;
 import de.murmelmeister.murmelapi.user.session.UserSessionProvider;
 import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
+import net.kyori.adventure.translation.GlobalTranslator;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Plugin(
         id = "murmelessentials",
@@ -55,6 +57,8 @@ public final class MurmelEssentials {
     private final Logger logger;
     private final ProxyServer server;
 
+    private final DatabaseConfig databaseConfig;
+    private final MessageConfig messageConfig;
     private final Config config;
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from("murmel:main");
     private final PunishmentUtil punishmentUtil;
@@ -65,13 +69,30 @@ public final class MurmelEssentials {
     public static final String PUNISHMENT_IMMUNITY_PERMISSION = "murmel.punishment.immunity";
     public static final String PUNISHMENT_NOTIFY_PERMISSION = "murmel.punishment.notify";
 
+    private final TablistUtil tablistUtil;
+
     @Inject
     public MurmelEssentials(Logger logger, ProxyServer server, @DataDirectory Path dataDirectory) {
         this.logger = logger;
         this.server = server;
+        this.databaseConfig = new DatabaseConfig(dataDirectory);
+        this.messageConfig = new MessageConfig(dataDirectory);
         this.config = new Config(dataDirectory);
-        config.connectToDatabase(); // Initialize the database connection because it is necessary for the providers
+        databaseConfig.connect();
+        MurmelAPI.setup();
+
+        final MessageProvider messageProvider = getMessageProvider();
+        int messages = 0;
+        messages += messageConfig.loadToDatabase(messageProvider,
+                List.of("lang/message_en.properties", "lang/message_de.properties")
+        ).length;
+
+        MurmelMessageTranslator translator = new MurmelMessageTranslator(getMessageService());
+        GlobalTranslator.translator().addSource(translator);
+        logger.info("Updated {} messages.", messages);
+
         this.punishmentUtil = new PunishmentUtil(this);
+        this.tablistUtil = new TablistUtil(this, config, logger, server);
     }
 
     @Subscribe
@@ -79,20 +100,23 @@ public final class MurmelEssentials {
         server.getChannelRegistrar().register(channel); // Note: Channel registration only works at the ProxyInitializeEvent not in the constructor
         refreshBridge = new RefreshBridge(server, channel);
         refreshBridge.register();
-        Messages.loadMessages(getMessageService());
+
         CustomPermission.updatePermission(this, server);
         ListenerManager.register(this, server);
         CommandManager.register(this);
         PlayTimeUpdater.startTimer(this, logger, server);
+
         if (config.getAutoRefresh())
             RefreshUtil.fireAll(); // Get all cached data from the database
+        tablistUtil.start();
     }
 
     @Subscribe
     public void onDisable(ProxyShutdownEvent event) {
+        tablistUtil.stop();
         refreshBridge.unregister();
         server.getChannelRegistrar().unregister(channel);
-        config.disconnectFromDatabase();
+        databaseConfig.disconnect();
     }
 
     public Logger getLogger() {
@@ -103,8 +127,16 @@ public final class MurmelEssentials {
         return server;
     }
 
+    public void reloadTablist() {
+        tablistUtil.reload();
+    }
+
     public DateTimeFormatter getDateTimeFormatter(int languageId) {
         return MurmelAPI.getDateTimeFormatter(languageId);
+    }
+
+    public MessageConfig getMessageConfig() {
+        return messageConfig;
     }
 
     public LanguageProvider getLanguageProvider() {
