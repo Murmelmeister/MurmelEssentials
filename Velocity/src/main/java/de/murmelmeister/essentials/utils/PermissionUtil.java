@@ -2,7 +2,10 @@ package de.murmelmeister.essentials.utils;
 
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.murmelapi.language.message.MessageService;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.time.LocalDateTime;
 
@@ -14,23 +17,25 @@ public abstract class PermissionUtil extends CommandManager {
         this.messageService = plugin.getMessageService();
     }
 
-    public String formatExpiredMessage(int languageId, LocalDateTime expiresAt) {
+    public Component formatExpiredMessage(int languageId, LocalDateTime expiresAt) {
         String now = LocalDateTime.now().format(getDateTimeFormatter(languageId));
         String formattedTime = formatTimeUntil(languageId, expiresAt);
-        return expiresAt == null ? "" : messageService.getMessage(Messages.PERMISSION_FORMAT_EXPIRED_TIME, languageId)
-                .replace("[EXPIRED_TIME]", formattedTime)
-                .replace("[CURRENT_TIME]", now)
-                .replace("[EXPIRED_AT]", expiresAt.format(getDateTimeFormatter(languageId)));
+        return expiresAt == null ? Component.empty() : MiniMessage.miniMessage().deserialize(messageService.getMessage(Message.PERMISSION_FORMAT_EXPIRED_TIME.getTag(), languageId),
+                tagParsed("expired_time", formattedTime),
+                tagParsed("current_time", now),
+                tagParsed("expired_at", expiresAt.format(getDateTimeFormatter(languageId)))
+        );
     }
 
-    public String formatExpiredInfoMessage(int languageId, LocalDateTime expiresAt) {
+    public Component formatExpiredInfoMessage(int languageId, LocalDateTime expiresAt) {
         String now = LocalDateTime.now().format(getDateTimeFormatter(languageId));
         String formattedTime = formatTimeUntil(languageId, expiresAt);
-        return expiresAt == null ? messageService.getMessage(Messages.MESSAGE_NOT_EXPIRE, languageId)
-                : messageService.getMessage(Messages.PERMISSION_FORMAT_EXPIRED_INFO_TIME, languageId)
-                .replace("[EXPIRED_TIME]", formattedTime)
-                .replace("[CURRENT_TIME]", now)
-                .replace("[EXPIRED_AT]", expiresAt.format(getDateTimeFormatter(languageId)));
+        return expiresAt == null ? MiniMessage.miniMessage().deserialize(messageService.getMessage(Message.MESSAGE_NOT_EXPIRE.getTag(), languageId))
+                : MiniMessage.miniMessage().deserialize(messageService.getMessage(Message.PERMISSION_FORMAT_EXPIRED_INFO_TIME.getTag(), languageId),
+                tagParsed("expired_time", formattedTime),
+                tagParsed("current_time", now),
+                tagParsed("expired_at", expiresAt.format(getDateTimeFormatter(languageId)))
+        );
     }
 
     public String syntax() {
@@ -51,7 +56,7 @@ public abstract class PermissionUtil extends CommandManager {
 
         String groupInfo = """
                  <#454545>- <#999999>/permission %1$s info
-                <#454545>- <#999999>/permission %1$s create <white><priority> <teamId>
+                <#454545>- <#999999>/permission %1$s create <white><priority>
                 <#454545>- <#999999>/permission %1$s delete
                 <#454545>- <#999999>/permission %1$s rename <white><newName>
                 """.stripIndent()
