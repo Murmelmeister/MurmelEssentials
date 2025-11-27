@@ -3,24 +3,19 @@ package de.murmelmeister.essentials.utils;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.messages.Message;
-import de.murmelmeister.murmelapi.language.message.MessageService;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.time.LocalDateTime;
 
 public abstract class PermissionUtil extends CommandManager {
-    private final MessageService messageService;
-
     public PermissionUtil(MurmelEssentials plugin) {
         super(plugin);
-        this.messageService = plugin.getMessageService();
     }
 
     public Component formatExpiredMessage(int languageId, LocalDateTime expiresAt) {
         String now = LocalDateTime.now().format(getDateTimeFormatter(languageId));
         String formattedTime = formatTimeUntil(languageId, expiresAt);
-        return expiresAt == null ? Component.empty() : MiniMessage.miniMessage().deserialize(messageService.getMessage(Message.PERMISSION_FORMAT_EXPIRED_TIME.getTag(), languageId),
+        return expiresAt == null ? Component.empty() : component(languageId, Message.PERMISSION_FORMAT_EXPIRED_TIME,
                 tagParsed("expired_time", formattedTime),
                 tagParsed("current_time", now),
                 tagParsed("expired_at", expiresAt.format(getDateTimeFormatter(languageId)))
@@ -30,8 +25,8 @@ public abstract class PermissionUtil extends CommandManager {
     public Component formatExpiredInfoMessage(int languageId, LocalDateTime expiresAt) {
         String now = LocalDateTime.now().format(getDateTimeFormatter(languageId));
         String formattedTime = formatTimeUntil(languageId, expiresAt);
-        return expiresAt == null ? MiniMessage.miniMessage().deserialize(messageService.getMessage(Message.MESSAGE_NOT_EXPIRE.getTag(), languageId))
-                : MiniMessage.miniMessage().deserialize(messageService.getMessage(Message.PERMISSION_FORMAT_EXPIRED_INFO_TIME.getTag(), languageId),
+        return expiresAt == null ? component(languageId, Message.MESSAGE_NOT_EXPIRE)
+                : component(languageId, Message.PERMISSION_FORMAT_EXPIRED_INFO_TIME,
                 tagParsed("expired_time", formattedTime),
                 tagParsed("current_time", now),
                 tagParsed("expired_at", expiresAt.format(getDateTimeFormatter(languageId)))
