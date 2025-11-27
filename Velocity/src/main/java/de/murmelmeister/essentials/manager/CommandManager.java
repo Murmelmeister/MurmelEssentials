@@ -124,6 +124,10 @@ public abstract class CommandManager implements CommandBrigadier {
         return Placeholder.parsed(key, messageService.getMessage(message.getTag(), languageId));
     }
 
+    public <T> TagResolver.Single tagUnparsed(@TagPattern String key, T value) {
+        return Placeholder.unparsed(key, String.valueOf(value));
+    }
+
     public void sendDebugMessage(CommandSource source, int languageId, String message, TagResolver... resolvers) {
         String debugPrefix = messageService.getMessage(Message.DEBUG_PREFIX.getTag(), languageId);
         sendRawMessage(source, debugPrefix + message, resolvers);
@@ -156,35 +160,35 @@ public abstract class CommandManager implements CommandBrigadier {
     public Group getGroup(String groupName) {
         Group group = groupProvider.findByName(groupName);
         if (group == null)
-            throw new CommandException(Message.PERMISSION_GROUP_NOT_FOUND, Placeholder.parsed("group", groupName));
+            throw new CommandException(Message.PERMISSION_GROUP_NOT_FOUND, tagUnparsed("group", groupName));
         return group;
     }
 
     public Group getGroup(int groupId) {
         Group group = groupProvider.findById(groupId);
         if (group == null)
-            throw new CommandException(Message.PERMISSION_GROUP_NOT_FOUND, Placeholder.parsed("group", String.valueOf(groupId)));
+            throw new CommandException(Message.PERMISSION_GROUP_NOT_FOUND, tagUnparsed("group", String.valueOf(groupId)));
         return group;
     }
 
     public User getUser(UUID mojangId) {
         User user = userProvider.findByMojangId(mojangId);
         if (user == null)
-            throw new CommandException(Message.PERMISSION_USER_NOT_FOUND, Placeholder.parsed("user", mojangId.toString()));
+            throw new CommandException(Message.PERMISSION_USER_NOT_FOUND, tagUnparsed("user", mojangId.toString()));
         return user;
     }
 
     public User getUser(String username) {
         User user = userProvider.findByUsername(username);
         if (user == null)
-            throw new CommandException(Message.PERMISSION_USER_NOT_FOUND, Placeholder.parsed("user", username));
+            throw new CommandException(Message.PERMISSION_USER_NOT_FOUND, tagUnparsed("user", username));
         return user;
     }
 
     public User getUser(int userId) {
         User user = userProvider.findById(userId);
         if (user == null)
-            throw new CommandException(Message.PERMISSION_USER_NOT_FOUND, Placeholder.parsed("user", String.valueOf(userId)));
+            throw new CommandException(Message.PERMISSION_USER_NOT_FOUND, tagUnparsed("user", String.valueOf(userId)));
         return user;
     }
 
@@ -219,15 +223,15 @@ public abstract class CommandManager implements CommandBrigadier {
 
     public long parseTime(String time) {
         if (time == null || time.isEmpty())
-            throw new CommandException(Message.INVALID_TIME_FORMAT, Placeholder.parsed("time", ""));
+            throw new CommandException(Message.INVALID_TIME_FORMAT, Placeholder.unparsed("time", ""));
 
         long result = TimeUtil.parseDurationInSeconds(time);
 
         if (result == -2)
-            throw new CommandException(Message.INVALID_TIME_NEGATIVE, Placeholder.parsed("time", time));
+            throw new CommandException(Message.INVALID_TIME_NEGATIVE, Placeholder.unparsed("time", time));
 
         if (result == -3 || result == -4)
-            throw new CommandException(Message.INVALID_TIME_FORMAT, Placeholder.parsed("time", time));
+            throw new CommandException(Message.INVALID_TIME_FORMAT, Placeholder.unparsed("time", time));
 
         return result;
     }
@@ -268,7 +272,7 @@ public abstract class CommandManager implements CommandBrigadier {
         if (executor == null) {
             logger.warn("Executor user not found for command execution: {}", context.getInput());
             sendMessage(source, 1, Message.MESSAGE_ERROR_COMMAND,
-                    Placeholder.parsed("error", messageService.getMessage(Message.MESSAGE_ERROR_NO_EXECUTOR.getTag(), 1))); // No user found -> language fallback is 1 (English)
+                    tagParsed("error", 1, Message.MESSAGE_ERROR_NO_EXECUTOR)); // No user found -> language fallback is 1 (English)
             return -1;
         }
 
@@ -285,23 +289,23 @@ public abstract class CommandManager implements CommandBrigadier {
             if (e.getMessageKey() != null)
                 sendMessage(source, languageId, e.getMessageKey(), e.getResolvers() == null ? new TagResolver[0] : e.getResolvers());
             else
-                sendMessage(source, languageId, Message.MESSAGE_ERROR_COMMAND, Placeholder.parsed("error", e.getMessage()));
+                sendMessage(source, languageId, Message.MESSAGE_ERROR_COMMAND, tagParsed("error", e.getMessage()));
             if (executor.debugMode()) {
                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                sendDebugMessage(source, languageId, Message.MESSAGE_DEBUG_EXECUTION_TIME_FAILED, Placeholder.parsed("execution_time", String.valueOf(durationMs)));
+                sendDebugMessage(source, languageId, Message.MESSAGE_DEBUG_EXECUTION_TIME_FAILED, tagParsed("execution_time", durationMs));
             }
             return -1;
         } catch (Exception e) {
             logger.error("Error executing command", e);
-            sendMessage(source, languageId, Message.MESSAGE_ERROR_COMMAND, Placeholder.parsed("error", e.getMessage()));
+            sendMessage(source, languageId, Message.MESSAGE_ERROR_COMMAND, tagParsed("error", e.getMessage()));
             return -1;
         }
 
         if (executor.debugMode()) {
             long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-            sendDebugMessage(source, languageId, Message.MESSAGE_DEBUG_EXECUTION_TIME_SUCCESS, Placeholder.parsed("execution_time", String.valueOf(durationMs)));
+            sendDebugMessage(source, languageId, Message.MESSAGE_DEBUG_EXECUTION_TIME_SUCCESS, tagParsed("execution_time", durationMs));
             if (result.rowsAffected() != null)
-                sendDebugMessage(source, languageId, Message.MESSAGE_DEBUG_EXECUTION_SUCCESS_ROWS, Placeholder.parsed("rows", String.valueOf(result.rowsAffected())));
+                sendDebugMessage(source, languageId, Message.MESSAGE_DEBUG_EXECUTION_SUCCESS_ROWS, tagParsed("rows", result.rowsAffected()));
         }
         return result.code();
     }
