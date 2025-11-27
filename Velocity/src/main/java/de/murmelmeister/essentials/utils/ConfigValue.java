@@ -1,13 +1,12 @@
 package de.murmelmeister.essentials.utils;
 
 public enum ConfigValue {
-    DB_DRIVER("database.driver", "mysql"),
-    DB_DATABASE("database.name", "MurmelAPI"),
-    DB_HOSTNAME("database.hostname", "localhost"),
-    DB_PORT("database.port", 3306),
-    DB_USERNAME("database.username", "<USERNAME>"),
-    DB_PASSWORD("database.password", "<PASSWORD>"),
     CACHE_AUTO_UPDATE("cache.auto-update", true),
+    TABLIST_ENABLE("tablist.enable", false),
+    TABLIST_REFRESH("tablist.refresh", "1000"),
+    TABLIST_HEADER("tablist.header", "<#999999>Tab <3"),
+    TABLIST_FOOTER("tablist.footer", "<#999999>Powered by MurmelAPI"),
+    PLAYER_LIST_ENABLE("playerlist.enable", true),
     ;
     private static final ConfigValue[] VALUES = values();
 

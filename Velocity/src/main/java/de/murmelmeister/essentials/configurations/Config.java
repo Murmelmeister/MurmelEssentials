@@ -1,7 +1,6 @@
 package de.murmelmeister.essentials.configurations;
 
 import de.murmelmeister.essentials.utils.ConfigValue;
-import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.library.configuration.YamlMurmel;
 
 import java.nio.file.Path;
@@ -17,27 +16,27 @@ public class Config {
         return config.getValue(value.getPath(), type, type.cast(value.getFallback()));
     }
 
-    public void connectToDatabase() {
-        String databaseName = getValue(ConfigValue.DB_DATABASE, String.class);
-        String dbDriver = getValue(ConfigValue.DB_DRIVER, String.class);
-        String dbHostname = getValue(ConfigValue.DB_HOSTNAME, String.class);
-        Integer dbPort = getValue(ConfigValue.DB_PORT, Integer.class);
-        String dbUsername = getValue(ConfigValue.DB_USERNAME, String.class);
-        String dbPassword = getValue(ConfigValue.DB_PASSWORD, String.class);
-        if (databaseName == null || dbDriver == null || dbHostname == null || dbPort == null || dbUsername == null || dbPassword == null ||
-            dbUsername.equalsIgnoreCase("<USERNAME>") || dbPassword.equalsIgnoreCase("<PASSWORD>"))
-            throw new IllegalArgumentException("Database configuration is incomplete or contains placeholder. Please check your config.yml file.");
-
-        MurmelAPI.setDatabaseName(databaseName);
-        String url = String.format("jdbc:%s://%s:%s/%s", dbDriver, dbHostname, dbPort, databaseName);
-        MurmelAPI.connect("com.mysql.cj.jdbc.Driver", url, dbUsername, dbPassword);
-    }
-
-    public void disconnectFromDatabase() {
-        MurmelAPI.disconnect();
-    }
-
     public boolean getAutoRefresh() {
         return getValue(ConfigValue.CACHE_AUTO_UPDATE, Boolean.class);
+    }
+
+    public boolean getTablistEnable() {
+        return getValue(ConfigValue.TABLIST_ENABLE, Boolean.class);
+    }
+
+    public long getTablistRefresh() {
+        return Long.parseLong(getValue(ConfigValue.TABLIST_REFRESH, String.class));
+    }
+
+    public String geTablistHeader() {
+        return getValue(ConfigValue.TABLIST_HEADER, String.class);
+    }
+
+    public String getTablistFooter() {
+        return getValue(ConfigValue.TABLIST_FOOTER, String.class);
+    }
+
+    public boolean getPlayerListEnable() {
+        return getValue(ConfigValue.PLAYER_LIST_ENABLE, Boolean.class);
     }
 }
