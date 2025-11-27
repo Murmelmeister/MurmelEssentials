@@ -9,7 +9,7 @@ import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.commands.*;
 import de.murmelmeister.essentials.manager.command.*;
 import de.murmelmeister.essentials.manager.command.CommandResult;
-import de.murmelmeister.essentials.utils.Messages;
+import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.language.message.MessageService;
@@ -22,7 +22,11 @@ import de.murmelmeister.murmelapi.user.playtime.UserPlayTimeProvider;
 import de.murmelmeister.library.utils.StringUtil;
 import de.murmelmeister.murmelapi.user.session.UserSessionProvider;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.TagPattern;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.slf4j.Logger;
 
 import java.time.LocalDateTime;
@@ -32,8 +36,8 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import static de.murmelmeister.murmelapi.group.GroupProviderImpl.DEFAULT_GROUP_ID;
-import static de.murmelmeister.murmelapi.user.UserProviderImpl.CONSOLE_USER_ID;
+import static de.murmelmeister.murmelapi.MurmelAPI.DEFAULT_GROUP_ID;
+import static de.murmelmeister.murmelapi.MurmelAPI.CONSOLE_USER_ID;
 
 public abstract class CommandManager implements CommandBrigadier {
     private final MurmelEssentials plugin;
@@ -45,6 +49,8 @@ public abstract class CommandManager implements CommandBrigadier {
     private final GroupProvider groupProvider;
     private final MessageService messageService;
 
+    private final MiniMessage miniMessage;
+
     public CommandManager(MurmelEssentials plugin) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
@@ -54,6 +60,7 @@ public abstract class CommandManager implements CommandBrigadier {
         this.userLoginProvider = plugin.getUserLoginProvider();
         this.groupProvider = plugin.getGroupProvider();
         this.messageService = plugin.getMessageService();
+        this.miniMessage = MiniMessage.miniMessage();
     }
 
     public static void register(MurmelEssentials plugin) {
@@ -63,7 +70,7 @@ public abstract class CommandManager implements CommandBrigadier {
         addCommand(server, new RefreshCommand(plugin));
         addCommand(server, new ShowTeamCommand(plugin));
         addCommand(server, new UserInfoCommand(plugin));
-        addCommand(server, new LanguageCommand(plugin));
+        //addCommand(server, new LanguageCommand(plugin));
         addCommand(server, new ReasonCommand(plugin));
         addCommand(server, new PunishCommand(plugin));
         addCommand(server, new UnpunishCommand(plugin));
@@ -89,29 +96,41 @@ public abstract class CommandManager implements CommandBrigadier {
         server.getCommandManager().register(meta, command);
     }
 
-    public void sendRawMessage(CommandSource source, String message) {
-        source.sendMessage(MiniMessage.miniMessage().deserialize(message));
+    public void sendMessage(CommandSource source, int languageId, Message message, TagResolver... resolvers) {
+        source.sendRichMessage(messageService.getMessage(message.getTag(), languageId), resolvers);
     }
 
-    public void sendMessage(CommandSource source, String message, Object... args) {
-        sendRawMessage(source, String.format(message, args));
+    public void sendRawMessage(CommandSource source, String message, TagResolver... resolvers) {
+        source.sendRichMessage(message, resolvers);
     }
 
-    public void sendDebugMessage(CommandSource source, int languageId, String message, Object... args) {
-        String debugPrefix = messageService.getMessage(Messages.DEBUG_PREFIX, languageId);
-        sendMessage(source, debugPrefix + message, args);
+    public Component component(String message, TagResolver... resolvers) {
+        return miniMessage.deserialize(message, resolvers);
     }
 
-    public void sendMessage(CommandSource source, int languageId, Messages message, Object... args) {
-        String msg = messageService.getMessage(message, languageId);
-        for (int i = 0; i < args.length; i++) {
-            if (i % 2 != 0) continue; // Skip odd indices, they are values
-            if (i + 1 >= args.length) break; // Prevent ArrayIndexOutOf
-            String part = String.valueOf(args[i]);
-            String value = String.valueOf(args[i + 1]);
-            msg = msg.replace(part, value);
-        }
-        sendRawMessage(source, msg);
+    public VelocityBrigadierMessage tooltip(String message, TagResolver... resolvers) {
+        return VelocityBrigadierMessage.tooltip(component(message, resolvers));
+    }
+
+    public Component component(int languageId, Message message, TagResolver... resolvers) {
+        return component(messageService.getMessage(message.getTag(), languageId), resolvers);
+    }
+
+    public <T> TagResolver.Single tagParsed(@TagPattern String key, T value) {
+        return Placeholder.parsed(key, String.valueOf(value));
+    }
+
+    public TagResolver.Single tagParsed(@TagPattern String key, int languageId, Message message) {
+        return Placeholder.parsed(key, messageService.getMessage(message.getTag(), languageId));
+    }
+
+    public void sendDebugMessage(CommandSource source, int languageId, String message, TagResolver... resolvers) {
+        String debugPrefix = messageService.getMessage(Message.DEBUG_PREFIX.getTag(), languageId);
+        sendRawMessage(source, debugPrefix + message, resolvers);
+    }
+
+    public void sendDebugMessage(CommandSource source, int languageId, Message message, TagResolver... resolvers) {
+        sendDebugMessage(source, languageId, messageService.getMessage(message.getTag(), languageId), resolvers);
     }
 
     public DateTimeFormatter getDateTimeFormatter(int languageId) {
@@ -127,50 +146,45 @@ public abstract class CommandManager implements CommandBrigadier {
         return player != null ? userProvider.findByMojangId(player.getUniqueId()) : userProvider.findById(CONSOLE_USER_ID);
     }
 
-    public Group getDefaultGroup(int languageId) {
+    public Group getDefaultGroup() {
         Group group = groupProvider.findById(DEFAULT_GROUP_ID); // Default group ID is always 1
         if (group == null)
-            throw new CommandException(messageService.getMessage(Messages.DEFAULT_GROUP_NOT_FOUND, languageId));
+            throw new CommandException(Message.PERMISSION_DEFAULT_GROUP_NOT_FOUND);
         return group;
     }
 
-    public Group getGroup(int languageId, String groupName) {
+    public Group getGroup(String groupName) {
         Group group = groupProvider.findByName(groupName);
         if (group == null)
-            throw new CommandException(messageService.getMessage(Messages.GROUP_NOT_FOUND, languageId)
-                    .replace("[GROUP]", groupName));
+            throw new CommandException(Message.PERMISSION_GROUP_NOT_FOUND, Placeholder.parsed("group", groupName));
         return group;
     }
 
-    public Group getGroup(int languageId, int groupId) {
+    public Group getGroup(int groupId) {
         Group group = groupProvider.findById(groupId);
         if (group == null)
-            throw new CommandException(messageService.getMessage(Messages.GROUP_NOT_FOUND, languageId)
-                    .replace("[GROUP]", String.valueOf(groupId)));
+            throw new CommandException(Message.PERMISSION_GROUP_NOT_FOUND, Placeholder.parsed("group", String.valueOf(groupId)));
         return group;
     }
 
-    public User getUser(int languageId, UUID mojangId) {
+    public User getUser(UUID mojangId) {
         User user = userProvider.findByMojangId(mojangId);
         if (user == null)
-            throw new CommandException(messageService.getMessage(Messages.USER_NOT_FOUND, languageId)
-                    .replace("[USER]", mojangId.toString()));
+            throw new CommandException(Message.PERMISSION_USER_NOT_FOUND, Placeholder.parsed("user", mojangId.toString()));
         return user;
     }
 
-    public User getUser(int languageId, String username) {
+    public User getUser(String username) {
         User user = userProvider.findByUsername(username);
         if (user == null)
-            throw new CommandException(messageService.getMessage(Messages.USER_NOT_FOUND, languageId)
-                    .replace("[USER]", username));
+            throw new CommandException(Message.PERMISSION_USER_NOT_FOUND, Placeholder.parsed("user", username));
         return user;
     }
 
-    public User getUser(int languageId, int userId) {
+    public User getUser(int userId) {
         User user = userProvider.findById(userId);
         if (user == null)
-            throw new CommandException(messageService.getMessage(Messages.USER_NOT_FOUND, languageId)
-                    .replace("[USER]", String.valueOf(userId)));
+            throw new CommandException(Message.PERMISSION_USER_NOT_FOUND, Placeholder.parsed("user", String.valueOf(userId)));
         return user;
     }
 
@@ -183,8 +197,14 @@ public abstract class CommandManager implements CommandBrigadier {
 
     public String getOnlineStatus(int languageId, int userId) {
         UserLogin lastLogin = userLoginProvider.getLastLogin(userId);
-        return userSessionProvider.isOnline(userId) ? "<#00cc88>online" :
-                (lastLogin != null ? "<#cc0099>" + lastLogin.logoutTime().format(getDateTimeFormatter(languageId)) : "<#cc0099>unknown");
+        return userSessionProvider.isOnline(userId) ? "<#00cc88>online</#00cc88>" :
+                (lastLogin != null ? "<#cc0099>" + lastLogin.logoutTime().format(getDateTimeFormatter(languageId)) + "</#cc0099>" : "<#cc0099>unknown</#cc0099>");
+    }
+
+    public String getOnlineAgo(int languageId, int userId) {
+        UserLogin lastLogin = userLoginProvider.getLastLogin(userId);
+        return userSessionProvider.isOnline(userId) ? "" :
+                (lastLogin != null ? "           <#454545>(<#cc0099>" + formatTimeAgo(languageId, lastLogin.logoutTime()) + "</#cc0099>)</#454545><br>" : "");
     }
 
     public SuggestionProvider<CommandSource> getSuggestionTime() {
@@ -197,20 +217,17 @@ public abstract class CommandManager implements CommandBrigadier {
         };
     }
 
-    public long parseTime(int languageId, String time) {
+    public long parseTime(String time) {
         if (time == null || time.isEmpty())
-            throw new CommandException(messageService.getMessage(Messages.PARSE_TIME_INVALID, languageId)
-                    .replace("[TIME]", ""));
+            throw new CommandException(Message.INVALID_TIME_FORMAT, Placeholder.parsed("time", ""));
 
         long result = TimeUtil.parseDurationInSeconds(time);
 
         if (result == -2)
-            throw new CommandException(messageService.getMessage(Messages.PARSE_TIME_INVALID, languageId)
-                    .replace("[TIME]", time));
+            throw new CommandException(Message.INVALID_TIME_NEGATIVE, Placeholder.parsed("time", time));
 
         if (result == -3 || result == -4)
-            throw new CommandException(messageService.getMessage(Messages.PARSE_TIME_INVALID, languageId)
-                    .replace("[TIME]", ""));
+            throw new CommandException(Message.INVALID_TIME_FORMAT, Placeholder.parsed("time", time));
 
         return result;
     }
@@ -250,8 +267,8 @@ public abstract class CommandManager implements CommandBrigadier {
         User executor = getExecutor(source);
         if (executor == null) {
             logger.warn("Executor user not found for command execution: {}", context.getInput());
-            sendMessage(source, messageService.getMessage(Messages.COMMAND_ERROR_MESSAGE, 1) // No user found -> language fallback is 1 (English)
-                    .replace("[ERROR]", messageService.getMessage(Messages.COMMAND_ERROR_NO_EXECUTOR, 1)));
+            sendMessage(source, 1, Message.MESSAGE_ERROR_COMMAND,
+                    Placeholder.parsed("error", messageService.getMessage(Message.MESSAGE_ERROR_NO_EXECUTOR.getTag(), 1))); // No user found -> language fallback is 1 (English)
             return -1;
         }
 
@@ -265,28 +282,26 @@ public abstract class CommandManager implements CommandBrigadier {
         } catch (CommandException e) {
             logger.info("Command '{}' execution failed for user {} (ID: {}): {}",
                     context.getInput(), executor.username(), executor.id(), e.getMessage());
-            sendMessage(source, messageService.getMessage(Messages.COMMAND_ERROR_MESSAGE, languageId)
-                    .replace("[ERROR]", e.getMessage()));
+            if (e.getMessageKey() != null)
+                sendMessage(source, languageId, e.getMessageKey(), e.getResolvers() == null ? new TagResolver[0] : e.getResolvers());
+            else
+                sendMessage(source, languageId, Message.MESSAGE_ERROR_COMMAND, Placeholder.parsed("error", e.getMessage()));
             if (executor.debugMode()) {
                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-                sendDebugMessage(source, languageId, messageService.getMessage(Messages.COMMAND_DEBUG_EXECUTION_TIME_FAILED, languageId)
-                        .replace("[EXECUTION_TIME]", String.valueOf(durationMs)));
+                sendDebugMessage(source, languageId, Message.MESSAGE_DEBUG_EXECUTION_TIME_FAILED, Placeholder.parsed("execution_time", String.valueOf(durationMs)));
             }
             return -1;
         } catch (Exception e) {
             logger.error("Error executing command", e);
-            sendMessage(source, messageService.getMessage(Messages.COMMAND_ERROR_MESSAGE, languageId)
-                    .replace("[ERROR]", e.getMessage()));
+            sendMessage(source, languageId, Message.MESSAGE_ERROR_COMMAND, Placeholder.parsed("error", e.getMessage()));
             return -1;
         }
 
         if (executor.debugMode()) {
             long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-            sendDebugMessage(source, languageId, messageService.getMessage(Messages.COMMAND_DEBUG_EXECUTION_TIME_SUCCESS, languageId)
-                    .replace("[EXECUTION_TIME]", String.valueOf(durationMs)));
+            sendDebugMessage(source, languageId, Message.MESSAGE_DEBUG_EXECUTION_TIME_SUCCESS, Placeholder.parsed("execution_time", String.valueOf(durationMs)));
             if (result.rowsAffected() != null)
-                sendDebugMessage(source, languageId, messageService.getMessage(Messages.COMMAND_DEBUG_EXECUTION_SUCCESS_ROWS, languageId)
-                        .replace("[ROWS]", String.valueOf(result.rowsAffected())));
+                sendDebugMessage(source, languageId, Message.MESSAGE_DEBUG_EXECUTION_SUCCESS_ROWS, Placeholder.parsed("rows", String.valueOf(result.rowsAffected())));
         }
         return result.code();
     }
