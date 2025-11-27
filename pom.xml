@@ -11,6 +11,7 @@
     <modules>
         <module>Paper</module>
         <module>Velocity</module>
+        <module>API</module>
     </modules>
 
     <properties>
