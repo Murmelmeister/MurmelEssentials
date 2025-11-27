@@ -1,6 +1,7 @@
 package de.murmelmeister.essentials;
 
 import de.murmelmeister.essentials.api.Ranks;
+import de.murmelmeister.essentials.configs.DatabaseConfig;
 import de.murmelmeister.essentials.configurations.Config;
 import de.murmelmeister.essentials.manager.ListenerManager;
 import de.murmelmeister.essentials.utils.PluginMessageRefresh;
@@ -24,10 +25,12 @@ public final class MurmelEssentials extends JavaPlugin {
     private static final PluginMessageRefresh PLUGIN_MESSAGE_REFRESH = new PluginMessageRefresh();
     public static final String PLUGIN_PATH = "./plugins/" + MurmelEssentials.class.getSimpleName() + "/";
 
+    private final DatabaseConfig databaseConfig;
     private final Config config;
     private final Ranks ranks;
 
     public MurmelEssentials() {
+        this.databaseConfig = new DatabaseConfig(MurmelEssentials.class.getSimpleName());
         this.config = new Config();
         this.ranks = new Ranks(this);
     }
@@ -36,13 +39,14 @@ public final class MurmelEssentials extends JavaPlugin {
     public void onDisable() {
         ranks.cancelTask();
         ranks.close();
-        config.disconnectFromDatabase();
+        databaseConfig.disconnect();
         getServer().getMessenger().unregisterIncomingPluginChannel(this, CHANNEL, PLUGIN_MESSAGE_REFRESH);
     }
 
     @Override
     public void onEnable() {
-        config.connectToDatabase();
+        MurmelAPI.setBootstrapMessages(false);
+        databaseConfig.connect();
         ListenerManager.register(this);
         ranks.updatePlayers(this, getServer());
         getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, PLUGIN_MESSAGE_REFRESH);
