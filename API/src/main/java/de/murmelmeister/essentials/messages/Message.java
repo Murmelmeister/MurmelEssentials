@@ -9,6 +9,7 @@ public enum Message {
     MESSAGE_YES("murmel.message.yes"),
     MESSAGE_NO("murmel.message.no"),
     MESSAGE_NOT_EXPIRE("murmel.message.not.expire"),
+    MESSAGE_VALUE_NULL("murmel.message.value.null"),
     MESSAGE_MODIFIED("murmel.message.modified"),
     MESSAGE_ERROR_COMMAND("murmel.message.error.command"),
     MESSAGE_ERROR_NO_EXECUTOR("murmel.message.error.no.executor"),
@@ -112,8 +113,15 @@ public enum Message {
     PERMISSION_GROUP_CREATE_FAILED("murmel.permission.group.create.failed"),
     PERMISSION_GROUP_CREATE_SUCCESS("murmel.permission.group.create.success"),
     PERMISSION_GROUP_DELETE("murmel.permission.group.delete"),
-    PERMISSION_GROUP_RENAME("murmel.permission.group.rename"),
+    PERMISSION_GROUP_RENAME_FAILED("murmel.permission.group.rename.failed"),
+    PERMISSION_GROUP_RENAME_SUCCESS("murmel.permission.group.rename.success"),
     PERMISSION_USER_INFO("murmel.permission.user.info"),
+    PERMISSION_GROUP_INFO_FORMAT_CHAT("murmel.permission.group.info.format.chat"),
+    PERMISSION_GROUP_INFO_FORMAT_TAB("murmel.permission.group.info.format.tab"),
+    PERMISSION_GROUP_INFO_FORMAT_TEAM("murmel.permission.group.info.format.team"),
+    PERMISSION_GROUP_INFO_HOVER_DEFAULT("murmel.permission.group.info.hover.default"),
+    PERMISSION_GROUP_INFO_HOVER_CHAT("murmel.permission.group.info.hover.chat"),
+    PERMISSION_GROUP_INFO_MESSAGE("murmel.permission.group.info.message"),
     ;
 
     private final String tag;

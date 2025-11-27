@@ -12,8 +12,9 @@ import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.commands.subcommand.GroupEditSubCommand;
 import de.murmelmeister.essentials.commands.subcommand.ParentSubCommand;
 import de.murmelmeister.essentials.commands.subcommand.PermissionSubCommand;
+import de.murmelmeister.essentials.manager.command.CommandException;
 import de.murmelmeister.essentials.manager.command.CommandResult;
-import de.murmelmeister.essentials.utils.Messages;
+import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.essentials.utils.PermissionUtil;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.GroupProvider;
@@ -26,13 +27,13 @@ import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.library.utils.StringUtil;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 
 import java.util.List;
 
 public final class PermissionCommand extends PermissionUtil {
-    private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private final UserProvider userProvider;
     private final GroupProvider groupProvider;
     private final GroupColorProvider groupColorProvider;
@@ -61,7 +62,7 @@ public final class PermissionCommand extends PermissionUtil {
         LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("permission")
                 .requires(source -> source.hasPermission("murmel.command.permission"))
                 .executes(context -> {
-                    sendMessage(context.getSource(), syntax());
+                    sendRawMessage(context.getSource(), syntax());
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(getGroupsCommand())
@@ -81,20 +82,17 @@ public final class PermissionCommand extends PermissionUtil {
                             List<String> groupNames = groupProvider.findAllGroupNames();
 
                             if (groupNames.isEmpty()) {
-                                sendMessage(source, messageService.getMessage(Messages.LIST_GROUP_EMPTY, languageId));
+                                sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_EMPTY);
                                 return CommandResult.of(-2);
                             }
 
-                            String headerName = groupNames.size() == 1
-                                    ? messageService.getMessage(Messages.LIST_GROUP_SINGULAR, languageId)
-                                    : messageService.getMessage(Messages.LIST_GROUP_PLURAL, languageId);
-                            sendMessage(source, messageService.getMessage(Messages.LIST_GROUP_HEADER, languageId)
-                                    .replace("[HEADER_NAME]", headerName));
+                            Message headerName = groupNames.size() == 1
+                                    ? Message.PERMISSION_LIST_SINGULAR_GROUP
+                                    : Message.PERMISSION_LIST_PLURAL_GROUP;
+                            sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_HEADER, tagParsed("header_name", languageId, headerName));
                             groupNames.forEach(name -> {
                                 String clickMessage = "/permission group " + name + " info";
-                                sendMessage(source, (messageService.getMessage(Messages.LIST_GROUP_MESSAGE, languageId)
-                                        .replace("[GROUP_NAME]", name)
-                                        .replace("[CLICK_COMMAND]", clickMessage)).trim());
+                                sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_MESSAGE, tagParsed("click_command", clickMessage), tagParsed("group_name", name)); // .trim()
                             });
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
@@ -105,13 +103,13 @@ public final class PermissionCommand extends PermissionUtil {
         // -/permission group <groupName> ...
         return BrigadierCommand.literalArgumentBuilder("group")
                 .executes(context -> {
-                    sendMessage(context.getSource(), syntaxGroup());
+                    sendRawMessage(context.getSource(), syntaxGroup());
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("groupName", StringArgumentType.word())
                         .suggests(getGroupNames())
                         .executes(context -> {
-                            sendMessage(context.getSource(), syntaxGroup());
+                            sendRawMessage(context.getSource(), syntaxGroup());
                             return Command.SINGLE_SUCCESS;
                         })
                         .then(getGroupInfoCommand())
@@ -131,13 +129,11 @@ public final class PermissionCommand extends PermissionUtil {
                         runWithTiming(context, (source, executor) -> {
                             int languageId = executor.languageId();
                             String groupName = StringArgumentType.getString(context, "groupName");
-                            Group group = getGroup(languageId, groupName);
+                            Group group = getGroup(groupName);
 
                             int groupId = group.id();
-                            int priority = group.priority();
-                            String teamTagId = group.teamTagId();
-                            User creator = getUser(languageId, group.createdBy());
-                            User changer = group.changedBy() == null ? null : getUser(languageId, group.changedBy());
+                            User creator = getUser(group.createdBy());
+                            User changer = group.changedBy() == null ? null : getUser(group.changedBy());
                             String createdDate = group.createdAt().format(getDateTimeFormatter(languageId));
                             String changedDate = group.changedAt() == null ? null : group.changedAt().format(getDateTimeFormatter(languageId));
 
@@ -156,97 +152,99 @@ public final class PermissionCommand extends PermissionUtil {
                             GroupColor teamColor = groupColorProvider.getGroupColor(groupId, GroupColorType.TEAM_COLOR.getId());
                             NamedTextColor textColor = teamColor != null ? NamedTextColor.NAMES.value(teamColor.value().toLowerCase()) : null;
 
-                            String formatChat = (chatColor != null ? "<" + chatColor.value() + ">" : "")
-                                    + (chatPrefix != null ? chatPrefix.value() : "")
-                                    + executorName
-                                    + (chatSuffix != null ? chatSuffix.value() : "")
-                                    + (chatMessage != null ? chatMessage.value() : " » ") + "message";
-                            String formatTab = (tabColor != null ? "<" + tabColor.value() + ">" : "")
-                                    + (tabPrefix != null ? tabPrefix.value() : "")
-                                    + executorName
-                                    + (tabSuffix != null ? tabSuffix.value() : "");
-                            String formatTeam = (teamPrefix != null ? teamPrefix.value() : "")
-                                    + (textColor != null ? "<" + textColor + ">" : "")
-                                    + executorName
-                                    + (teamSuffix != null ? teamSuffix.value() : "");
+                            Component chatFormat = component(languageId, Message.PERMISSION_GROUP_INFO_FORMAT_CHAT,
+                                    tagParsed("color", chatColor != null ? chatColor.value() : ""),
+                                    tagParsed("prefix", chatPrefix != null ? chatPrefix.value() : ""),
+                                    tagParsed("username", executorName),
+                                    tagParsed("suffix", chatSuffix != null ? chatSuffix.value() : ""),
+                                    tagParsed("message", chatMessage != null ? chatMessage.value() : " » ")
+                            );
+                            Component tabFormat = component(languageId, Message.PERMISSION_GROUP_INFO_FORMAT_TAB,
+                                    tagParsed("color", tabColor != null ? tabColor.value() : ""),
+                                    tagParsed("prefix", tabPrefix != null ? tabPrefix.value() : ""),
+                                    tagParsed("username", executorName),
+                                    tagParsed("suffix", tabSuffix != null ? tabSuffix.value() : "")
+                            );
+                            Component teamFormat = component(languageId, Message.PERMISSION_GROUP_INFO_FORMAT_TEAM,
+                                    tagParsed("prefix", teamPrefix != null ? teamPrefix.value() : ""),
+                                    tagParsed("username", textColor != null ? "<" + textColor + ">" + executorName + "</" + textColor + ">" : executorName),
+                                    tagParsed("suffix", teamSuffix != null ? teamSuffix.value() : "")
+                            );
 
-                            // TODO: Add created & changed stuff information for chat, tab, and team colors - add language support
-                            String chatHover = """
-                                    <#999999>Prefix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Suffix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Color: <#00cc88>%s
-                                    <#999999>Message: "<#00cc88>%s</#00cc88>"""
-                                    .formatted(chatPrefix, chatSuffix, chatColor, miniMessage.escapeTags(chatMessage == null ? "" : chatMessage.value()));
-                            String tabHover = """
-                                    <#999999>Prefix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Suffix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Color: <#00cc88>%s"""
-                                    .formatted(tabPrefix, tabSuffix, tabColor);
-                            String teamHover = """
-                                    <#999999>Prefix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Suffix: "<#00cc88>%s</#00cc88>"
-                                    <#999999>Color: <#00cc88>%s"""
-                                    .formatted(teamPrefix, teamSuffix, teamColor);
+                            Component chatHover = component(languageId, Message.PERMISSION_GROUP_INFO_HOVER_CHAT,
+                                    tagUnparsed("prefix", chatPrefix == null ? messageService.getMessage(Message.MESSAGE_VALUE_NULL.getTag(), languageId) : chatPrefix.value()),
+                                    tagUnparsed("suffix", chatSuffix == null ? messageService.getMessage(Message.MESSAGE_VALUE_NULL.getTag(), languageId) : chatSuffix.value()),
+                                    tagUnparsed("color", chatColor == null ? messageService.getMessage(Message.MESSAGE_VALUE_NULL.getTag(), languageId) : chatColor.value()),
+                                    tagUnparsed("message", chatMessage == null ? messageService.getMessage(Message.MESSAGE_VALUE_NULL.getTag(), languageId) : chatMessage.value())
+                            );
+                            Component tabHover = component(languageId, Message.PERMISSION_GROUP_INFO_HOVER_DEFAULT,
+                                    tagUnparsed("prefix", tabPrefix == null ? messageService.getMessage(Message.MESSAGE_VALUE_NULL.getTag(), languageId) : tabPrefix.value()),
+                                    tagUnparsed("suffix", tabSuffix == null ? messageService.getMessage(Message.MESSAGE_VALUE_NULL.getTag(), languageId) : tabSuffix.value()),
+                                    tagUnparsed("color", tabColor == null ? messageService.getMessage(Message.MESSAGE_VALUE_NULL.getTag(), languageId) : tabColor.value())
+                            );
+                            Component teamHover = component(languageId, Message.PERMISSION_GROUP_INFO_HOVER_DEFAULT,
+                                    tagUnparsed("prefix", teamPrefix == null ? messageService.getMessage(Message.MESSAGE_VALUE_NULL.getTag(), languageId) : teamPrefix.value()),
+                                    tagUnparsed("suffix", teamSuffix == null ? messageService.getMessage(Message.MESSAGE_VALUE_NULL.getTag(), languageId) : teamSuffix.value()),
+                                    tagUnparsed("color", teamColor == null ? messageService.getMessage(Message.MESSAGE_VALUE_NULL.getTag(), languageId) : teamColor.value())
+                            );
 
-                            String changedText = (changer == null || group.changedAt() == null) ? null :
-                                    "<#999999>Changed by <#00cc88>%s (%s)</#00cc88> on <#00cc88>%s"
-                                            .formatted(changer.username(), changer.id(), changedDate);
-                            String message = """
-                                    <#999999>===- Group Information:
-                                    <#999999>Group Name: <#00cc88>%s
-                                    <#999999>Group ID: <#00cc88>%s
-                                    <#999999>Priority: <#00cc88>%s
-                                    <#999999>Team Sort: <#00cc88>%s
-                                    <#999999>Created by <#00cc88>%s (%s)</#00cc88> on <#00cc88>%s %s
-                                    <#999999>Chat Format: <hover:show_text:'%s'>%s</hover>
-                                    <#999999>Tab Format: <hover:show_text:'%s'>%s</hover>
-                                    <#999999>Team Format: <hover:show_text:'%s'>%s</hover>"""
-                                    .formatted(groupName, groupId, priority, teamTagId,
-                                            creator.username(), creator.id(), createdDate,
-                                            changedText == null ? "" : "\n" + changedText,
-                                            chatHover, formatChat,
-                                            tabHover, formatTab,
-                                            teamHover, formatTeam);
+                            Component changedText = (changer == null || changedDate == null) ? Component.empty() :
+                                    component(messageService.getMessage(Message.PERMISSION_INFO_CHANGE_STUFF.getTag(), languageId),
+                                            tagParsed("changed_name", changer.username()),
+                                            tagParsed("changed_id", changer.id()),
+                                            tagParsed("changed_at", changedDate));
 
-                            sendMessage(source, message.trim());
+                            sendMessage(source, languageId, Message.PERMISSION_GROUP_INFO_MESSAGE,
+                                    tagParsed("group_name", group.groupName()),
+                                    tagParsed("group_id", group.id()),
+                                    tagParsed("priority", group.priority()),
+                                    tagParsed("created_name", creator.username()),
+                                    tagParsed("created_id", creator.id()),
+                                    tagParsed("created_at", createdDate),
+                                    Placeholder.component("changed", changedText),
+                                    Placeholder.component("chat_hover", chatHover),
+                                    Placeholder.component("chat_format", chatFormat),
+                                    Placeholder.component("tab_hover", tabHover),
+                                    Placeholder.component("tab_format", tabFormat),
+                                    Placeholder.component("team_hover", teamHover),
+                                    Placeholder.component("team_format", teamFormat)
+                            );
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 );
     }
 
     private LiteralArgumentBuilder<CommandSource> getGroupCreateCommand() {
-        // -/permission group <groupName> create <priority> <teamId>
+        // -/permission group <groupName> create <priority>
         return BrigadierCommand.literalArgumentBuilder("create")
                 .executes(context -> {
-                    sendMessage(context.getSource(), syntaxGroup());
+                    sendRawMessage(context.getSource(), syntaxGroup());
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("priority", IntegerArgumentType.integer(1))
-                        .executes(context -> {
-                            sendMessage(context.getSource(), syntaxGroup());
-                            return Command.SINGLE_SUCCESS;
-                        })
-                        .then(BrigadierCommand.requiredArgumentBuilder("teamId", StringArgumentType.word())
-                                .executes(context ->
-                                        runWithTiming(context, (source, executor) -> {
-                                            int languageId = executor.languageId();
-                                            String groupName = StringArgumentType.getString(context, "groupName");
-                                            int priority = IntegerArgumentType.getInteger(context, "priority");
-                                            String teamTagId = StringArgumentType.getString(context, "teamId");
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    int languageId = executor.languageId();
+                                    String groupName = StringArgumentType.getString(context, "groupName");
+                                    int priority = IntegerArgumentType.getInteger(context, "priority");
 
-                                            Group group = groupProvider.findByName(groupName);
-                                            if (group != null) {
-                                                sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_EXISTS, languageId)
-                                                        .replace("[GROUP_NAME]", groupName));
-                                                return CommandResult.of(-2);
-                                            }
+                                    Group group = groupProvider.findByName(groupName);
+                                    if (group != null) {
+                                        sendMessage(source, languageId, Message.PERMISSION_GROUP_EXISTS, tagParsed("group_name", group.groupName()));
+                                        return CommandResult.of(-2);
+                                    }
 
-                                            Group success = groupProvider.create(groupName, priority, teamTagId, executor.id());
-                                            sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_CREATE, languageId)
-                                                    .replace("[GROUP_NAME]", groupName));
-                                            return CommandResult.of(Command.SINGLE_SUCCESS, success != null ? 1 : null);
-                                        })
-                                )
+                                    Group success = groupProvider.create(groupName, priority, executor.id());
+                                    if (success == null)
+                                        throw new CommandException(Message.PERMISSION_GROUP_CREATE_FAILED,
+                                                tagUnparsed("group_name", groupName), tagUnparsed("priority", priority));
+                                    sendMessage(source, languageId, Message.PERMISSION_GROUP_CREATE_SUCCESS,
+                                            tagParsed("group_name", success.groupName()),
+                                            tagParsed("group_id", success.id()),
+                                            tagParsed("priority", success.priority())
+                                    );
+                                    return CommandResult.of(Command.SINGLE_SUCCESS, 1);
+                                })
                         )
                 );
     }
@@ -259,11 +257,11 @@ public final class PermissionCommand extends PermissionUtil {
                             int languageId = executor.languageId();
                             String groupName = StringArgumentType.getString(context, "groupName");
 
-                            Group group = getGroup(languageId, groupName);
+                            Group group = getGroup(groupName);
                             int groupId = group.id();
 
-                            if (groupId == getDefaultGroup(languageId).id()) {
-                                sendMessage(source, messageService.getMessage(Messages.DEFAULT_GROUP_DELETE, languageId));
+                            if (groupId == getDefaultGroup().id()) {
+                                sendMessage(source, languageId, Message.PERMISSION_DEFAULT_GROUP_DELETE);
                                 return CommandResult.of(-2);
                             }
 
@@ -272,8 +270,7 @@ public final class PermissionCommand extends PermissionUtil {
                             result += groupParentProvider.clear(groupId);
                             result += groupColorProvider.clear(groupId);
                             result += groupProvider.delete(groupId);
-                            sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_DELETE, languageId)
-                                    .replace("[GROUP_NAME]", groupName));
+                            sendMessage(source, languageId, Message.PERMISSION_GROUP_DELETE, tagUnparsed("group_name", groupName));
                             return CommandResult.of(Command.SINGLE_SUCCESS, result < 1 ? null : result);
                         })
                 );
@@ -283,7 +280,7 @@ public final class PermissionCommand extends PermissionUtil {
         // -/permission group <groupName> rename <newName>
         return BrigadierCommand.literalArgumentBuilder("rename")
                 .executes(context -> {
-                    sendMessage(context.getSource(), syntaxGroup());
+                    sendRawMessage(context.getSource(), syntaxGroup());
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("newName", StringArgumentType.word())
@@ -291,28 +288,27 @@ public final class PermissionCommand extends PermissionUtil {
                                 runWithTiming(context, (source, executor) -> {
                                     int languageId = executor.languageId();
                                     String groupName = StringArgumentType.getString(context, "groupName");
-                                    Group group = getGroup(languageId, groupName);
+                                    Group group = getGroup(groupName);
 
-                                    if (group.id() == getDefaultGroup(languageId).id()) {
-                                        sendMessage(source, messageService.getMessage(Messages.DEFAULT_GROUP_RENAME, languageId));
+                                    if (group.id() == getDefaultGroup().id()) {
+                                        sendMessage(source, languageId, Message.PERMISSION_DEFAULT_GROUP_RENAME);
                                         return CommandResult.of(-2);
                                     }
 
                                     String newName = StringArgumentType.getString(context, "newName");
-                                    if (group.groupName().equals(newName)) {
-                                        sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_EXISTS, languageId)
-                                                .replace("[GROUP_NAME]", newName));
+                                    if (group.groupName().equals(newName) || groupProvider.findByName(newName) != null) {
+                                        sendMessage(source, languageId, Message.PERMISSION_GROUP_EXISTS,
+                                                tagParsed("group_name", group.groupName()));
                                         return CommandResult.of(-3);
                                     }
 
-                                    String teamTagId = group.teamTagId();
-                                    String newTeamTagId = teamTagId.replace(groupName, newName);
-
-                                    Group success = groupProvider.update(group.id(), newName, group.priority(), newTeamTagId, executor.id());
-                                    sendMessage(source, messageService.getMessage(Messages.PERMISSION_GROUP_RENAME, languageId)
-                                            .replace("[GROUP_NAME]", groupName)
-                                            .replace("[NEW_GROUP_NAME]", newName));
-                                    return CommandResult.of(Command.SINGLE_SUCCESS, success != null ? 1 : null);
+                                    Group success = groupProvider.update(group.id(), newName, group.priority(), executor.id());
+                                    if (success == null)
+                                        throw new CommandException(Message.PERMISSION_GROUP_RENAME_FAILED,
+                                                tagUnparsed("group_name", groupName), tagUnparsed("new_group_name", newName));
+                                    sendMessage(source, languageId, Message.PERMISSION_GROUP_RENAME_SUCCESS,
+                                            tagParsed("group_name", group.groupName()), tagParsed("new_group_name", success.groupName()));
+                                    return CommandResult.of(Command.SINGLE_SUCCESS, 1);
                                 })
                         )
                 );
@@ -345,7 +341,7 @@ public final class PermissionCommand extends PermissionUtil {
         // -/permission group <groupName> edit ...
         return BrigadierCommand.literalArgumentBuilder("edit")
                 .executes(context -> {
-                    sendMessage(context.getSource(), syntaxGroupEdit());
+                    sendRawMessage(context.getSource(), syntaxGroupEdit());
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(groupEditSub.getEditedChatCommand())
@@ -363,20 +359,17 @@ public final class PermissionCommand extends PermissionUtil {
                             List<String> usernames = userProvider.findUsernames(); // You can also use userProvider.findAll() to get User objects
 
                             if (usernames.isEmpty()) {
-                                sendMessage(source, messageService.getMessage(Messages.LIST_USER_EMPTY, languageId));
+                                sendMessage(source, languageId, Message.PERMISSION_LIST_USER_EMPTY);
                                 return CommandResult.of(-2);
                             }
 
-                            String headerName = usernames.size() == 1
-                                    ? messageService.getMessage(Messages.LIST_USER_SINGULAR, languageId)
-                                    : messageService.getMessage(Messages.LIST_USER_PLURAL, languageId);
-                            sendMessage(source, messageService.getMessage(Messages.LIST_USER_HEADER, languageId)
-                                    .replace("[HEADER_NAME]", headerName));
+                            Message headerName = usernames.size() == 1
+                                    ? Message.PERMISSION_LIST_SINGULAR_USER
+                                    : Message.PERMISSION_LIST_PLURAL_USER;
+                            sendMessage(source, languageId, Message.PERMISSION_LIST_USER_HEADER, tagParsed("header_name", languageId, headerName));
                             usernames.forEach(username -> {
                                 String clickMessage = "/permission user " + username + " info";
-                                sendMessage(source, messageService.getMessage(Messages.LIST_USER_MESSAGE, languageId)
-                                        .replace("[CLICK_COMMAND]", clickMessage)
-                                        .replace("[USER_NAME]", username));
+                                sendMessage(source, languageId, Message.PERMISSION_LIST_USER_MESSAGE, tagParsed("click_command", clickMessage), tagParsed("username", username));
                             });
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
@@ -387,13 +380,13 @@ public final class PermissionCommand extends PermissionUtil {
         // -/permission user <username> ...
         return BrigadierCommand.literalArgumentBuilder("user")
                 .executes(context -> {
-                    sendMessage(context.getSource(), syntaxUser());
+                    sendRawMessage(context.getSource(), syntaxUser());
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("username", StringArgumentType.word())
                         .suggests(getUsernames())
                         .executes(context -> {
-                            sendMessage(context.getSource(), syntaxUser());
+                            sendRawMessage(context.getSource(), syntaxUser());
                             return Command.SINGLE_SUCCESS;
                         })
                         .then(getUserInfoCommand())
@@ -409,23 +402,24 @@ public final class PermissionCommand extends PermissionUtil {
                         runWithTiming(context, (source, executor) -> {
                             int languageId = executor.languageId();
                             String username = StringArgumentType.getString(context, "username");
-                            User user = getUser(languageId, username);
+                            User user = getUser(username);
 
                             String firstJoinDate = user.firstLogin().format(getDateTimeFormatter(languageId));
 
-                            String yes = messageService.getMessage(Messages.MESSAGE_YES,languageId),
-                                    no = messageService.getMessage(Messages.MESSAGE_NO, languageId);
+                            Message yes = Message.MESSAGE_YES,
+                                    no = Message.MESSAGE_NO;
 
-                            String isDebugUser = user.debugUser() ? yes : no;
-                            String isDebugMode = user.debugEnabled() ? yes : no;
+                            Message isDebugUser = user.debugUser() ? yes : no;
+                            Message isDebugMode = user.debugEnabled() ? yes : no;
 
-                            sendMessage(source, messageService.getMessage(Messages.PERMISSION_USER_INFO, languageId)
-                                    .replace("[USER_NAME]", username)
-                                    .replace("[USER_ID]", String.valueOf(user.id()))
-                                    .replace("[MOJANG_ID]", user.mojangId().toString())
-                                    .replace("[FIRST_JOIN]", firstJoinDate)
-                                    .replace("[DEBUG_USER]", isDebugUser)
-                                    .replace("[DEBUG_MODE]", isDebugMode));
+                            sendMessage(source, languageId, Message.PERMISSION_USER_INFO,
+                                    tagParsed("username", user.username()),
+                                    tagParsed("user_id", user.id()),
+                                    tagParsed("mojang_id", user.mojangId().toString()),
+                                    tagParsed("first_join", firstJoinDate),
+                                    tagParsed("debug_user", languageId, isDebugUser),
+                                    tagParsed("debug_mode", languageId, isDebugMode)
+                            );
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 );
