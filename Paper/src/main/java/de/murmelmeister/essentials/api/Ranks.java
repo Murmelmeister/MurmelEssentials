@@ -29,7 +29,7 @@ import org.bukkit.scoreboard.Team;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static de.murmelmeister.murmelapi.group.GroupProviderImpl.DEFAULT_GROUP_ID;
+import static de.murmelmeister.murmelapi.MurmelAPI.DEFAULT_GROUP_ID;
 
 public final class Ranks implements RefreshListener, AutoCloseable {
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
@@ -55,13 +55,14 @@ public final class Ranks implements RefreshListener, AutoCloseable {
     }
 
     public void updatePlayers(MurmelEssentials instance, Server server) {
-        task = server.getScheduler().runTaskTimerAsynchronously(instance, () -> {
+        // Recommended to use Scoreboard/Player-API in the main thread
+        task = server.getScheduler().runTaskTimer(instance, () -> {
             if (hasUpdated.get()) {
-                for (Player player : server.getOnlinePlayers()) {
+                server.getOnlinePlayers().forEach(player -> {
                     setPlayerTeams(player);
                     setPlayerListName(player);
                     player.updateCommands(); // Update the player commands
-                }
+                });
                 hasUpdated.set(false);
             }
         }, 10L, 20L);
@@ -123,7 +124,6 @@ public final class Ranks implements RefreshListener, AutoCloseable {
 
         Component baseComponent = miniMessage.deserialize(formattedColor + formattedPrefix + player.getName() + formattedSuffix);
         player.playerListName(baseComponent);
-
     }
 
     private void setPlayerTeams(Player player) {
@@ -131,24 +131,47 @@ public final class Ranks implements RefreshListener, AutoCloseable {
         if (user == null) return;
         Scoreboard scoreboard = player.getScoreboard();
 
+        // Get the existing teams
         Map<String, Team> existingTeams = new HashMap<>();
-        for (Team team : scoreboard.getTeams())
-            existingTeams.put(team.getName(), team);
+        scoreboard.getTeams().forEach(team -> existingTeams.put(team.getName(), team));
 
+        // Sort the players by priority
         Map<Integer, List<String>> playersBySortId = new HashMap<>();
         player.getServer().getOnlinePlayers().forEach(target -> {
             User targetUser = userProvider.findByMojangId(target.getUniqueId());
             if (targetUser == null) return;
             Group targetGroup = getHighestPriority(targetUser.id());
             if (targetGroup == null) return;
-            playersBySortId.computeIfAbsent(targetGroup.id(), k -> new ArrayList<>()).add(target.getName());
+            playersBySortId.computeIfAbsent(targetGroup.priority(), k -> new ArrayList<>()).add(target.getName());
         });
 
+        // Get the team IDs by priority
+        Map<Integer, String> teamIdByPriority = new HashMap<>();
+        Set<String> validTeamIds = new HashSet<>();
+        groupProvider.findAll().forEach(group -> {
+            teamIdByPriority.put(group.priority(), group.groupName());
+            validTeamIds.add(group.groupName());
+        });
 
-        for (Group group : groupProvider.findAll()) {
+        // Remove teams that are not valid anymore
+        scoreboard.getTeams().forEach(team -> {
+            String teamId = team.getName();
+            if (!validTeamIds.contains(teamId))
+                team.unregister();
+        });
+
+        // Create a map of desired members by team
+        Map<String, Set<String>> desiredMembersByTeam = new HashMap<>();
+        playersBySortId.forEach((key, value) -> {
+            String teamTagId = teamIdByPriority.get(key);
+            if (teamTagId == null) return;
+            desiredMembersByTeam.computeIfAbsent(teamTagId, k -> new HashSet<>()).addAll(value);
+        });
+
+        groupProvider.findAll().forEach(group -> {
             int groupId = group.id();
             int priority = group.priority();
-            String teamTagId = group.teamTagId();
+            String teamTagId = group.groupName();
 
             Team team = existingTeams.get(teamTagId);
             if (team == null) team = scoreboard.registerNewTeam(teamTagId);
@@ -170,10 +193,21 @@ public final class Ranks implements RefreshListener, AutoCloseable {
                 team.color(textColor);
 
             List<String> playerNames = playersBySortId.get(priority);
+            Set<String> desiredMembers = desiredMembersByTeam.getOrDefault(teamTagId, Collections.emptySet());
+            Set<String> currentMembers = new HashSet<>(team.getEntries());
+
             if (playerNames != null)
-                for (String playerName : playerNames)
-                    team.addEntry(playerName);
-        }
+                playerNames.forEach(team::addEntry);
+
+            currentMembers.stream()
+                    .filter(playerName -> !desiredMembers.contains(playerName))
+                    .forEach(team::removeEntry);
+
+            Team finalTeam = team;
+            desiredMembers.stream()
+                    .filter(playerName -> !finalTeam.hasEntry(playerName))
+                    .forEach(team::addEntry);
+        });
     }
 
     private Group getHighestPriority(int userId) {
@@ -195,7 +229,7 @@ public final class Ranks implements RefreshListener, AutoCloseable {
 
     @Override
     public void onRefresh(RefreshEvent<?> event) {
-        String cacheName = event.getType();
+        String cacheName = event.type();
         if (cacheName.equalsIgnoreCase(RefreshType.GROUP_COLORS.getName())
                 || cacheName.equalsIgnoreCase(RefreshType.SINGLE_GROUP_COLOR.getName())
                 || cacheName.equalsIgnoreCase(RefreshType.GROUPS.getName())
