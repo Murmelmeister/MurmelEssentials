@@ -112,6 +112,10 @@ public abstract class CommandManager implements CommandBrigadier {
         return VelocityBrigadierMessage.tooltip(component(message, resolvers));
     }
 
+    public VelocityBrigadierMessage tooltip(int languageId, Message message, TagResolver... resolvers) {
+        return VelocityBrigadierMessage.tooltip(component(languageId, message, resolvers));
+    }
+
     public Component component(int languageId, Message message, TagResolver... resolvers) {
         return component(messageService.getMessage(message.getTag(), languageId), resolvers);
     }
@@ -167,7 +171,7 @@ public abstract class CommandManager implements CommandBrigadier {
     public Group getGroup(int groupId) {
         Group group = groupProvider.findById(groupId);
         if (group == null)
-            throw new CommandException(Message.PERMISSION_GROUP_NOT_FOUND, tagUnparsed("group", String.valueOf(groupId)));
+            throw new CommandException(Message.PERMISSION_GROUP_NOT_FOUND, tagUnparsed("group", groupId));
         return group;
     }
 
@@ -188,7 +192,7 @@ public abstract class CommandManager implements CommandBrigadier {
     public User getUser(int userId) {
         User user = userProvider.findById(userId);
         if (user == null)
-            throw new CommandException(Message.PERMISSION_USER_NOT_FOUND, tagUnparsed("user", String.valueOf(userId)));
+            throw new CommandException(Message.PERMISSION_USER_NOT_FOUND, tagUnparsed("user", userId));
         return user;
     }
 
@@ -202,13 +206,13 @@ public abstract class CommandManager implements CommandBrigadier {
     public String getOnlineStatus(int languageId, int userId) {
         UserLogin lastLogin = userLoginProvider.getLastLogin(userId);
         return userSessionProvider.isOnline(userId) ? "<#00cc88>online</#00cc88>" :
-                (lastLogin != null ? "<#cc0099>" + lastLogin.logoutTime().format(getDateTimeFormatter(languageId)) + "</#cc0099>" : "<#cc0099>unknown</#cc0099>");
+                (lastLogin != null ? "<#cc0099>" + lastLogin.logoutTime().format(getDateTimeFormatter(languageId)) + "</#cc0099>" : "<#cc0099>unknown</#cc0099>"); // TODO: Add language support
     }
 
     public String getOnlineAgo(int languageId, int userId) {
         UserLogin lastLogin = userLoginProvider.getLastLogin(userId);
         return userSessionProvider.isOnline(userId) ? "" :
-                (lastLogin != null ? "           <#454545>(<#cc0099>" + formatTimeAgo(languageId, lastLogin.logoutTime()) + "</#cc0099>)</#454545><br>" : "");
+                (lastLogin != null ? "           <#454545>(<#cc0099>" + formatTimeAgo(languageId, lastLogin.logoutTime()) + "</#cc0099>)</#454545><br>" : ""); // TODO: Add language support
     }
 
     public SuggestionProvider<CommandSource> getSuggestionTime() {
@@ -223,15 +227,15 @@ public abstract class CommandManager implements CommandBrigadier {
 
     public long parseTime(String time) {
         if (time == null || time.isEmpty())
-            throw new CommandException(Message.INVALID_TIME_FORMAT, Placeholder.unparsed("time", ""));
+            throw new CommandException(Message.INVALID_TIME_FORMAT,tagParsed("time", ""));
 
         long result = TimeUtil.parseDurationInSeconds(time);
 
         if (result == -2)
-            throw new CommandException(Message.INVALID_TIME_NEGATIVE, Placeholder.unparsed("time", time));
+            throw new CommandException(Message.INVALID_TIME_NEGATIVE, tagUnparsed("time", time));
 
         if (result == -3 || result == -4)
-            throw new CommandException(Message.INVALID_TIME_FORMAT, Placeholder.unparsed("time", time));
+            throw new CommandException(Message.INVALID_TIME_FORMAT, tagUnparsed("time", time));
 
         return result;
     }
