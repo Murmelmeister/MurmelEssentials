@@ -18,7 +18,6 @@ public enum Message {
     MESSAGE_ERROR_DEBUG_EXECUTION("murmel.message.error.debug.execution"),
     MESSAGE_DEBUG_EXECUTION_SUCCESS_ROWS("murmel.message.debug.execution.success.rows"),
     DATE_TIME_FORMAT("murmel.date.time.format"),
-    PERMISSION_TOOLTIP_PERMISSION("murmel.permission.tooltip.permission"),
     PERMISSION_NOT_VALID_PERMISSION("murmel.permission.not.valid.permission"),
     PERMISSION_USER_PERMISSION_EXISTS("murmel.permission.user.permission.exists"),
     PERMISSION_GROUP_PERMISSION_EXISTS("murmel.permission.group.permission.exists"),

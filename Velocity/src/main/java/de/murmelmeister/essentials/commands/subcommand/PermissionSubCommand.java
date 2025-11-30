@@ -579,10 +579,6 @@ public final class PermissionSubCommand extends PermissionUtil {
     private SuggestionProvider<CommandSource> getSuggestionPermission(boolean isUser) {
         return (context, builder) -> {
             String prefix = builder.getRemaining();
-            User executor = getExecutor(context.getSource());
-            if (executor == null) return Suggestions.empty();
-
-            int languageId = executor.languageId();
             int id = getId(context, isUser);
             List<String> permissions = isUser ? userPermissionProvider.getPermissions(id)
                     .stream().map(UserPermission::permission).toList()
@@ -592,6 +588,7 @@ public final class PermissionSubCommand extends PermissionUtil {
             if (permissions.isEmpty())
                 return Suggestions.empty();
 
+            // TODO: When UserPermission & GroupPermission are merged, then add to tooltip the expires time
             permissions.stream()
                     .map(permission -> {
                         if ("*".equals(permission) || permission.endsWith(".*"))
@@ -599,14 +596,7 @@ public final class PermissionSubCommand extends PermissionUtil {
                         return permission;
                     })
                     .filter(permission -> permission.startsWith(prefix))
-                    .map(permission -> userPermissionProvider.getPermission(id, permission))
-                    .filter(Objects::nonNull)
-                    .forEach(permission -> builder.suggest(permission.permission(),
-                            tooltip(languageId, Message.PERMISSION_TOOLTIP_PERMISSION,
-                                    tagParsed("permission", permission.permission()),
-                                    Placeholder.component("expires", formatExpiredInfoMessage(languageId, permission.expiresAt()))
-                            )
-                    ));
+                    .forEach(builder::suggest);
             return builder.buildFuture();
         };
     }
