@@ -81,10 +81,8 @@ public final class PermissionCommand extends PermissionUtil {
                             int languageId = executor.languageId();
                             List<String> groupNames = groupProvider.findAllGroupNames();
 
-                            if (groupNames.isEmpty()) {
-                                sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_EMPTY);
-                                return CommandResult.of(-2);
-                            }
+                            if (groupNames.isEmpty())
+                                throw new CommandException(Message.PERMISSION_LIST_GROUP_EMPTY);
 
                             Message headerName = groupNames.size() == 1
                                     ? Message.PERMISSION_LIST_SINGULAR_GROUP
@@ -232,10 +230,8 @@ public final class PermissionCommand extends PermissionUtil {
                                     int inputPriority = IntegerArgumentType.getInteger(context, "priority");
 
                                     Group group = groupProvider.findByName(inputGroup);
-                                    if (group != null) {
-                                        sendMessage(source, languageId, Message.PERMISSION_GROUP_EXISTS, tagParsed("group_name", group.groupName()));
-                                        return CommandResult.of(-2);
-                                    }
+                                    if (group != null)
+                                        throw new CommandException(Message.PERMISSION_GROUP_EXISTS, tagParsed("group_name", group.groupName()));
 
                                     Group success = groupProvider.create(inputGroup, inputPriority, executor.id());
                                     if (success == null)
@@ -265,10 +261,8 @@ public final class PermissionCommand extends PermissionUtil {
                             Group group = getGroup(inputGroup);
                             int groupId = group.id();
 
-                            if (groupId == getDefaultGroup().id()) {
-                                sendMessage(source, languageId, Message.PERMISSION_DEFAULT_GROUP_DELETE);
-                                return CommandResult.of(-2);
-                            }
+                            if (groupId == getDefaultGroup().id())
+                                throw new CommandException(Message.PERMISSION_DEFAULT_GROUP_DELETE);
 
                             int result = 0;
                             result += groupPermissionProvider.clear(groupId);
@@ -295,16 +289,12 @@ public final class PermissionCommand extends PermissionUtil {
                                     String inputGroup = StringArgumentType.getString(context, "groupName");
                                     Group group = getGroup(inputGroup);
 
-                                    if (group.id() == getDefaultGroup().id()) {
-                                        sendMessage(source, languageId, Message.PERMISSION_DEFAULT_GROUP_RENAME);
-                                        return CommandResult.of(-2);
-                                    }
+                                    if (group.id() == getDefaultGroup().id())
+                                        throw new CommandException(Message.PERMISSION_DEFAULT_GROUP_RENAME);
 
                                     String inputNewGroup = StringArgumentType.getString(context, "newName");
-                                    if (group.groupName().equals(inputNewGroup) || groupProvider.findByName(inputNewGroup) != null) {
-                                        sendMessage(source, languageId, Message.PERMISSION_GROUP_EXISTS, tagParsed("group_name", group.groupName()));
-                                        return CommandResult.of(-3);
-                                    }
+                                    if (group.groupName().equals(inputNewGroup) || groupProvider.findByName(inputNewGroup) != null)
+                                        throw new CommandException(Message.PERMISSION_GROUP_EXISTS, tagParsed("group_name", group.groupName()));
 
                                     Group success = groupProvider.update(group.id(), inputNewGroup, group.priority(), executor.id());
                                     if (success == null)
@@ -366,10 +356,8 @@ public final class PermissionCommand extends PermissionUtil {
                             int languageId = executor.languageId();
                             List<String> usernames = userProvider.findUsernames(); // You can also use userProvider.findAll() to get User objects
 
-                            if (usernames.isEmpty()) {
-                                sendMessage(source, languageId, Message.PERMISSION_LIST_USER_EMPTY);
-                                return CommandResult.of(-2);
-                            }
+                            if (usernames.isEmpty())
+                                throw new CommandException(Message.PERMISSION_LIST_USER_EMPTY);
 
                             Message headerName = usernames.size() == 1
                                     ? Message.PERMISSION_LIST_SINGULAR_USER
