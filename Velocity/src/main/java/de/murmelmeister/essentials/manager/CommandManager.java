@@ -199,7 +199,7 @@ public abstract class CommandManager implements CommandBrigadier {
     public UserPlayTime getUserPlayTime(int userId) {
         UserPlayTime playTime = userPlayTimeProvider.findByUserId(userId);
         if (playTime == null)
-            throw new CommandException("User playtime not found for user ID: " + userId); // TODO: Add language support
+            throw new CommandException(Message.PLAY_TIME_USER_NOT_FOUND, tagParsed("user_id", userId));
         return playTime;
     }
 

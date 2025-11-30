@@ -5,18 +5,18 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
-import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.command.CommandResult;
-import de.murmelmeister.essentials.utils.Messages;
+import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.library.utils.StringUtil;
 import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.user.playtime.UserPlayTime;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
-import net.kyori.adventure.text.minimessage.MiniMessage;
+
+import java.time.LocalDateTime;
 
 public final class PlayTimeCommand extends CommandManager {
     private final MessageService messageService;
@@ -36,7 +36,7 @@ public final class PlayTimeCommand extends CommandManager {
                         runWithTiming(context, (source, executor) -> {
                             UserPlayTime playTime = getUserPlayTime(executor.id());
                             String time = TimeUtil.formatDuration(messageService, executor.languageId(), playTime.getPlayTime());
-                            sendMessage(source, messageService.getMessage(Messages.PLAY_TIME_COMMAND_USE, executor.languageId()).replace("[TIME]", time));
+                            sendMessage(source, executor.languageId(), Message.COMMAND_PLAY_TIME_USE, tagParsed("time", time));
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
                 )
@@ -46,26 +46,29 @@ public final class PlayTimeCommand extends CommandManager {
                             userProvider.findUsernames().stream()
                                     .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
                                     .sorted()
-                                    .forEach(username ->
-                                            builder.suggest(username, VelocityBrigadierMessage.tooltip(MiniMessage.miniMessage().deserialize("<#00cc88>" + username)))
-                                    );
+                                    .forEach(builder::suggest);
                             return builder.buildFuture();
                         })
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     int languageId = executor.languageId();
-                                    String username = StringArgumentType.getString(context, "player");
-                                    User user = getUser(languageId, username);
+                                    String inputUser = StringArgumentType.getString(context, "player");
+                                    User user = getUser(inputUser);
                                     int userId = user.id();
                                     UserPlayTime playTime = getUserPlayTime(userId);
 
                                     String online = getOnlineStatus(languageId, userId);
                                     String time = TimeUtil.formatDuration(messageService, languageId, playTime.getPlayTime());
+                                    String ago = getOnlineAgo(languageId, userId);
+                                    String now = LocalDateTime.now().format(getDateTimeFormatter(languageId));
 
-                                    sendMessage(source, "<#e6c200>%s <#999999>online mode: %s", username, online);
-                                    sendMessage(source, messageService.getMessage(Messages.PLAY_TIME_COMMAND_OTHER, languageId)
-                                            .replace("[PLAYER]", username)
-                                            .replace("[TIME]", time));
+                                    sendMessage(source, languageId, Message.COMMAND_PLAY_TIME_OTHER,
+                                            tagParsed("username", user.username()),
+                                            tagParsed("online", online),
+                                            tagParsed("time", time),
+                                            tagParsed("ago", ago),
+                                            tagParsed("now", now)
+                                    );
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )

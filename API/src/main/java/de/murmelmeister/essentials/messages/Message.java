@@ -5,6 +5,7 @@ public enum Message {
     DEBUG_PREFIX("murmel.debug.prefix"),
     COMMAND_PLAY_TIME_USE("murmel.command.playtime.use"),
     COMMAND_PLAY_TIME_OTHER("murmel.command.playtime.other"),
+    PLAY_TIME_USER_NOT_FOUND("murmel.playtime.user.not.found"),
     MESSAGE_PUNISHMENT_SEND("murmel.message.punishment.send"),
     MESSAGE_YES("murmel.message.yes"),
     MESSAGE_NO("murmel.message.no"),
