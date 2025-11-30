@@ -92,7 +92,10 @@ public final class PermissionCommand extends PermissionUtil {
                             sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_HEADER, tagParsed("header_name", languageId, headerName));
                             groupNames.forEach(name -> {
                                 String clickMessage = "/permission group " + name + " info";
-                                sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_MESSAGE, tagParsed("click_command", clickMessage), tagParsed("group_name", name)); // .trim()
+                                sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_MESSAGE,
+                                        tagParsed("click_command", clickMessage),
+                                        tagParsed("group_name", name)
+                                ); // .trim()
                             });
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
@@ -128,8 +131,8 @@ public final class PermissionCommand extends PermissionUtil {
                 .executes(context ->
                         runWithTiming(context, (source, executor) -> {
                             int languageId = executor.languageId();
-                            String groupName = StringArgumentType.getString(context, "groupName");
-                            Group group = getGroup(groupName);
+                            String inputGroup = StringArgumentType.getString(context, "groupName");
+                            Group group = getGroup(inputGroup);
 
                             int groupId = group.id();
                             User creator = getUser(group.createdBy());
@@ -225,19 +228,21 @@ public final class PermissionCommand extends PermissionUtil {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     int languageId = executor.languageId();
-                                    String groupName = StringArgumentType.getString(context, "groupName");
-                                    int priority = IntegerArgumentType.getInteger(context, "priority");
+                                    String inputGroup = StringArgumentType.getString(context, "groupName");
+                                    int inputPriority = IntegerArgumentType.getInteger(context, "priority");
 
-                                    Group group = groupProvider.findByName(groupName);
+                                    Group group = groupProvider.findByName(inputGroup);
                                     if (group != null) {
                                         sendMessage(source, languageId, Message.PERMISSION_GROUP_EXISTS, tagParsed("group_name", group.groupName()));
                                         return CommandResult.of(-2);
                                     }
 
-                                    Group success = groupProvider.create(groupName, priority, executor.id());
+                                    Group success = groupProvider.create(inputGroup, inputPriority, executor.id());
                                     if (success == null)
                                         throw new CommandException(Message.PERMISSION_GROUP_CREATE_FAILED,
-                                                tagUnparsed("group_name", groupName), tagUnparsed("priority", priority));
+                                                tagUnparsed("group_name", inputGroup),
+                                                tagUnparsed("priority", inputPriority)
+                                        );
                                     sendMessage(source, languageId, Message.PERMISSION_GROUP_CREATE_SUCCESS,
                                             tagParsed("group_name", success.groupName()),
                                             tagParsed("group_id", success.id()),
@@ -255,9 +260,9 @@ public final class PermissionCommand extends PermissionUtil {
                 .executes(context ->
                         runWithTiming(context, (source, executor) -> {
                             int languageId = executor.languageId();
-                            String groupName = StringArgumentType.getString(context, "groupName");
+                            String inputGroup = StringArgumentType.getString(context, "groupName");
 
-                            Group group = getGroup(groupName);
+                            Group group = getGroup(inputGroup);
                             int groupId = group.id();
 
                             if (groupId == getDefaultGroup().id()) {
@@ -270,7 +275,7 @@ public final class PermissionCommand extends PermissionUtil {
                             result += groupParentProvider.clear(groupId);
                             result += groupColorProvider.clear(groupId);
                             result += groupProvider.delete(groupId);
-                            sendMessage(source, languageId, Message.PERMISSION_GROUP_DELETE, tagUnparsed("group_name", groupName));
+                            sendMessage(source, languageId, Message.PERMISSION_GROUP_DELETE, tagUnparsed("group_name", inputGroup));
                             return CommandResult.of(Command.SINGLE_SUCCESS, result < 1 ? null : result);
                         })
                 );
@@ -287,27 +292,30 @@ public final class PermissionCommand extends PermissionUtil {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     int languageId = executor.languageId();
-                                    String groupName = StringArgumentType.getString(context, "groupName");
-                                    Group group = getGroup(groupName);
+                                    String inputGroup = StringArgumentType.getString(context, "groupName");
+                                    Group group = getGroup(inputGroup);
 
                                     if (group.id() == getDefaultGroup().id()) {
                                         sendMessage(source, languageId, Message.PERMISSION_DEFAULT_GROUP_RENAME);
                                         return CommandResult.of(-2);
                                     }
 
-                                    String newName = StringArgumentType.getString(context, "newName");
-                                    if (group.groupName().equals(newName) || groupProvider.findByName(newName) != null) {
-                                        sendMessage(source, languageId, Message.PERMISSION_GROUP_EXISTS,
-                                                tagParsed("group_name", group.groupName()));
+                                    String inputNewGroup = StringArgumentType.getString(context, "newName");
+                                    if (group.groupName().equals(inputNewGroup) || groupProvider.findByName(inputNewGroup) != null) {
+                                        sendMessage(source, languageId, Message.PERMISSION_GROUP_EXISTS, tagParsed("group_name", group.groupName()));
                                         return CommandResult.of(-3);
                                     }
 
-                                    Group success = groupProvider.update(group.id(), newName, group.priority(), executor.id());
+                                    Group success = groupProvider.update(group.id(), inputNewGroup, group.priority(), executor.id());
                                     if (success == null)
                                         throw new CommandException(Message.PERMISSION_GROUP_RENAME_FAILED,
-                                                tagUnparsed("group_name", groupName), tagUnparsed("new_group_name", newName));
+                                                tagUnparsed("group_name", inputGroup),
+                                                tagUnparsed("new_group_name", inputNewGroup)
+                                        );
                                     sendMessage(source, languageId, Message.PERMISSION_GROUP_RENAME_SUCCESS,
-                                            tagParsed("group_name", group.groupName()), tagParsed("new_group_name", success.groupName()));
+                                            tagParsed("group_name", group.groupName()),
+                                            tagParsed("new_group_name", success.groupName())
+                                    );
                                     return CommandResult.of(Command.SINGLE_SUCCESS, 1);
                                 })
                         )
@@ -369,7 +377,10 @@ public final class PermissionCommand extends PermissionUtil {
                             sendMessage(source, languageId, Message.PERMISSION_LIST_USER_HEADER, tagParsed("header_name", languageId, headerName));
                             usernames.forEach(username -> {
                                 String clickMessage = "/permission user " + username + " info";
-                                sendMessage(source, languageId, Message.PERMISSION_LIST_USER_MESSAGE, tagParsed("click_command", clickMessage), tagParsed("username", username));
+                                sendMessage(source, languageId, Message.PERMISSION_LIST_USER_MESSAGE,
+                                        tagParsed("click_command", clickMessage),
+                                        tagParsed("username", username)
+                                );
                             });
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
@@ -401,8 +412,8 @@ public final class PermissionCommand extends PermissionUtil {
                 .executes(context ->
                         runWithTiming(context, (source, executor) -> {
                             int languageId = executor.languageId();
-                            String username = StringArgumentType.getString(context, "username");
-                            User user = getUser(username);
+                            String inputUser = StringArgumentType.getString(context, "username");
+                            User user = getUser(inputUser);
 
                             String firstJoinDate = user.firstLogin().format(getDateTimeFormatter(languageId));
 
