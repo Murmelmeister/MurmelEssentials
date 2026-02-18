@@ -9,19 +9,22 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.murmelapi.utils.BufferUtils;
-import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
+import de.murmelmeister.murmelapi.utils.update.RefreshProvider;
 import org.slf4j.Logger;
 
 public final class RefreshMessageListener {
     private final MurmelEssentials plugin;
     private final Logger logger;
     private final ProxyServer server;
-    private final Gson gson = new Gson();
+    private final RefreshProvider refreshProvider;
+    private final Gson gson;
 
     public RefreshMessageListener(MurmelEssentials plugin) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.server = plugin.getServer();
+        this.refreshProvider = plugin.getRefreshProvider();
+        this.gson = plugin.getGson();
     }
 
     @Subscribe
@@ -59,9 +62,9 @@ public final class RefreshMessageListener {
         // Process the refresh event
         String type = jsonObject.get("type").getAsString();
         if (hasKey) {
-            String key = jsonObject.get("key").getAsString();
-            RefreshUtil.fireSingle(type, key);
-        } else RefreshUtil.fireCache(type);
+            String key = gson.toJson(jsonObject.get("key"));
+            refreshProvider.fireSingle(type, key);
+        } else refreshProvider.fireCache(type);
 
         // Broadcast the message to all other servers (without the sender's server)
         String senderServerName = connection.getServer().getServerInfo().getName();

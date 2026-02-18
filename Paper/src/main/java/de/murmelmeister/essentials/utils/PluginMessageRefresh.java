@@ -6,7 +6,7 @@ import com.google.gson.JsonSyntaxException;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.events.ReceiveRefreshEvent;
 import de.murmelmeister.murmelapi.utils.BufferUtils;
-import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
+import de.murmelmeister.murmelapi.utils.update.RefreshProvider;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
@@ -14,7 +14,13 @@ import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.jetbrains.annotations.NotNull;
 
 public final class PluginMessageRefresh implements PluginMessageListener {
-    private final Gson gson = new Gson();
+    private final Gson gson;
+    private final RefreshProvider refreshProvider;
+
+    public PluginMessageRefresh(Gson gson, RefreshProvider refreshProvider) {
+        this.gson = gson;
+        this.refreshProvider = refreshProvider;
+    }
 
     @Override
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte @NotNull [] message) {
@@ -50,11 +56,11 @@ public final class PluginMessageRefresh implements PluginMessageListener {
         // Process the refresh event
         String type = jsonObject.get("type").getAsString();
         if (hasKey) {
-            String key = jsonObject.get("key").getAsString();
-            RefreshUtil.fireSingle(type, key);
+            String key = gson.toJson(jsonObject.get("key"));
+            refreshProvider.fireSingle(type, key);
             server.getPluginManager().callEvent(new ReceiveRefreshEvent(player, type, key));
         } else {
-            RefreshUtil.fireCache(type);
+            refreshProvider.fireCache(type);
             server.getPluginManager().callEvent(new ReceiveRefreshEvent(player, type));
         }
     }
