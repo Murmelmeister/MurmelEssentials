@@ -8,8 +8,8 @@ import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.user.UserService;
-import de.murmelmeister.murmelapi.user.playtime.UserPlayTime;
-import de.murmelmeister.murmelapi.user.playtime.UserPlayTimeProvider;
+import de.murmelmeister.murmelapi.user.stats.UserStats;
+import de.murmelmeister.murmelapi.user.stats.UserStatsProvider;
 import org.slf4j.Logger;
 
 import java.util.concurrent.TimeUnit;
@@ -22,7 +22,7 @@ public final class PlayTimeUpdater {
             task.cancel();
     }
 
-    private static void updateTimer(Logger logger, ProxyServer server, UserProvider userProvider, UserService userService, UserPlayTimeProvider playTimeProvider) {
+    private static void updateTimer(Logger logger, ProxyServer server, UserProvider userProvider, UserService userService, UserStatsProvider userStatsProvider) {
         for (Player player : server.getAllPlayers()) {
             User user = userProvider.findByMojangId(player.getUniqueId());
             if (user == null) {
@@ -30,14 +30,20 @@ public final class PlayTimeUpdater {
                 continue;
             }
 
-            UserPlayTime playTime = playTimeProvider.findByUserId(user.id());
-            if (playTime == null) {
-                logger.warn("PlayTime not found for user: {}", user.username());
+            UserStats userStats = userStatsProvider.findByUserId(user.id());
+            if (userStats == null) {
+                logger.warn("UserStats not found for user: {}", user.username());
                 continue;
             }
 
-            playTimeProvider.incrementPlayTime(playTime);
-            userService.checkLoginStreakWhileOnline(user.id(), playTime);
+            int playTime = userStats.playTime() + 300; // 5 minutes
+            UserStats updatedStats = userStatsProvider.update(user.id(), playTime, userStats.dailyStreak(), userStats.dailyStreakLastDay(), userStats.lastSeenAt());
+            if (updatedStats == null) {
+                logger.warn("Failed to update playtime for user: {}", user.username());
+                continue;
+            }
+
+            userService.checkLoginStreakWhileOnline(user.id(), updatedStats);
         }
     }
 
@@ -45,8 +51,8 @@ public final class PlayTimeUpdater {
         cancelExistingTask();
         UserProvider userProvider = plugin.getUserProvider();
         UserService userService = plugin.getUserService();
-        UserPlayTimeProvider playTimeProvider = plugin.getUserPlayTimeProvider();
-        task = server.getScheduler().buildTask(plugin, () -> updateTimer(logger, server, userProvider, userService, playTimeProvider))
-                .repeat(1L, TimeUnit.SECONDS).schedule();
+        UserStatsProvider userStatsProvider = plugin.getUserStatsProvider();
+        task = server.getScheduler().buildTask(plugin, () -> updateTimer(logger, server, userProvider, userService, userStatsProvider))
+                .repeat(5L, TimeUnit.MINUTES).schedule();
     }
 }
