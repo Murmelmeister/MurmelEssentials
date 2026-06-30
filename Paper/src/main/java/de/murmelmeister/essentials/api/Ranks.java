@@ -47,6 +47,8 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class Ranks implements MurmelCache {
+    private static final long DISPLAY_UPDATE_INTERVAL_TICKS = 2L;
+
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private final AtomicBoolean hasUpdated = new AtomicBoolean(false);
     private BukkitTask task;
@@ -87,7 +89,7 @@ public final class Ranks implements MurmelCache {
         // Recommended to use Scoreboard/Player-API in the main thread
         task = server.getScheduler().runTaskTimer(plugin, () -> {
             server.getOnlinePlayers().forEach(player -> {
-                User user = userProvider.findByMojangId(player.getUniqueId());
+                User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
                 if (user == null) return;
                 int userId = user.id();
 
@@ -103,17 +105,17 @@ public final class Ranks implements MurmelCache {
                 server.getOnlinePlayers().forEach(player -> {
                     setPlayerTeams(player);
                     setPlayerListName(player);
-                    player.updateCommands(); // Update the player commands
+                    player.updateCommands();
                 });
                 hasUpdated.set(false);
             }
-        }, 5L, 5L);
+        }, DISPLAY_UPDATE_INTERVAL_TICKS, DISPLAY_UPDATE_INTERVAL_TICKS);
     }
 
     public void setChatFormat(@NotNull AsyncChatEvent event) {
         // Get the user
         Player player = event.getPlayer();
-        User user = userProvider.findByMojangId(player.getUniqueId());
+        User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
         if (user == null) return;
         int userId = user.id();
 
@@ -126,10 +128,10 @@ public final class Ranks implements MurmelCache {
         Permission permission = ConfigProvider.loadPermissions(settingsService);
 
         // Get the group colors
-        GroupColor prefix = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_PREFIX.getId());
-        GroupColor suffix = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_SUFFIX.getId());
-        GroupColor color = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_COLOR.getId());
-        GroupColor chatMessage = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_MESSAGE.getId());
+        GroupColor prefix = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_PREFIX.getId()).orElse(null);
+        GroupColor suffix = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_SUFFIX.getId()).orElse(null);
+        GroupColor color = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_COLOR.getId()).orElse(null);
+        GroupColor chatMessage = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_MESSAGE.getId()).orElse(null);
 
         // Format the chat message
         String formattedPrefix = prefix != null ? prefix.value() : permission.defaultChatPrefix();
@@ -142,9 +144,9 @@ public final class Ranks implements MurmelCache {
                 .stream()
                 .findFirst()
                 .orElse(null);
-        Clan clan = member != null ? clanProvider.findById(member.clanId()) : null;
-        TagResolver.Single clanSign = Placeholder.parsed("clan_sign", clan != null ? (clan.sign() != null ? clan.sign() : "") : "");
-        TagResolver.Single clanTag = Placeholder.parsed("clan_tag", clan != null ? (clan.tag() != null ? clan.tag() : "") : "");
+        Optional<Clan> clan = member != null ? clanProvider.findById(member.clanId()) : Optional.empty();
+        TagResolver.Single clanSign = Placeholder.parsed("clan_sign", clan.map(c -> c.sign() != null ? c.sign() : "").orElse(""));
+        TagResolver.Single clanTag = Placeholder.parsed("clan_tag", clan.map(c -> c.tag() != null ? c.tag() : "").orElse(""));
 
         Optional<UserPrefixColor> activeColor = userColorProvider.findActiveById(userId);
         Component baseComponent;
@@ -182,7 +184,7 @@ public final class Ranks implements MurmelCache {
 
                         String animatedInput = PlainTextComponentSerializer.plainText().serialize(chatFormat);
                         Component animatedComponent = miniMessage.deserialize(
-                                AnimationUtils.animatePerColorCycle(colors, animatedInput, 1.00f)
+                                AnimationUtils.animatePerColorCycle(colors, animatedInput, 6.00f)
                         );
                         Map<Integer, TextColor> explicitColors = collectExplicitColorsByIndex(chatFormat);
                         baseComponent = applyExplicitColorsByIndex(animatedComponent, explicitColors);
@@ -230,7 +232,7 @@ public final class Ranks implements MurmelCache {
 
     private void setPlayerListName(@NotNull Player player) {
         // Get the user
-        User user = userProvider.findByMojangId(player.getUniqueId());
+        User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
         if (user == null) return;
         int userId = user.id();
 
@@ -243,9 +245,9 @@ public final class Ranks implements MurmelCache {
         Permission permission = ConfigProvider.loadPermissions(settingsService);
 
         // Get the group colors
-        GroupColor prefix = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_PREFIX.getId());
-        GroupColor suffix = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_SUFFIX.getId());
-        GroupColor color = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_COLOR.getId());
+        GroupColor prefix = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_PREFIX.getId()).orElse(null);
+        GroupColor suffix = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_SUFFIX.getId()).orElse(null);
+        GroupColor color = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_COLOR.getId()).orElse(null);
 
         // Format the player list name
         String formattedPrefix = prefix != null ? prefix.value() : permission.defaultTabPrefix();
@@ -257,9 +259,9 @@ public final class Ranks implements MurmelCache {
                 .stream()
                 .findFirst()
                 .orElse(null);
-        Clan clan = member != null ? clanProvider.findById(member.clanId()) : null;
-        TagResolver.Single clanSign = Placeholder.parsed("clan_sign", clan != null ? (clan.sign() != null ? clan.sign() : "") : "");
-        TagResolver.Single clanTag = Placeholder.parsed("clan_tag", clan != null ? (clan.tag() != null ? clan.tag() : "") : "");
+        Optional<Clan> clan = member != null ? clanProvider.findById(member.clanId()) : Optional.empty();
+        TagResolver.Single clanSign = Placeholder.parsed("clan_sign", clan.map(c -> c.sign() != null ? c.sign() : "").orElse(""));
+        TagResolver.Single clanTag = Placeholder.parsed("clan_tag", clan.map(c -> c.tag() != null ? c.tag() : "").orElse(""));
 
         Optional<UserPrefixColor> activeColor = userColorProvider.findActiveById(userId);
         Component baseComponent;
@@ -297,7 +299,7 @@ public final class Ranks implements MurmelCache {
 
                         String animatedInput = PlainTextComponentSerializer.plainText().serialize(tabFormat);
                         Component animatedComponent = miniMessage.deserialize(
-                                AnimationUtils.animatePerColorCycle(colors, animatedInput, 2.00f)
+                                AnimationUtils.animatePerColorCycle(colors, animatedInput, 6.00f)
                         );
                         Map<Integer, TextColor> explicitColors = collectExplicitColorsByIndex(tabFormat);
                         baseComponent = applyExplicitColorsByIndex(animatedComponent, explicitColors);
@@ -343,7 +345,7 @@ public final class Ranks implements MurmelCache {
     private void setPlayerTeams(@NotNull Player player) {
         Permission permission = ConfigProvider.loadPermissions(settingsService);
 
-        User user = userProvider.findByMojangId(player.getUniqueId());
+        User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
         if (user == null) return;
         Scoreboard scoreboard = player.getScoreboard();
 
@@ -354,7 +356,7 @@ public final class Ranks implements MurmelCache {
         // Sort the players by priority
         Map<Integer, List<String>> playersBySortId = new HashMap<>();
         player.getServer().getOnlinePlayers().forEach(target -> {
-            User targetUser = userProvider.findByMojangId(target.getUniqueId());
+            User targetUser = userProvider.findByMojangId(target.getUniqueId()).orElse(null);
             if (targetUser == null) return;
 
             Group targetGroup = permissionService.getHighestGroup(PermissionTarget.user(targetUser.id()));
@@ -393,9 +395,9 @@ public final class Ranks implements MurmelCache {
             Team team = existingTeams.get(teamTagId);
             if (team == null) team = scoreboard.registerNewTeam(teamTagId);
 
-            GroupColor prefix = groupColorProvider.findGroupColor(groupId, GroupColorType.TEAM_PREFIX.getId());
-            GroupColor suffix = groupColorProvider.findGroupColor(groupId, GroupColorType.TEAM_SUFFIX.getId());
-            GroupColor color = groupColorProvider.findGroupColor(groupId, GroupColorType.TEAM_COLOR.getId());
+            GroupColor prefix = groupColorProvider.findGroupColor(groupId, GroupColorType.TEAM_PREFIX.getId()).orElse(null);
+            GroupColor suffix = groupColorProvider.findGroupColor(groupId, GroupColorType.TEAM_SUFFIX.getId()).orElse(null);
+            GroupColor color = groupColorProvider.findGroupColor(groupId, GroupColorType.TEAM_COLOR.getId()).orElse(null);
 
             String formattedPrefix = prefix != null ? prefix.value() : permission.defaultTagPrefix();
             String formattedSuffix = suffix != null ? suffix.value() : permission.defaultTagSuffix();
