@@ -53,10 +53,7 @@ public final class MurmelEssentials extends JavaPlugin {
     public void onEnable() {
         databaseConfig.connect();
         ListenerManager.register(this);
-        ranks.updatePlayers(this, getServer());
-        getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, PLUGIN_MESSAGE_REFRESH);
-        if (config.getAutoRefresh())
-            RefreshUtil.fireAll(); // Get all cached data from the database
+        if (isFolia()) ranks.updatePlayersFolia(this, getServer());
         else ranks.updatePlayers(this, getServer());
         getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, pluginMessageRefresh);
 
@@ -133,5 +130,12 @@ public final class MurmelEssentials extends JavaPlugin {
         return murmelAPI.getClanMemberProvider();
     }
 
+    private static boolean isFolia() {
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 }

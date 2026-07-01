@@ -28,6 +28,7 @@ import de.murmelmeister.murmelapi.utils.update.RefreshEvent;
 import de.murmelmeister.murmelapi.utils.update.RefreshProvider;
 import de.murmelmeister.murmelapi.utils.update.RefreshType;
 import io.papermc.paper.event.player.AsyncChatEvent;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -52,6 +53,7 @@ public final class Ranks implements MurmelCache {
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private final AtomicBoolean hasUpdated = new AtomicBoolean(false);
     private BukkitTask task;
+    private ScheduledTask foliaTask; // Folia support
 
     private final RefreshProvider refreshProvider;
     private final GroupProvider groupProvider;
@@ -83,6 +85,46 @@ public final class Ranks implements MurmelCache {
     public void cancelTask() {
         if (task != null && !task.isCancelled())
             task.cancel();
+        if (foliaTask != null && !foliaTask.isCancelled())
+            foliaTask.cancel();
+    }
+
+    public void updatePlayersFolia(@NotNull MurmelEssentials plugin, @NotNull Server server) {
+        foliaTask = server.getGlobalRegionScheduler().runAtFixedRate(
+                plugin,
+                scheduledTask -> {
+                    List<Player> players = new ArrayList<>(server.getOnlinePlayers());
+
+                    for (Player player : players) {
+                        server.getAsyncScheduler().runNow(plugin, asyncTask -> {
+                            User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
+                            if (user == null) return;
+                            int userId = user.id();
+
+                            UserPrefixColor userColor = userColorProvider.findActiveById(userId).orElse(null);
+                            if (userColor == null) return;
+
+                            PrefixColor prefixColor = colorProvider.findById(userColor.colorId()).orElse(null);
+                            if (prefixColor == null) return;
+                            if (!prefixColor.animated()) return;
+                            player.getScheduler().run(plugin, entityTask -> setPlayerListName(player), null);
+                        });
+                    }
+
+                    if (hasUpdated.get()) {
+                        for (Player player : players) {
+                            player.getScheduler().run(plugin, entityTask -> {
+                                setPlayerTeams(player);
+                                setPlayerListName(player);
+                                player.updateCommands();
+                            }, null);
+                        }
+                        hasUpdated.set(false);
+                    }
+                },
+                DISPLAY_UPDATE_INTERVAL_TICKS,
+                DISPLAY_UPDATE_INTERVAL_TICKS
+        );
     }
 
     public void updatePlayers(@NotNull MurmelEssentials plugin, @NotNull Server server) {
