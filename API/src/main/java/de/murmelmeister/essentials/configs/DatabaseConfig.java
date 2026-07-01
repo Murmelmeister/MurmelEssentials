@@ -1,5 +1,6 @@
 package de.murmelmeister.essentials.configs;
 
+import com.zaxxer.hikari.HikariConfig;
 import de.murmelmeister.murmelapi.MurmelAPI;
 
 import java.io.IOException;
@@ -11,14 +12,17 @@ import java.util.Properties;
 public class DatabaseConfig {
     private final Path dataDirectory;
     private final String file = "database.properties";
+    private final MurmelAPI murmelAPI;
 
-    public DatabaseConfig(Path dataDirectory) {
+    public DatabaseConfig(Path dataDirectory, MurmelAPI murmelAPI) {
         this.dataDirectory = dataDirectory;
+        this.murmelAPI = murmelAPI;
         createFile();
     }
 
-    public DatabaseConfig(String pluginName) {
+    public DatabaseConfig(String pluginName, MurmelAPI murmelAPI) {
         this.dataDirectory = Path.of("./plugins/" + pluginName + "/");
+        this.murmelAPI = murmelAPI;
         createFile();
     }
 
@@ -60,10 +64,16 @@ public class DatabaseConfig {
             throw new IllegalArgumentException("Database configuration is incomplete or contains placeholder. Please check your database.properties file.");
 
         // Connect to database
-        MurmelAPI.connect(properties);
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl(url);
+        config.setUsername(username);
+        config.setPassword(password);
+
+        config.setDriverClassName("org.mariadb.jdbc.Driver");
+        murmelAPI.connect(config);
     }
 
     public void disconnect() {
-        MurmelAPI.disconnect();
+        murmelAPI.disconnect();
     }
 }
