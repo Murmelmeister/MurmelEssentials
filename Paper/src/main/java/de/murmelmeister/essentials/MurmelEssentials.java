@@ -1,37 +1,43 @@
 package de.murmelmeister.essentials;
 
 import de.murmelmeister.essentials.api.Ranks;
+import de.murmelmeister.essentials.configs.ConfigProvider;
 import de.murmelmeister.essentials.configs.DatabaseConfig;
-import de.murmelmeister.essentials.configurations.Config;
+import de.murmelmeister.essentials.configs.settings.Config;
 import de.murmelmeister.essentials.manager.ListenerManager;
 import de.murmelmeister.essentials.utils.PluginMessageRefresh;
 import de.murmelmeister.murmelapi.MurmelAPI;
+import de.murmelmeister.murmelapi.clan.ClanProvider;
+import de.murmelmeister.murmelapi.clan.member.ClanMemberProvider;
+import de.murmelmeister.murmelapi.color.PrefixColorProvider;
 import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColorProvider;
-import de.murmelmeister.murmelapi.permission.Permission;
+import de.murmelmeister.murmelapi.permission.PermissionService;
 import de.murmelmeister.murmelapi.punishment.PunishmentService;
-import de.murmelmeister.murmelapi.punishment.audit.PunishmentLogProvider;
-import de.murmelmeister.murmelapi.punishment.ip.PunishmentCurrentIpProvider;
-import de.murmelmeister.murmelapi.punishment.user.PunishmentCurrentUserProvider;
+import de.murmelmeister.murmelapi.punishment.audit.PunishmentAuditProvider;
+import de.murmelmeister.murmelapi.punishment.ip.PunishmentIpAddressProvider;
+import de.murmelmeister.murmelapi.punishment.user.PunishmentUserProvider;
+import de.murmelmeister.murmelapi.settings.SettingsService;
 import de.murmelmeister.murmelapi.user.UserProvider;
-import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
-import de.murmelmeister.murmelapi.utils.update.RefreshUtil;
+import de.murmelmeister.murmelapi.user.color.UserPrefixColorProvider;
+import de.murmelmeister.murmelapi.utils.update.RefreshProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.format.DateTimeFormatter;
 
 public final class MurmelEssentials extends JavaPlugin {
     public static final String CHANNEL = "murmel:main";
-    private static final PluginMessageRefresh PLUGIN_MESSAGE_REFRESH = new PluginMessageRefresh();
     public static final String PLUGIN_PATH = "./plugins/" + MurmelEssentials.class.getSimpleName() + "/";
 
+    private final MurmelAPI murmelAPI;
+    private final PluginMessageRefresh pluginMessageRefresh;
     private final DatabaseConfig databaseConfig;
-    private final Config config;
     private final Ranks ranks;
 
     public MurmelEssentials() {
-        this.databaseConfig = new DatabaseConfig(MurmelEssentials.class.getSimpleName());
-        this.config = new Config();
+        this.murmelAPI = new MurmelAPI();
+        this.pluginMessageRefresh = new PluginMessageRefresh(murmelAPI.getGson(), murmelAPI.getRefreshProvider());
+        this.databaseConfig = new DatabaseConfig(MurmelEssentials.class.getSimpleName(), murmelAPI);
         this.ranks = new Ranks(this);
     }
 
@@ -40,7 +46,7 @@ public final class MurmelEssentials extends JavaPlugin {
         ranks.cancelTask();
         ranks.close();
         databaseConfig.disconnect();
-        getServer().getMessenger().unregisterIncomingPluginChannel(this, CHANNEL, PLUGIN_MESSAGE_REFRESH);
+        getServer().getMessenger().unregisterIncomingPluginChannel(this, CHANNEL, pluginMessageRefresh);
     }
 
     @Override
@@ -52,6 +58,12 @@ public final class MurmelEssentials extends JavaPlugin {
         getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, PLUGIN_MESSAGE_REFRESH);
         if (config.getAutoRefresh())
             RefreshUtil.fireAll(); // Get all cached data from the database
+        else ranks.updatePlayers(this, getServer());
+        getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, pluginMessageRefresh);
+
+        Config config = ConfigProvider.load(getSettingsService());
+        if (config.autoUpdate())
+            getRefreshProvider().fireAll(); // Get all cached data from the database
     }
 
     public MurmelEssentials getInstance() {
@@ -59,23 +71,19 @@ public final class MurmelEssentials extends JavaPlugin {
     }
 
     public GroupProvider getGroupProvider() {
-        return MurmelAPI.getGroupProvider();
+        return murmelAPI.getGroupProvider();
     }
 
     public GroupColorProvider getGroupColorProvider() {
-        return MurmelAPI.getGroupColorProvider();
+        return murmelAPI.getGroupColorProvider();
     }
 
     public UserProvider getUserProvider() {
-        return MurmelAPI.getUserProvider();
+        return murmelAPI.getUserProvider();
     }
 
-    public UserParentProvider getUserParentProvider() {
-        return MurmelAPI.getUserParentProvider();
-    }
-
-    public Permission getPermission() {
-        return MurmelAPI.getPermission();
+    public PermissionService getPermissionService() {
+        return murmelAPI.getPermissionService();
     }
 
     public Ranks getRanks() {
@@ -83,22 +91,49 @@ public final class MurmelEssentials extends JavaPlugin {
     }
 
     public DateTimeFormatter getDateTimeFormatter(int languageId) {
-        return MurmelAPI.getDateTimeFormatter(languageId);
+        return murmelAPI.getDateTimeFormatter(languageId);
     }
 
-    public PunishmentLogProvider getPunishmentLogProvider() {
-        return MurmelAPI.getPunishmentLogProvider();
+    public PunishmentAuditProvider getPunishmentAuditProvider() {
+        return murmelAPI.getPunishAuditProvider();
     }
 
-    public PunishmentCurrentUserProvider getPunishmentUserProvider() {
-        return MurmelAPI.getPunishmentCurrentUserProvider();
+    public PunishmentUserProvider getPunishmentUserProvider() {
+        return murmelAPI.getPunishUserProvider();
     }
 
-    public PunishmentCurrentIpProvider getPunishmentIpProvider() {
-        return MurmelAPI.getPunishmentCurrentIpProvider();
+    public PunishmentIpAddressProvider getPunishmentIpProvider() {
+        return murmelAPI.getPunishIpAddressProvider();
     }
 
     public PunishmentService getPunishmentService() {
         return MurmelAPI.getPunishmentService();
+        return murmelAPI.getPunishmentService();
+    }
+
+    public SettingsService getSettingsService() {
+        return murmelAPI.getSettingsService();
+    }
+
+    public RefreshProvider getRefreshProvider() {
+        return murmelAPI.getRefreshProvider();
+    }
+
+    public PrefixColorProvider getPrefixColorProvider() {
+        return murmelAPI.getPrefixColorProvider();
+    }
+
+    public UserPrefixColorProvider getUserPrefixColorProvider() {
+        return murmelAPI.getUserPrefixColorProvider();
+    }
+
+    public ClanProvider getClanProvider() {
+        return murmelAPI.getClanProvider();
+    }
+
+    public ClanMemberProvider getClanMemberProvider() {
+        return murmelAPI.getClanMemberProvider();
+    }
+
     }
 }
