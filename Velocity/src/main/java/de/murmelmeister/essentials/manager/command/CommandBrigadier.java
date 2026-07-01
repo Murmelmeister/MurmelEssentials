@@ -1,7 +1,8 @@
 package de.murmelmeister.essentials.manager.command;
 
-import com.velocitypowered.api.command.BrigadierCommand;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.velocitypowered.api.command.CommandSource;
 
 public interface CommandBrigadier {
-    BrigadierCommand createCommand();
+    LiteralArgumentBuilder<CommandSource> createCommand();
 }

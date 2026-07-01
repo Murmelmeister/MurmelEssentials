@@ -1,9 +1,11 @@
 package de.murmelmeister.essentials.manager.command;
 
 import de.murmelmeister.essentials.messages.Message;
+import de.murmelmeister.murmelapi.exceptions.MurmelException;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import org.jetbrains.annotations.NotNull;
 
-public class CommandException extends RuntimeException {
+public class CommandException extends MurmelException {
     private final Message messageKey;
     private final TagResolver[] resolvers;
 
@@ -25,7 +27,7 @@ public class CommandException extends RuntimeException {
         this.resolvers = null;
     }
 
-    public CommandException(Message messageKey, TagResolver... resolvers) {
+    public CommandException(@NotNull Message messageKey, TagResolver... resolvers) {
         super(messageKey.getTag());
         this.messageKey = messageKey;
         this.resolvers = resolvers;
