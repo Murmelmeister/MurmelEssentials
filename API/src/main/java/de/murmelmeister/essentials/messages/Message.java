@@ -3,6 +3,12 @@ package de.murmelmeister.essentials.messages;
 public enum Message {
     PREFIX("murmel.prefix"),
     DEBUG_PREFIX("murmel.debug.prefix"),
+    COLOR_DEFAULT("murmel.color.default"),
+    COLOR_SUBJECT("murmel.color.subject"),
+    COLOR_ACCENT("murmel.color.accent"),
+    COLOR_POSITIVE("murmel.color.positive"),
+    COLOR_NEGATIVE("murmel.color.negative"),
+    COLOR_ERROR("murmel.color.error"),
     COMMAND_PLAY_TIME_USE("murmel.command.playtime.use"),
     COMMAND_PLAY_TIME_OTHER("murmel.command.playtime.other"),
     PLAY_TIME_USER_NOT_FOUND("murmel.playtime.user.not.found"),
@@ -124,7 +130,10 @@ public enum Message {
     PERMISSION_GROUP_INFO_HOVER_DEFAULT("murmel.permission.group.info.hover.default"),
     PERMISSION_GROUP_INFO_HOVER_CHAT("murmel.permission.group.info.hover.chat"),
     PERMISSION_GROUP_INFO_MESSAGE("murmel.permission.group.info.message"),
-    ;
+    MAINTENANCE_KICK_MESSAGE("murmel.maintenance.kick.message"),
+    CONFIG_TABLIST_HEADER("murmel.config.tablist.header"),
+    CONFIG_TABLIST_FOOTER("murmel.config.tablist.footer"),
+    IP_ADDRESS_INVALID("murmel.invalid.ip");
 
     private final String tag;
 

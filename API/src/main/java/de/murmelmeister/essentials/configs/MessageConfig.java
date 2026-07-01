@@ -1,5 +1,6 @@
 package de.murmelmeister.essentials.configs;
 
+import de.murmelmeister.murmelapi.language.message.Message;
 import de.murmelmeister.murmelapi.language.message.MessageProvider;
 
 import java.io.BufferedReader;
@@ -9,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
@@ -56,16 +58,27 @@ public class MessageConfig {
 
     public int[] loadToDatabase(MessageProvider provider, String file) {
         Properties properties = loadProperties(file);
-        return provider.upsertAll(properties);
+        Collection<Message> messages = new ArrayList<>();
+
+        int language = Integer.parseInt(properties.getProperty("language.id", "1"));
+
+        for (String key : properties.stringPropertyNames()) {
+            if ("language.id".equals(key)) continue;
+
+            String value = properties.getProperty(key);
+            messages.add(Message.of(0, key, language, value));
+        }
+
+        return provider.upsertAll(messages);
     }
 
     public int[] loadToDatabase(MessageProvider provider, List<String> files) {
         if (files == null || files.isEmpty()) return new int[0];
 
-        List<Properties> all = new ArrayList<>();
+        int[] result = new int[files.size()];
         for (String file : files)
-            all.add(loadProperties(file));
-        return provider.upsertAll(all);
+            result = loadToDatabase(provider, file);
+        return result;
     }
 
     private Properties loadProperties(String file) {
