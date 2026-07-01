@@ -51,7 +51,6 @@ public final class MurmelEssentials extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        MurmelAPI.setBootstrapMessages(false);
         databaseConfig.connect();
         ListenerManager.register(this);
         ranks.updatePlayers(this, getServer());
@@ -107,7 +106,6 @@ public final class MurmelEssentials extends JavaPlugin {
     }
 
     public PunishmentService getPunishmentService() {
-        return MurmelAPI.getPunishmentService();
         return murmelAPI.getPunishmentService();
     }
 
