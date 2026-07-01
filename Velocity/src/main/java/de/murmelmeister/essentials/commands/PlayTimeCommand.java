@@ -2,23 +2,25 @@ package de.murmelmeister.essentials.commands;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.tree.LiteralCommandNode;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.essentials.manager.command.CommandBrigadier;
 import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.library.utils.StringUtil;
 import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
-import de.murmelmeister.murmelapi.user.playtime.UserPlayTime;
+import de.murmelmeister.murmelapi.user.stats.UserStats;
+import de.murmelmeister.murmelapi.utils.TimeFilterUtil;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
 
 import java.time.LocalDateTime;
 
-public final class PlayTimeCommand extends CommandManager {
+public final class PlayTimeCommand extends CommandManager implements CommandBrigadier {
     private final MessageService messageService;
     private final UserProvider userProvider;
 
@@ -29,13 +31,14 @@ public final class PlayTimeCommand extends CommandManager {
     }
 
     @Override
-    public BrigadierCommand createCommand() {
-        LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("playtime")
+    public LiteralArgumentBuilder<CommandSource> createCommand() {
+        return BrigadierCommand.literalArgumentBuilder("playtime")
                 .requires(source -> source.hasPermission("murmel.command.playtime"))
                 .executes(context ->
                         runWithTiming(context, (source, executor) -> {
-                            UserPlayTime playTime = getUserPlayTime(executor.id());
-                            String time = TimeUtil.formatDuration(messageService, executor.languageId(), playTime.getPlayTime());
+                            UserStats userStats = getUserStats(executor.id());
+                            long playTime = userStats.currentPlayTime();
+                            String time = TimeUtil.formatDuration(messageService, executor.languageId(), playTime);
                             sendMessage(source, executor.languageId(), Message.COMMAND_PLAY_TIME_USE, tagParsed("time", time));
                             return CommandResult.of(Command.SINGLE_SUCCESS);
                         })
@@ -55,11 +58,12 @@ public final class PlayTimeCommand extends CommandManager {
                                     String inputUser = StringArgumentType.getString(context, "player");
                                     User user = getUser(inputUser);
                                     int userId = user.id();
-                                    UserPlayTime playTime = getUserPlayTime(userId);
+                                    UserStats userStats = getUserStats(userId);
 
                                     String online = getOnlineStatus(languageId, userId);
-                                    String time = TimeUtil.formatDuration(messageService, languageId, playTime.getPlayTime());
-                                    String ago = getOnlineAgo(languageId, userId);
+                                    long playTime = userStats.currentPlayTime();
+                                    String time = TimeUtil.formatDuration(messageService, languageId, playTime);
+                                    String ago = getOnlineAgo(languageId, userId, TimeFilterUtil.SECONDS);
                                     String now = LocalDateTime.now().format(getDateTimeFormatter(languageId));
 
                                     sendMessage(source, languageId, Message.COMMAND_PLAY_TIME_OTHER,
@@ -72,8 +76,6 @@ public final class PlayTimeCommand extends CommandManager {
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
-                )
-                .build();
-        return new BrigadierCommand(node);
+                );
     }
 }
