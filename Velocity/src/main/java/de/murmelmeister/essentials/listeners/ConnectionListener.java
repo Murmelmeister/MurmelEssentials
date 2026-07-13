@@ -13,13 +13,13 @@ import de.murmelmeister.essentials.configs.ConfigProvider;
 import de.murmelmeister.essentials.configs.settings.Maintenance;
 import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.essentials.utils.PunishmentUtil;
-import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.language.LanguageType;
 import de.murmelmeister.murmelapi.language.LanguageTypeProvider;
 import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.permission.PermissionTarget;
 import de.murmelmeister.murmelapi.permission.parent.Parent;
 import de.murmelmeister.murmelapi.permission.parent.ParentProvider;
+import de.murmelmeister.murmelapi.punishment.audit.PunishmentAudit;
 import de.murmelmeister.murmelapi.punishment.PunishmentService;
 import de.murmelmeister.murmelapi.punishment.type.PunishmentType;
 import de.murmelmeister.murmelapi.settings.SettingsService;
@@ -32,20 +32,21 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 import java.net.InetAddress;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static de.murmelmeister.murmelapi.MurmelAPI.DEFAULT_GROUP_ID;
 import static de.murmelmeister.murmelapi.MurmelAPI.ENGLISH_CODE;
 
 public final class ConnectionListener {
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+    private static final int TYPE_BAN_ID = PunishmentType.BAN.getId();
+    private static final int TYPE_IP_BAN_ID = PunishmentType.IP_BAN.getId();
+
     private final Logger logger;
     private final UserProvider userProvider;
     private final UserService userService;
     private final LanguageTypeProvider languageProvider;
-    private final GroupProvider group;
     private final ParentProvider parentProvider;
     private final PunishmentService punishmentService;
     private final PunishmentUtil punishmentUtil;
@@ -54,16 +55,11 @@ public final class ConnectionListener {
     private final MessageService messageService;
     private final UserStatsProvider userStatsProvider;
 
-    private final int typeBanId = PunishmentType.BAN.getId();
-    private final int typeIpBanId = PunishmentType.IP_BAN.getId();
-    private final Map<UUID, Integer> sessionUserIds = new ConcurrentHashMap<>();
-
     public ConnectionListener(@NotNull MurmelEssentials plugin) {
         this.logger = plugin.getLogger();
         this.userProvider = plugin.getUserProvider();
         this.userService = plugin.getUserService();
         this.languageProvider = plugin.getLanguageProvider();
-        this.group = plugin.getGroupProvider();
         this.parentProvider = plugin.getParentProvider();
         this.punishmentService = plugin.getPunishmentService();
         this.punishmentUtil = plugin.getPunishmentUtil();
@@ -74,11 +70,10 @@ public final class ConnectionListener {
 
     private @NotNull User processUserJoin(@NotNull Player player) {
         User user = userService.join(player.getUniqueId(), player.getUsername());
-        int defaultGroupId = group.findById(DEFAULT_GROUP_ID).orElseThrow().id(); // Default group ID is 1
 
-        Optional<Parent> parent = parentProvider.findParent(PermissionTarget.user(user.id()), defaultGroupId);
+        Optional<Parent> parent = parentProvider.findParent(PermissionTarget.user(user.id()), DEFAULT_GROUP_ID);
         if (parent.isEmpty())
-            parentProvider.upsert(PermissionTarget.user(user.id()), defaultGroupId, -1, -1);
+            parentProvider.upsert(PermissionTarget.user(user.id()), DEFAULT_GROUP_ID, -1, -1);
 
         String code = player.getPlayerSettings().getLocale().toLanguageTag();
         LanguageType language = languageProvider.findByCode(code).orElse(
@@ -105,11 +100,11 @@ public final class ConnectionListener {
             user = userService.join(player.getUniqueId(), player.getUsername());
 
         Maintenance maintenance = ConfigProvider.loadMaintenance(settingsService);
-        if (maintenance.mode())
-            if (!maintenance.whitelist().contains(user.id()))
-                event.setResult(ResultedEvent.ComponentResult.denied(
-                        MiniMessage.miniMessage().deserialize(messageService.getMessage(Message.MAINTENANCE_KICK_MESSAGE.getTag(), user.languageId()))
-                ));
+        if (maintenance.mode() && !maintenance.whitelist().contains(user.id())) {
+            event.setResult(ResultedEvent.ComponentResult.denied(
+                    MINI_MESSAGE.deserialize(messageService.getMessage(Message.MAINTENANCE_KICK_MESSAGE.getTag(), user.languageId()))
+            ));
+        }
 
         checkPunishment(event, user);
     }
@@ -118,18 +113,8 @@ public final class ConnectionListener {
     public void handlePostLogin(@NotNull PostLoginEvent event) {
         Player player = event.getPlayer();
         User user = processUserJoin(player);
-        /*if (!checkPunishment(player, user))
-            return;*/
         processSessionStart(player, user.id());
-        sessionUserIds.put(player.getUniqueId(), user.id());
     }
-
-    /*@Subscribe
-    public void handleKickedFromServer(@NotNull KickedFromServerEvent event) {
-        // If the player is kicked while connecting (e.g., backend whitelist), ensure we close their session
-        if (event.kickedDuringServerConnect())
-            closeSession(event.getPlayer());
-    }*/
 
     @Subscribe
     public void handleDisconnect(@NotNull DisconnectEvent event) {
@@ -144,7 +129,7 @@ public final class ConnectionListener {
 
         ServerPing ping = event.getPing();
         ServerPing.Builder builder = ping.asBuilder()
-                .description(MiniMessage.miniMessage().deserialize(maintenance.motd()))
+                .description(MINI_MESSAGE.deserialize(maintenance.motd()))
                 .version(
                         new ServerPing.Version(
                                 maintenance.protocolVersion(),
@@ -157,13 +142,6 @@ public final class ConnectionListener {
 
     private void closeSession(@NotNull Player player) {
         UUID mojangId = player.getUniqueId();
-        Integer userId = sessionUserIds.remove(mojangId);
-        if (userId != null) {
-            userStatsProvider.refreshSingle(userId);
-            userService.closeSession(userId);
-            return;
-        }
-
         User user = userProvider.findByMojangId(mojangId).orElse(null);
         if (user != null) {
             userStatsProvider.refreshSingle(user.id());
@@ -174,20 +152,22 @@ public final class ConnectionListener {
         logger.warn("Skipping closeSession because user is unknown for player {}", player.getUsername());
     }
 
+    private void disconnectPunishment(@NotNull LoginEvent event, int userId, int languageId, @NotNull PunishmentAudit audit) {
+        punishmentUtil.disconnectPunishMessage(event, userId, languageId, audit);
+    }
+
     private void checkPunishment(@NotNull LoginEvent event, @NotNull User user) {
         UUID mojangId = user.mojangId();
         int userId = user.id();
         int languageId = user.languageId();
 
-        if (punishmentService.checkUserPunishment(mojangId, typeBanId, audit -> {
-            punishmentUtil.disconnectPunishMessage(event, userId, languageId, audit);
-        })) return;
+        if (punishmentService.checkUserPunishment(mojangId, TYPE_BAN_ID, audit ->
+                disconnectPunishment(event, userId, languageId, audit)
+        )) return;
 
-        if (punishmentService.checkUserPunishment(mojangId, typeIpBanId, audit -> {
-            punishmentUtil.disconnectPunishMessage(event, userId, languageId, audit);
-        })) return;
-
-        // User is not banned
+        if (punishmentService.checkUserPunishment(mojangId, TYPE_IP_BAN_ID, audit ->
+                disconnectPunishment(event, userId, languageId, audit)
+        )) return;
 
         checkPunishmentIp(event, userId, languageId);
     }
@@ -195,14 +175,12 @@ public final class ConnectionListener {
     private void checkPunishmentIp(@NotNull LoginEvent event, int userId, int languageId) {
         InetAddress ipAddress = event.getPlayer().getRemoteAddress().getAddress();
 
-        if (punishmentService.checkIpPunishment(ipAddress, typeBanId, audit -> {
-            punishmentUtil.disconnectPunishMessage(event, userId, languageId, audit);
-        })) return;
+        if (punishmentService.checkIpPunishment(ipAddress, TYPE_BAN_ID, audit ->
+                disconnectPunishment(event, userId, languageId, audit)
+        )) return;
 
-        if (punishmentService.checkIpPunishment(ipAddress, typeIpBanId, audit -> {
-            punishmentUtil.disconnectPunishMessage(event, userId, languageId, audit);
-        })) return;
-
-        // IP is not banned
+        punishmentService.checkIpPunishment(ipAddress, TYPE_IP_BAN_ID, audit ->
+                disconnectPunishment(event, userId, languageId, audit)
+        );
     }
 }
