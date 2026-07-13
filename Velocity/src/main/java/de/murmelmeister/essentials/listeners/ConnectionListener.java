@@ -5,7 +5,6 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
-import com.velocitypowered.api.event.player.KickedFromServerEvent;
 import com.velocitypowered.api.event.proxy.ProxyPingEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.server.ServerPing;
@@ -38,8 +37,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static de.murmelmeister.murmelapi.MurmelAPI.ENGLISH_CODE;
 import static de.murmelmeister.murmelapi.MurmelAPI.DEFAULT_GROUP_ID;
+import static de.murmelmeister.murmelapi.MurmelAPI.ENGLISH_CODE;
 
 public final class ConnectionListener {
     private final Logger logger;
@@ -125,12 +124,12 @@ public final class ConnectionListener {
         sessionUserIds.put(player.getUniqueId(), user.id());
     }
 
-    @Subscribe
+    /*@Subscribe
     public void handleKickedFromServer(@NotNull KickedFromServerEvent event) {
         // If the player is kicked while connecting (e.g., backend whitelist), ensure we close their session
         if (event.kickedDuringServerConnect())
             closeSession(event.getPlayer());
-    }
+    }*/
 
     @Subscribe
     public void handleDisconnect(@NotNull DisconnectEvent event) {
