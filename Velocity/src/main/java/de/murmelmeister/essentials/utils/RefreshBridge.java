@@ -5,6 +5,8 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
 import de.murmelmeister.murmelapi.utils.BufferUtils;
 import de.murmelmeister.murmelapi.utils.update.RefreshEvent;
+import de.murmelmeister.murmelapi.utils.update.RefreshOrigin;
+import de.murmelmeister.murmelapi.utils.update.RefreshListener;
 import de.murmelmeister.murmelapi.utils.update.RefreshProvider;
 import org.slf4j.Logger;
 
@@ -14,6 +16,7 @@ public final class RefreshBridge {
     private final RefreshProvider refreshProvider;
     private final Logger logger;
     private final Gson gson;
+    private final RefreshListener refreshListener;
 
     public RefreshBridge(ProxyServer server, ChannelIdentifier channel, RefreshProvider refreshProvider, Logger logger, Gson gson) {
         this.server = server;
@@ -21,17 +24,20 @@ public final class RefreshBridge {
         this.refreshProvider = refreshProvider;
         this.logger = logger;
         this.gson = gson;
+        this.refreshListener = this::broadcastToBackends;
     }
 
     public void register() {
-        refreshProvider.register(this::broadcastToBackends);
+        refreshProvider.register(refreshListener);
     }
 
     public void unregister() {
-        refreshProvider.unregister(this::broadcastToBackends);
+        refreshProvider.unregister(refreshListener);
     }
 
     private void broadcastToBackends(RefreshEvent<?> event) {
+        if (event.origin() == RefreshOrigin.REMOTE) return;
+
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("type", event.type());
         if (event.key() != null)

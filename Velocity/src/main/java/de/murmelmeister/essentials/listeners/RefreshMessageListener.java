@@ -9,6 +9,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.murmelapi.utils.BufferUtils;
+import de.murmelmeister.murmelapi.utils.update.RefreshOrigin;
 import de.murmelmeister.murmelapi.utils.update.RefreshProvider;
 import org.slf4j.Logger;
 
@@ -63,8 +64,9 @@ public final class RefreshMessageListener {
         String type = jsonObject.get("type").getAsString();
         if (hasKey) {
             String key = gson.toJson(jsonObject.get("key"));
-            refreshProvider.fireSingle(type, key);
-        } else refreshProvider.fireCache(type);
+            refreshProvider.fireSingle(type, key, RefreshOrigin.REMOTE);
+        } else
+            refreshProvider.fireCache(type, RefreshOrigin.REMOTE);
 
         // Broadcast the message to all other servers (without the sender's server)
         String senderServerName = connection.getServer().getServerInfo().getName();
