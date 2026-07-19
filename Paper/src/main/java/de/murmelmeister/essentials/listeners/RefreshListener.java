@@ -24,7 +24,7 @@ public final class RefreshListener implements Listener {
         if (user == null) return;
         if (user.debugMode()) {
             player.sendRichMessage("<#8800cc>Cache - Type: <cache_type>, Key: <cache_key>",
-                    Placeholder.unparsed("cache_type", cache), Placeholder.unparsed("cache_key", key));
+                    Placeholder.unparsed("cache_type", cache), Placeholder.unparsed("cache_key", key == null ? "null" : key));
         }
     }
 }
