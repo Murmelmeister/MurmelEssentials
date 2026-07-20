@@ -144,8 +144,8 @@ public final class ConnectionListener {
         UUID mojangId = player.getUniqueId();
         User user = userProvider.findByMojangId(mojangId).orElse(null);
         if (user != null) {
-            userStatsProvider.refreshSingle(user.id());
             userService.closeSession(user.id());
+            userStatsProvider.refreshSingle(user.id());
             return;
         }
 
