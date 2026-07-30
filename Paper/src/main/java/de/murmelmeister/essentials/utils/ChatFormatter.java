@@ -78,7 +78,7 @@ public final class ChatFormatter {
     }
 
     /**
-     * Replaces hex color codes with MiniMessage <#rrggbb> tags.
+     * Replaces hex color codes with MiniMessage {@code <#rrggbb>} tags.
      *
      * @param input The string containing hex codes
      * @return The transformed string with MiniMessage hex tags
