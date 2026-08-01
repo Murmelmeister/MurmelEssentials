@@ -12,30 +12,25 @@ import com.velocitypowered.api.scheduler.TaskStatus;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.murmelapi.permission.PermissionService;
 import de.murmelmeister.murmelapi.permission.PermissionTarget;
-import de.murmelmeister.murmelapi.user.User;
-import de.murmelmeister.murmelapi.user.UserProvider;
 
 import java.util.concurrent.TimeUnit;
 
 public final class CustomPermission implements PermissionProvider, PermissionFunction {
-    private final UserProvider userProvider;
     private final PermissionService permissionService;
     private final Player player;
+    private final PermissionTarget target;
 
     private static ScheduledTask task;
 
-    public CustomPermission(UserProvider userProvider, PermissionService permissionService, Player player) {
-        this.userProvider = userProvider;
+    public CustomPermission(PermissionService permissionService, Player player, int userId) {
         this.permissionService = permissionService;
         this.player = player;
+        this.target = PermissionTarget.user(userId);
     }
 
     @Override
     public Tristate getPermissionValue(String perm) {
-        User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
-        if (user == null) return Tristate.UNDEFINED;
-
-        return Tristate.fromBoolean(permissionService.hasPermission(PermissionTarget.user(user.id()), perm));
+        return Tristate.fromBoolean(permissionService.hasPermission(target, perm));
     }
 
     @Override
@@ -52,6 +47,6 @@ public final class CustomPermission implements PermissionProvider, PermissionFun
                     if (updatedRows > 0)
                         plugin.getLogger().info("Updated {} expired permissions.", updatedRows);
                 })
-                .repeat(1, TimeUnit.SECONDS).schedule();
+                .repeat(1, TimeUnit.MINUTES).schedule();
     }
 }
