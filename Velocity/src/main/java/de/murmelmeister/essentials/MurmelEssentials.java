@@ -55,6 +55,10 @@ import org.slf4j.Logger;
 import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Plugin(
         id = "murmelessentials",
@@ -67,6 +71,7 @@ import java.util.List;
 public final class MurmelEssentials {
     private final Logger logger;
     private final ProxyServer server;
+    private final ExecutorService databaseExecutor;
 
     private final MurmelAPI murmelAPI;
     private final DatabaseConfig databaseConfig;
@@ -88,6 +93,12 @@ public final class MurmelEssentials {
     public MurmelEssentials(Logger logger, ProxyServer server, @DataDirectory Path dataDirectory) {
         this.logger = logger;
         this.server = server;
+        AtomicInteger databaseThreadId = new AtomicInteger();
+        this.databaseExecutor = Executors.newFixedThreadPool(4, runnable -> {
+            Thread thread = new Thread(runnable, "murmelessentials-database-" + databaseThreadId.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        });
         this.murmelAPI = new MurmelAPI();
         this.databaseConfig = new DatabaseConfig(dataDirectory, murmelAPI);
         this.messageConfig = new MessageConfig(dataDirectory);
@@ -133,6 +144,14 @@ public final class MurmelEssentials {
         tablistUtil.stop(config);
         refreshBridge.unregister();
         server.getChannelRegistrar().unregister(channel);
+        databaseExecutor.shutdown();
+        try {
+            if (!databaseExecutor.awaitTermination(10, TimeUnit.SECONDS))
+                logger.warn("Database tasks did not finish before shutdown.");
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            logger.warn("Interrupted while waiting for database tasks to finish.", exception);
+        }
         databaseConfig.disconnect();
     }
 
@@ -142,6 +161,10 @@ public final class MurmelEssentials {
 
     public ProxyServer getServer() {
         return server;
+    }
+
+    public ExecutorService getDatabaseExecutor() {
+        return databaseExecutor;
     }
 
     public void reloadTablist() {

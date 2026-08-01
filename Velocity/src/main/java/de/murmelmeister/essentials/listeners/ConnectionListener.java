@@ -1,5 +1,6 @@
 package de.murmelmeister.essentials.listeners;
 
+import com.velocitypowered.api.event.Continuation;
 import com.velocitypowered.api.event.ResultedEvent;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
@@ -19,8 +20,8 @@ import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.permission.PermissionTarget;
 import de.murmelmeister.murmelapi.permission.parent.Parent;
 import de.murmelmeister.murmelapi.permission.parent.ParentProvider;
-import de.murmelmeister.murmelapi.punishment.audit.PunishmentAudit;
 import de.murmelmeister.murmelapi.punishment.PunishmentService;
+import de.murmelmeister.murmelapi.punishment.audit.PunishmentAudit;
 import de.murmelmeister.murmelapi.punishment.type.PunishmentType;
 import de.murmelmeister.murmelapi.settings.SettingsService;
 import de.murmelmeister.murmelapi.user.User;
@@ -34,6 +35,8 @@ import org.slf4j.Logger;
 import java.net.InetAddress;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 import static de.murmelmeister.murmelapi.MurmelAPI.DEFAULT_GROUP_ID;
 import static de.murmelmeister.murmelapi.MurmelAPI.ENGLISH_CODE;
@@ -44,6 +47,7 @@ public final class ConnectionListener {
     private static final int TYPE_IP_BAN_ID = PunishmentType.IP_BAN.getId();
 
     private final Logger logger;
+    private final Executor databaseExecutor;
     private final UserProvider userProvider;
     private final UserService userService;
     private final LanguageTypeProvider languageProvider;
@@ -57,6 +61,7 @@ public final class ConnectionListener {
 
     public ConnectionListener(@NotNull MurmelEssentials plugin) {
         this.logger = plugin.getLogger();
+        this.databaseExecutor = plugin.getDatabaseExecutor();
         this.userProvider = plugin.getUserProvider();
         this.userService = plugin.getUserService();
         this.languageProvider = plugin.getLanguageProvider();
@@ -70,19 +75,19 @@ public final class ConnectionListener {
 
     private @NotNull User processUserJoin(@NotNull Player player) {
         User user = userService.join(player.getUniqueId(), player.getUsername());
+        PermissionTarget target = PermissionTarget.user(user.id());
 
-        Optional<Parent> parent = parentProvider.findParent(PermissionTarget.user(user.id()), DEFAULT_GROUP_ID);
+        Optional<Parent> parent = parentProvider.findParent(target, DEFAULT_GROUP_ID);
         if (parent.isEmpty())
-            parentProvider.upsert(PermissionTarget.user(user.id()), DEFAULT_GROUP_ID, -1, -1);
+            parentProvider.upsert(target, DEFAULT_GROUP_ID, -1, -1);
 
         String code = player.getPlayerSettings().getLocale().toLanguageTag();
         LanguageType language = languageProvider.findByCode(code).orElse(
                 languageProvider.findByCode(ENGLISH_CODE).orElseThrow(() -> new IllegalStateException("Default language not found"))
         );
 
-        userProvider.update(user.id(), user.username(), user.firstLogin(),
-                user.debugUser(), user.debugEnabled(), language.id());
-        return user;
+        return userProvider.update(user.id(), user.username(), user.firstLogin(),
+                user.debugUser(), user.debugEnabled(), language.id()).orElse(user);
     }
 
     private void processSessionStart(@NotNull Player player, int userId) {
@@ -93,32 +98,63 @@ public final class ConnectionListener {
     }
 
     @Subscribe
-    public void handleLogin(@NotNull LoginEvent event) {
+    public void handleLogin(@NotNull LoginEvent event, @NotNull Continuation continuation) {
         Player player = event.getPlayer();
-        User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
-        if (user == null)
-            user = userService.join(player.getUniqueId(), player.getUsername());
+        runDatabaseTask(() -> {
+            try {
+                User user = userProvider.findByMojangId(player.getUniqueId())
+                        .orElseGet(() -> userService.join(player.getUniqueId(), player.getUsername()));
 
-        Maintenance maintenance = ConfigProvider.loadMaintenance(settingsService);
-        if (maintenance.mode() && !maintenance.whitelist().contains(user.id())) {
-            event.setResult(ResultedEvent.ComponentResult.denied(
-                    MINI_MESSAGE.deserialize(messageService.getMessage(Message.MAINTENANCE_KICK_MESSAGE.getTag(), user.languageId()))
-            ));
-        }
+                Maintenance maintenance = ConfigProvider.loadMaintenance(settingsService);
+                if (maintenance.mode() && !maintenance.whitelist().contains(user.id())) {
+                    event.setResult(ResultedEvent.ComponentResult.denied(
+                            MINI_MESSAGE.deserialize(
+                                    messageService.getMessage(
+                                            Message.MAINTENANCE_KICK_MESSAGE.getTag(),
+                                            user.languageId()
+                                    )
+                            )
+                    ));
+                    return;
+                }
 
-        checkPunishment(event, user);
+                checkPunishment(event, user);
+            } catch (Exception e) {
+                logger.error("Error during login event processing for player {}", player.getUsername(), e);
+                event.setResult(ResultedEvent.ComponentResult.denied(
+                        MINI_MESSAGE.deserialize("<red>Internal server error occurred. Please try again later.")
+                ));
+            }
+        }).whenComplete((ignored, throwable) -> {
+            if (throwable != null) {
+                logger.error("Could not schedule login processing for player {}", player.getUsername(), throwable);
+                event.setResult(ResultedEvent.ComponentResult.denied(
+                        MINI_MESSAGE.deserialize("<red>Internal server error occurred. Please try again later.")
+                ));
+            }
+            continuation.resume();
+        });
     }
 
     @Subscribe
     public void handlePostLogin(@NotNull PostLoginEvent event) {
         Player player = event.getPlayer();
-        User user = processUserJoin(player);
-        processSessionStart(player, user.id());
+        runDatabaseTask(() -> {
+            User user = processUserJoin(player);
+            processSessionStart(player, user.id());
+        }).exceptionally(throwable -> {
+            logger.error("Failed to start session for player {}", player.getUsername(), throwable);
+            return null;
+        });
     }
 
     @Subscribe
     public void handleDisconnect(@NotNull DisconnectEvent event) {
-        closeSession(event.getPlayer());
+        Player player = event.getPlayer();
+        runDatabaseTask(() -> closeSession(player)).exceptionally(throwable -> {
+            logger.error("Failed to close session for player {}", player.getUsername(), throwable);
+            return null;
+        });
     }
 
     @Subscribe
@@ -182,5 +218,13 @@ public final class ConnectionListener {
         punishmentService.checkIpPunishment(ipAddress, TYPE_IP_BAN_ID, audit ->
                 disconnectPunishment(event, userId, languageId, audit)
         );
+    }
+
+    private @NotNull CompletableFuture<Void> runDatabaseTask(@NotNull Runnable task) {
+        try {
+            return CompletableFuture.runAsync(task, databaseExecutor);
+        } catch (RuntimeException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
     }
 }
