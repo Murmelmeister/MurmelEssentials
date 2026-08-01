@@ -137,14 +137,15 @@ public final class ConnectionListener {
     }
 
     @Subscribe
-    public void handlePostLogin(@NotNull PostLoginEvent event) {
+    public void handlePostLogin(@NotNull PostLoginEvent event, @NotNull Continuation continuation) {
         Player player = event.getPlayer();
         runDatabaseTask(() -> {
             User user = processUserJoin(player);
             processSessionStart(player, user.id());
-        }).exceptionally(throwable -> {
-            logger.error("Failed to start session for player {}", player.getUsername(), throwable);
-            return null;
+        }).whenComplete((ignored, throwable) -> {
+            if (throwable != null)
+                logger.error("Failed to start session for player {}", player.getUsername(), throwable);
+            continuation.resume();
         });
     }
 
