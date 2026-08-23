@@ -9,6 +9,7 @@ public enum ConfigValue {
     MAINTENANCE_MOTD("maintenance.motd", "<#00ffFF>MurmelAPI <#454545>| <#ff0000>Maintenance\n<#ff00bb>Please try again later."),
     MAINTENANCE_PROTOCOL_VERSION("maintenance.protocol.version", 0),
     MAINTENANCE_PROTOCOL_NAME("maintenance.protocol.name", "Maintenance"),
+    COMMAND_LOGGER_ENABLE("command.logger.enable", true),
     ;
     public static final ConfigValue[] VALUES = values();
 

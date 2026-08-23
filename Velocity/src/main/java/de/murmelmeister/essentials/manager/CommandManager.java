@@ -460,7 +460,7 @@ public abstract class CommandManager {
         CommandResult result;
         try {
             result = handler.handle(source, executor);
-            if (result.log())
+            if (pluginConfig.getBoolean(ConfigValue.COMMAND_LOGGER_ENABLE) && result.log())
                 logger.info("The user '{} (ID: {})' executes the command '{}'",
                         executor.username(), executor.id(), context.getInput());
         } catch (CommandException e) {
