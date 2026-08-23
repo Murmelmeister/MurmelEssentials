@@ -7,7 +7,7 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
-import de.murmelmeister.essentials.manager.command.CommandBrigadier;
+import de.murmelmeister.essentials.manager.command.CommandConfig;
 import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.library.utils.StringUtil;
@@ -20,7 +20,8 @@ import de.murmelmeister.murmelapi.utils.TimeUtil;
 
 import java.time.LocalDateTime;
 
-public final class PlayTimeCommand extends CommandManager implements CommandBrigadier {
+@CommandConfig(id = "playtime", name = "playtime")
+public final class PlayTimeCommand extends CommandManager {
     private final MessageService messageService;
     private final UserProvider userProvider;
 
@@ -31,9 +32,9 @@ public final class PlayTimeCommand extends CommandManager implements CommandBrig
     }
 
     @Override
-    public LiteralArgumentBuilder<CommandSource> createCommand() {
-        return BrigadierCommand.literalArgumentBuilder("playtime")
-                .requires(source -> source.hasPermission("murmel.command.playtime"))
+    public LiteralArgumentBuilder<CommandSource> createCommand(String commandName) {
+        return BrigadierCommand.literalArgumentBuilder(commandName)
+                .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "playtime"))
                 .executes(context ->
                         runWithTiming(context, (source, executor) -> {
                             UserStats userStats = getUserStats(executor.id());
