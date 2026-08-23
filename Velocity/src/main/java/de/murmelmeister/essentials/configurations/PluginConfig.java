@@ -126,6 +126,13 @@ public class PluginConfig {
         return node(value).getLong(defaultValue);
     }
 
+    public String getString(ConfigValue value) {
+        if (!(value.getDefaultValue() instanceof String defaultValue))
+            throw new IllegalArgumentException("Config value is not a string: " + value.getPath());
+
+        return node(value).getString(defaultValue);
+    }
+
     public boolean getBoolean(String path, Boolean defaultValue) {
         return node(path).getBoolean(defaultValue);
     }

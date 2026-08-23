@@ -12,7 +12,9 @@ import com.velocitypowered.api.proxy.server.ServerPing;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.configs.ConfigProvider;
 import de.murmelmeister.essentials.configs.settings.Maintenance;
+import de.murmelmeister.essentials.configurations.PluginConfig;
 import de.murmelmeister.essentials.messages.Message;
+import de.murmelmeister.essentials.utils.ConfigValue;
 import de.murmelmeister.essentials.utils.PunishmentUtil;
 import de.murmelmeister.murmelapi.language.LanguageType;
 import de.murmelmeister.murmelapi.language.LanguageTypeProvider;
@@ -55,6 +57,7 @@ public final class ConnectionListener {
     private final PunishmentService punishmentService;
     private final PunishmentUtil punishmentUtil;
 
+    private final PluginConfig config;
     private final SettingsService settingsService;
     private final MessageService messageService;
     private final UserStatsProvider userStatsProvider;
@@ -68,6 +71,7 @@ public final class ConnectionListener {
         this.parentProvider = plugin.getParentProvider();
         this.punishmentService = plugin.getPunishmentService();
         this.punishmentUtil = plugin.getPunishmentUtil();
+        this.config = plugin.getPluginConfig();
         this.settingsService = plugin.getSettingsService();
         this.messageService = plugin.getMessageService();
         this.userStatsProvider = plugin.getUserStatsProvider();
@@ -105,8 +109,8 @@ public final class ConnectionListener {
                 User user = userProvider.findByMojangId(player.getUniqueId())
                         .orElseGet(() -> userService.join(player.getUniqueId(), player.getUsername()));
 
-                Maintenance maintenance = ConfigProvider.loadMaintenance(settingsService);
-                if (maintenance.mode() && !maintenance.whitelist().contains(user.id())) {
+                Maintenance maintenance = ConfigProvider.loadMaintenance(settingsService); // TODO: Remove this and use the MurmelAPI maintenance service
+                if (config.getBoolean(ConfigValue.MAINTENANCE_ENABLE) && !maintenance.whitelist().contains(user.id())) {
                     event.setResult(ResultedEvent.ComponentResult.denied(
                             MINI_MESSAGE.deserialize(
                                     messageService.getMessage(
@@ -160,17 +164,16 @@ public final class ConnectionListener {
 
     @Subscribe
     public void handlePing(@NotNull ProxyPingEvent event) {
-        Maintenance maintenance = ConfigProvider.loadMaintenance(settingsService);
-        if (!maintenance.mode())
+        if (!config.getBoolean(ConfigValue.MAINTENANCE_ENABLE))
             return;
 
         ServerPing ping = event.getPing();
         ServerPing.Builder builder = ping.asBuilder()
-                .description(MINI_MESSAGE.deserialize(maintenance.motd()))
+                .description(MINI_MESSAGE.deserialize(config.getString(ConfigValue.MAINTENANCE_MOTD)))
                 .version(
                         new ServerPing.Version(
-                                maintenance.protocolVersion(),
-                                maintenance.protocolName()
+                                config.getInt(ConfigValue.MAINTENANCE_PROTOCOL_VERSION),
+                                config.getString(ConfigValue.MAINTENANCE_PROTOCOL_NAME)
                         )
                 );
 
