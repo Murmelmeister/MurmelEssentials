@@ -5,7 +5,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import com.velocitypowered.api.scheduler.TaskStatus;
 import de.murmelmeister.essentials.MurmelEssentials;
-import de.murmelmeister.essentials.configs.settings.Config;
+import de.murmelmeister.essentials.configurations.PluginConfig;
 import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.murmelapi.language.message.MessageService;
 import de.murmelmeister.murmelapi.user.User;
@@ -16,7 +16,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.slf4j.Logger;
 
-import java.util.*;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -60,28 +60,28 @@ public class TablistUtil {
         );
     }
 
-    public void stop(Config config) {
-        if (!config.tablistEnable()) return;
+    public void stop() {
         if (task != null && task.status() != TaskStatus.CANCELLED) {
-            tickCounter.set(0);
             task.cancel();
+            task = null;
+            tickCounter.set(0);
             logger.info("Proxy tablist stopped.");
         }
     }
 
-    public void start(Config config) {
-        if (!config.tablistEnable()) return;
+    public void start(PluginConfig config) {
+        if (!config.getBoolean(ConfigValue.TABLIST_ENABLE)) return;
         task = server.getScheduler().buildTask(plugin,
                         () -> {
                             long tick = tickCounter.getAndIncrement();
                             server.getAllPlayers().forEach(this::setTablist);
                         })
-                .repeat(config.tablistRefresh(), TimeUnit.MILLISECONDS).schedule();
+                .repeat(config.getLong(ConfigValue.TABLIST_REFRESH), TimeUnit.MILLISECONDS).schedule();
         logger.info("Proxy tablist started.");
     }
 
-    public void reload(Config config) {
-        stop(config);
+    public void reload(PluginConfig config) {
+        stop();
         start(config);
     }
 }
