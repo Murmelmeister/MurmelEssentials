@@ -1,29 +1,33 @@
 package de.murmelmeister.essentials.manager;
 
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.tree.LiteralCommandNode;
-import com.velocitypowered.api.command.*;
+import com.velocitypowered.api.command.BrigadierCommand;
+import com.velocitypowered.api.command.CommandMeta;
+import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.MurmelEssentials;
-import de.murmelmeister.essentials.commands.*;
-import de.murmelmeister.essentials.configs.ConfigProvider;
-import de.murmelmeister.essentials.configs.settings.Config;
-import de.murmelmeister.essentials.manager.command.*;
+import de.murmelmeister.essentials.configurations.PluginConfig;
+import de.murmelmeister.essentials.manager.command.CommandConfig;
+import de.murmelmeister.essentials.manager.command.CommandException;
+import de.murmelmeister.essentials.manager.command.CommandHandler;
 import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.essentials.messages.Message;
+import de.murmelmeister.essentials.utils.ConfigValue;
 import de.murmelmeister.library.utils.MojangUtils;
+import de.murmelmeister.library.utils.StringUtil;
 import de.murmelmeister.murmelapi.exceptions.MurmelException;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.language.message.MessageService;
-import de.murmelmeister.murmelapi.settings.SettingsService;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.user.UserService;
 import de.murmelmeister.murmelapi.user.login.UserLogin;
-import de.murmelmeister.library.utils.StringUtil;
 import de.murmelmeister.murmelapi.user.stats.UserStats;
 import de.murmelmeister.murmelapi.user.stats.UserStatsProvider;
 import de.murmelmeister.murmelapi.utils.TimeFilterUtil;
@@ -39,88 +43,206 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.stream.Stream;
 
-import static de.murmelmeister.murmelapi.MurmelAPI.DEFAULT_GROUP_ID;
 import static de.murmelmeister.murmelapi.MurmelAPI.CONSOLE_USER_ID;
+import static de.murmelmeister.murmelapi.MurmelAPI.DEFAULT_GROUP_ID;
 
 public abstract class CommandManager {
+    private static final Map<String, CommandMeta> REGISTERED_COMMANDS = new HashMap<>();
+    private static volatile List<Class<? extends CommandManager>> autoRegistry;
+
     private final MurmelEssentials plugin;
+    private final PluginConfig pluginConfig;
     private final Logger logger;
     private final UserProvider userProvider;
     private final UserStatsProvider userStatsProvider;
     private final GroupProvider groupProvider;
-    private final SettingsService settingsService;
     private final MessageService messageService;
     private final UserService userService;
-
 
     private final MiniMessage miniMessage;
 
     public CommandManager(@NotNull MurmelEssentials plugin) {
         this.plugin = plugin;
+        this.pluginConfig = plugin.getPluginConfig();
         this.logger = plugin.getLogger();
         this.userProvider = plugin.getUserProvider();
         this.userStatsProvider = plugin.getUserStatsProvider();
         this.groupProvider = plugin.getGroupProvider();
-        this.settingsService = plugin.getSettingsService();
         this.messageService = plugin.getMessageService();
         this.userService = plugin.getUserService();
         this.miniMessage = MiniMessage.miniMessage();
     }
 
-    public static void register(MurmelEssentials plugin) {
-        ProxyServer server = plugin.getServer();
-        addCommand(server, new PlayTimeCommand(plugin));
-        addCommand(server, new PermissionCommand(plugin), "perms");
-        addCommand(server, new RefreshCommand(plugin));
-        addCommand(server, new ShowTeamCommand(plugin));
-        addCommand(server, new UserInfoCommand(plugin));
-        //addCommand(server, new LanguageCommand(plugin));
-        addCommand(server, new ReasonCommand(plugin));
-        addCommand(server, new PunishCommand(plugin));
-        addCommand(server, new UnpunishCommand(plugin));
-        addCommand(server, new PrefixCommand(plugin));
-        addCommand(server, new ColorCommand(plugin));
-        addCommand(server, new ClanCommand(plugin));
+    public abstract LiteralArgumentBuilder<CommandSource> createCommand(String commandName);
+
+    public static void reload(MurmelEssentials plugin) {
+        unregister(plugin.getServer());
+        register(plugin, plugin.getLogger());
     }
 
-    private static void addCommand(@NotNull ProxyServer server, @NotNull CommandBrigadier command) {
-        LiteralCommandNode<CommandSource> node = command.createCommand().build();
+    public static void register(MurmelEssentials plugin, Logger logger) {
+        final String basePackage = plugin.getClass().getPackageName() + ".commands";
+        List<Class<? extends CommandManager>> commandClasses = getAutoRegistry(plugin, logger, basePackage);
+
+        addMissingCommandDefaults(plugin.getPluginConfig(), commandClasses);
+
+        for (Class<? extends CommandManager> commandClass : commandClasses) {
+            try {
+                CommandManager commandInstance = commandClass.getDeclaredConstructor(MurmelEssentials.class)
+                        .newInstance(plugin);
+                addCommand(commandInstance);
+            } catch (Exception e) {
+                logger.error("Failed to register command: {}", commandClass.getName(), e);
+            }
+        }
+
+        logger.info("Registered {} commands.", commandClasses.size());
+    }
+
+    private static void addMissingCommandDefaults(
+            PluginConfig config,
+            List<Class<? extends CommandManager>> commandClasses
+    ) {
+        Map<String, Object> defaults = new LinkedHashMap<>();
+
+        for (Class<? extends CommandManager> commandClass : commandClasses) {
+            CommandConfig command = commandClass.getAnnotation(CommandConfig.class);
+            if (command == null) continue;
+
+            String path = "commands." + command.id() + ".";
+            if (!command.bypass()) defaults.put(path + "enabled", true);
+            defaults.put(path + "name", command.name());
+            defaults.put(path + "aliases", List.of(command.aliases()));
+        }
+
+        config.addCommandDefaults(defaults);
+    }
+
+    public static void unregister(ProxyServer server) {
+        REGISTERED_COMMANDS.values().forEach(
+                server.getCommandManager()::unregister
+        );
+        REGISTERED_COMMANDS.clear();
+    }
+
+    private static void addCommand(CommandManager clazz) {
+        CommandConfig command = clazz.getClass().getAnnotation(CommandConfig.class);
+        if (command == null)
+            return;
+
+        PluginConfig config = clazz.plugin.getPluginConfig();
+        if (!command.bypass() && !config.getBoolean("commands." + command.id() + ".enabled", true))
+            return;
+
+        String commandName = config.getString("commands." + command.id() + ".name", command.name());
+        List<String> aliases = config.getStringList("commands." + command.id() + ".aliases", List.of(command.aliases()));
+        LiteralCommandNode<CommandSource> node = clazz.createCommand(commandName).build();
         BrigadierCommand brigadierCommand = new BrigadierCommand(node);
-        CommandMeta meta = server.getCommandManager().metaBuilder(brigadierCommand).build();
-        server.getCommandManager().register(meta, brigadierCommand);
+        CommandMeta meta = aliases.isEmpty()
+                ? clazz.plugin.getServer().getCommandManager()
+                .metaBuilder(brigadierCommand)
+                .build()
+                : clazz.plugin.getServer().getCommandManager()
+                .metaBuilder(brigadierCommand)
+                .aliases(aliases.toArray(new String[0]))
+                .build();
+
+        clazz.plugin.getServer().getCommandManager().register(meta, brigadierCommand);
+        REGISTERED_COMMANDS.put(command.id(), meta);
     }
 
-    private static void addCommand(@NotNull ProxyServer server, @NotNull CommandBrigadier command, String... aliases) {
-        LiteralCommandNode<CommandSource> node = command.createCommand().build();
-        BrigadierCommand brigadierCommand = new BrigadierCommand(node);
-        CommandMeta meta = server.getCommandManager().metaBuilder(brigadierCommand).aliases(aliases).build();
-        server.getCommandManager().register(meta, brigadierCommand);
+    private static List<Class<? extends CommandManager>> getAutoRegistry(MurmelEssentials plugin, Logger logger, String basePackage) {
+        List<Class<? extends CommandManager>> local = autoRegistry;
+        if (local != null) return local;
+
+        synchronized (CommandManager.class) {
+            if (autoRegistry != null) return autoRegistry;
+
+            final List<Class<? extends CommandManager>> result = new ArrayList<>();
+            final String packagePath = basePackage.replace(".", "/") + "/";
+
+            File jarFile = new File(URLDecoder.decode(new File(plugin.getClass().getProtectionDomain().getCodeSource().getLocation().getPath()).getPath(), StandardCharsets.UTF_8));
+            ClassLoader classLoader = plugin.getClass().getClassLoader();
+
+            try (JarFile jar = new JarFile(jarFile)) {
+                Enumeration<JarEntry> entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    JarEntry entry = entries.nextElement();
+                    String name = entry.getName();
+                    if (!name.startsWith(packagePath) || !name.endsWith(".class")) continue;
+                    if (name.contains("$")) continue;
+
+                    String className = name.substring(0, name.length() - ".class".length()).replace('/', '.');
+                    try {
+                        Class<?> clazz = classLoader.loadClass(className);
+                        if (!CommandManager.class.isAssignableFrom(clazz)) continue;
+                        if (!clazz.isAnnotationPresent(CommandConfig.class)) continue;
+
+                        result.add(clazz.asSubclass(CommandManager.class));
+                    } catch (ClassNotFoundException e) {
+                        logger.warn("Failed to load command class: {}", className, e);
+                    }
+                }
+            } catch (IOException e) {
+                logger.error("Could not find generated command registry.", e);
+                return Collections.emptyList();
+            }
+
+            autoRegistry = Collections.unmodifiableList(result);
+            return result;
+        }
     }
 
-    private void sendRawMessage(@NotNull CommandSource source, String message, TagResolver... resolvers) {
+    public void sendRawMessage(@NotNull CommandSource source, String message, TagResolver... resolvers) {
         source.sendRichMessage(message, resolvers);
     }
 
     public void sendRawMessage(@NotNull CommandSource source, int languageId, String message, TagResolver... resolvers) {
-        final Config config = ConfigProvider.load(settingsService);
-        if (config.prefixEnable()) {
+        if (pluginConfig.getBoolean(ConfigValue.PLUGIN_PREFIX)) {
             String prefix = messageService.getMessage(Message.PREFIX.getTag(), languageId);
             sendRawMessage(source, prefix + message, resolvers);
         } else {
             sendRawMessage(source, message, resolvers);
+        }
+    }
+
+    public void sendPagedMessage(@NotNull CommandSource source, List<Component> messages, String commandBase, int page) {
+        int configPageSize = pluginConfig.getInt(ConfigValue.COMMAND_PAGED_SIZE);
+        int totalPages = (int) Math.ceil((double) messages.size() / configPageSize);
+        if (totalPages == 0) totalPages = 1;
+        page = Math.clamp(page, 1, totalPages);
+
+        int start = (page - 1) * configPageSize;
+        int end = Math.min(start + configPageSize, messages.size());
+        List<Component> pageMessages = messages.subList(start, end);
+        pageMessages.forEach(source::sendMessage);
+
+        if (totalPages > 1) {
+            // TODO: Add to message file
+            String prevButton = page > 1
+                    ? "<click:run_command:'/" + commandBase + " " + (page - 1) + "'><hover:show_text:'<#00cc88>Previous page</#00cc88>'><#00cc88>«</#00cc88></hover></click>"
+                    : "<#454545>«</#454545>";
+            String nextButton = page < totalPages
+                    ? "<click:run_command:'/" + commandBase + " " + (page + 1) + "'><hover:show_text:'<#00cc88>Next page</#00cc88>'><#00cc88>»</#00cc88></hover></click>"
+                    : "<#454545>»</#454545>";
+            String pageInfo = "<#999999>Page <#999900>" + page + "</#999900> of <#999900>" + totalPages + "</#999900></#999999>";
+            sendRawMessage(source, prevButton + " " + pageInfo + " " + nextButton);
         }
     }
 
