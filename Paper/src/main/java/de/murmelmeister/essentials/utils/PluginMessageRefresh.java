@@ -6,6 +6,7 @@ import com.google.gson.JsonSyntaxException;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.events.ReceiveRefreshEvent;
 import de.murmelmeister.murmelapi.utils.BufferUtils;
+import de.murmelmeister.murmelapi.utils.update.RefreshOrigin;
 import de.murmelmeister.murmelapi.utils.update.RefreshProvider;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Server;
@@ -57,10 +58,10 @@ public final class PluginMessageRefresh implements PluginMessageListener {
         String type = jsonObject.get("type").getAsString();
         if (hasKey) {
             String key = gson.toJson(jsonObject.get("key"));
-            refreshProvider.fireSingle(type, key);
+            refreshProvider.fireSingle(type, key, RefreshOrigin.REMOTE);
             server.getPluginManager().callEvent(new ReceiveRefreshEvent(player, type, key));
         } else {
-            refreshProvider.fireCache(type);
+            refreshProvider.fireCache(type, RefreshOrigin.REMOTE);
             server.getPluginManager().callEvent(new ReceiveRefreshEvent(player, type));
         }
     }
