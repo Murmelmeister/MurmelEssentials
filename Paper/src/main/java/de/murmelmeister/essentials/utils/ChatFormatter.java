@@ -4,112 +4,135 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.entity.Player;
 
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Utility class for formatting chat messages by converting
- * legacy, hex, and gradient color codes into MiniMessage tags.
+ * Converts permitted ampersand-based chat formatting into MiniMessage tags.
  *
- * <p>This class escapes user input, checks permissions, and then
- * applies regex-based transformations for supported color codes.
+ * <p>The following case-insensitive formats are supported:
+ * <ul>
+ *     <li>Legacy colors and decorations: {@code &cText&/c}</li>
+ *     <li>Hex colors: {@code &#FF0000Text&/#FF0000}</li>
+ *     <li>Gradients with at least two colors:
+ *         {@code &g:#FF0000:#0000FF;Text&/g}</li>
+ * </ul>
+ *
+ * <p>Each format requires its corresponding permission. Player-supplied
+ * MiniMessage tags are escaped before conversion, so only the supported
+ * ampersand syntax can introduce formatting. The fallback prefix is trusted
+ * MiniMessage supplied by the plugin and is therefore not escaped.
  */
 public final class ChatFormatter {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
-    private static final Pattern LEGACY_COLOR_CODE = Pattern.compile("(?i)&([0-9A-FK-OR])");
-    private static final Pattern HEX_COLOR_CODE = Pattern.compile("(?i)&#([0-9A-F]{6})");
-    private static final Pattern GRADIENT_COLOR_CODE = Pattern.compile("(?i)&g:(#[0-9A-F]{6}(?::#[0-9A-F]{6})*);");
+    private static final Pattern LEGACY_COLOR_CODE = Pattern.compile("(?i)&(/?)([0-9a-fk-or])");
+    private static final Pattern HEX_COLOR_CODE = Pattern.compile("(?i)&(/?)#([0-9a-f]{6})");
+    private static final Pattern GRADIENT_COLOR_CODE = Pattern.compile("(?i)&g:(#[0-9a-f]{6}(?::#[0-9a-f]{6})+);");
+    private static final Pattern GRADIENT_CLOSE_CODE = Pattern.compile("(?i)&/g");
 
     private static final String PERMISSION_COLOR_LEGACY = "murmel.color.legacy";
     private static final String PERMISSION_COLOR_HEX = "murmel.color.hex";
     private static final String PERMISSION_COLOR_GRADIENT = "murmel.color.gradient";
 
+    private ChatFormatter() {
+    }
+
     /**
-     * Formats the given raw message by escaping MiniMessage tags,
-     * then applying to color-code transformations according to player permissions.
+     * Formats a raw player message according to the player's color permissions.
      *
-     * @param player         The player whose permissions determine allowed codes
-     * @param raw            The raw input string containing potential color codes
-     * @param fallbackPrefix A MiniMessage prefix to prepend for default styling
-     * @return A Component ready for display via MiniMessage
+     * <p>Unsupported or unauthorized ampersand codes remain unchanged. The
+     * trusted {@code fallbackPrefix} is prepended before the complete message is
+     * deserialized by MiniMessage.
+     *
+     * @param player         Player whose permissions control the available formats
+     * @param raw            Untrusted message entered by the player
+     * @param fallbackPrefix Trusted MiniMessage prefix providing the default style
+     * @return The formatted chat component
+     * @throws NullPointerException If any argument is {@code null}
      */
     public static Component format(Player player, String raw, String fallbackPrefix) {
-        // Escape any MiniMessage tags and quote replacement sequences
-        String safeRaw = Matcher.quoteReplacement(MINI_MESSAGE.escapeTags(raw));
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(raw, "raw");
+        Objects.requireNonNull(fallbackPrefix, "fallbackPrefix");
 
-        // Apply gradient if permitted
-        if (player.hasPermission(PERMISSION_COLOR_GRADIENT)
-            && GRADIENT_COLOR_CODE.matcher(safeRaw).find())
+        // Escape untrusted MiniMessage before introducing the permitted tags below.
+        String safeRaw = MINI_MESSAGE.escapeTags(raw);
+
+        if (player.hasPermission(PERMISSION_COLOR_GRADIENT))
             safeRaw = applyGradientColorCode(safeRaw);
 
-        // Apply hex if permitted
-        if (player.hasPermission(PERMISSION_COLOR_HEX)
-            && HEX_COLOR_CODE.matcher(safeRaw).find())
+        if (player.hasPermission(PERMISSION_COLOR_HEX))
             safeRaw = applyHexColorCode(safeRaw);
 
-        // Apply legacy if permitted
-        if (player.hasPermission(PERMISSION_COLOR_LEGACY)
-            && LEGACY_COLOR_CODE.matcher(safeRaw).find())
+        if (player.hasPermission(PERMISSION_COLOR_LEGACY))
             safeRaw = applyLegacyColorCode(safeRaw);
 
-        // Deserialize into a MiniMessage component
-        safeRaw = safeRaw.replace("\\$", "$")
-                .replace("\\<", "<")
-                .replace("\\>", ">");
         return MINI_MESSAGE.deserialize(fallbackPrefix + safeRaw);
     }
 
     /**
-     * Replaces gradient color codes with MiniMessage <gradient> tags.
+     * Converts gradient delimiters such as
+     * {@code &g:#FF0000:#0000FF;} and {@code &/g} into their MiniMessage
+     * equivalents.
      *
-     * @param input The string containing gradient codes
-     * @return The transformed string with MiniMessage gradient tags
+     * @param input Escaped message that may contain gradient codes
+     * @return Message with converted gradient delimiters
      */
     private static String applyGradientColorCode(String input) {
         Matcher matcher = GRADIENT_COLOR_CODE.matcher(input);
-        while (matcher.find()) {
-            String colors = input.substring(matcher.start(), matcher.end());
-            input = input.replace(colors, "<gradient:" + colors.substring(3, colors.length() - 1) + ">")
-                    .replaceFirst("&/g", "</gradient>");
-            matcher = GRADIENT_COLOR_CODE.matcher(input);
-        }
-        return input;
+        StringBuilder result = new StringBuilder(input.length());
+        while (matcher.find())
+            matcher.appendReplacement(result, Matcher.quoteReplacement("<gradient:" + matcher.group(1) + ">"));
+        matcher.appendTail(result);
+        return GRADIENT_CLOSE_CODE.matcher(result).replaceAll(Matcher.quoteReplacement("</gradient>"));
     }
 
     /**
-     * Replaces hex color codes with MiniMessage {@code <#rrggbb>} tags.
+     * Converts hexadecimal delimiters such as {@code &#FF0000} and
+     * {@code &/#FF0000} into MiniMessage color tags.
      *
-     * @param input The string containing hex codes
-     * @return The transformed string with MiniMessage hex tags
+     * @param input Escaped message that may contain hexadecimal color codes
+     * @return Message with converted hexadecimal color delimiters
      */
     private static String applyHexColorCode(String input) {
         Matcher matcher = HEX_COLOR_CODE.matcher(input);
+        StringBuilder result = new StringBuilder(input.length());
         while (matcher.find()) {
-            String color = input.substring(matcher.start(), matcher.end());
-            input = input.replace(color, "<#" + color.substring(2) + ">")
-                    .replaceFirst("&/#" + color.substring(2), "</#" + color.substring(2) + ">");
-            matcher = HEX_COLOR_CODE.matcher(input);
+            String tag = matcher.group(1).isEmpty() ? "<#" : "</#";
+            matcher.appendReplacement(result, Matcher.quoteReplacement(tag + matcher.group(2) + ">"));
         }
-        return input;
+        matcher.appendTail(result);
+        return result.toString();
     }
 
     /**
-     * Replaces legacy color and formatting codes with MiniMessage tags.
+     * Converts legacy color and decoration delimiters such as {@code &c} and
+     * {@code &/l} into their named MiniMessage tags. Reset codes ({@code &r}
+     * and {@code &/r}) both become {@code <reset>} because reset is not a
+     * paired MiniMessage tag.
      *
-     * @param input The string containing legacy codes
-     * @return The transformed string with MiniMessage legacy tags
+     * @param input Escaped message that may contain legacy formatting codes
+     * @return Message with converted legacy formatting delimiters
      */
     private static String applyLegacyColorCode(String input) {
         Matcher matcher = LEGACY_COLOR_CODE.matcher(input);
+        StringBuilder result = new StringBuilder(input.length());
         while (matcher.find()) {
-            String color = input.substring(matcher.start(), matcher.end());
-            LegacyCode code = LegacyCode.getByCode(color.charAt(1));
-            if (code == null) continue;
-            input = input.replace(color, "<" + code.getName() + ">")
-                    .replaceFirst("&/" + color.charAt(1), "</" + code.getName() + ">");
-            matcher = LEGACY_COLOR_CODE.matcher(input);
+            char codeCharacter = Character.toLowerCase(matcher.group(2).charAt(0));
+            LegacyCode code = LegacyCode.getByCode(codeCharacter);
+            if (code == null) {
+                matcher.appendReplacement(result, Matcher.quoteReplacement(matcher.group()));
+                continue;
+            }
+
+            String replacement = codeCharacter == 'r'
+                    ? "<reset>"
+                    : (matcher.group(1).isEmpty() ? "<" : "</") + code.getName() + ">";
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
         }
-        return input;
+        matcher.appendTail(result);
+        return result.toString();
     }
 }
