@@ -29,7 +29,7 @@ public final class RefreshCommand extends CommandManager {
     @Override
     public LiteralArgumentBuilder<CommandSource> createCommand(String commandName) {
         return BrigadierCommand.literalArgumentBuilder(commandName)
-                .requires(source -> source.hasPermission("murmel.command.refresh"))
+                .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "refresh"))
                 .executes(context ->
                         runWithTiming(context, (source, executor) -> {
                             refreshProvider.fireAll();
