@@ -3,9 +3,11 @@ package de.murmelmeister.essentials;
 import de.murmelmeister.essentials.api.Ranks;
 import de.murmelmeister.essentials.configs.ConfigProvider;
 import de.murmelmeister.essentials.configs.DatabaseConfig;
-import de.murmelmeister.essentials.configs.settings.Config;
+import de.murmelmeister.essentials.configs.PluginConfig;
 import de.murmelmeister.essentials.manager.ListenerManager;
+import de.murmelmeister.essentials.utils.ConfigValue;
 import de.murmelmeister.essentials.utils.PluginMessageRefresh;
+import de.murmelmeister.essentials.utils.RefreshBridge;
 import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.clan.ClanProvider;
 import de.murmelmeister.murmelapi.clan.member.ClanMemberProvider;
@@ -29,14 +31,18 @@ public final class MurmelEssentials extends JavaPlugin {
     public static final String CHANNEL = "murmel:main";
     public static final String PLUGIN_PATH = "./plugins/" + MurmelEssentials.class.getSimpleName() + "/";
 
+    private final PluginConfig pluginConfig;
     private final MurmelAPI murmelAPI;
     private final PluginMessageRefresh pluginMessageRefresh;
+    private final RefreshBridge refreshBridge;
     private final DatabaseConfig databaseConfig;
     private final Ranks ranks;
 
     public MurmelEssentials() {
+        this.pluginConfig = new PluginConfig(getDataFolder().toPath());
         this.murmelAPI = new MurmelAPI();
-        this.pluginMessageRefresh = new PluginMessageRefresh(murmelAPI.getGson(), murmelAPI.getRefreshProvider());
+        this.pluginMessageRefresh = new PluginMessageRefresh(murmelAPI.getGson(), getRefreshProvider());
+        this.refreshBridge = new RefreshBridge(this, getServer(), getRefreshProvider(), getSLF4JLogger(), murmelAPI.getGson());
         this.databaseConfig = new DatabaseConfig(MurmelEssentials.class.getSimpleName(), murmelAPI);
         this.ranks = new Ranks(this);
     }
@@ -46,6 +52,11 @@ public final class MurmelEssentials extends JavaPlugin {
         ranks.cancelTask();
         ranks.close();
         databaseConfig.disconnect();
+
+        if (!pluginConfig.getBoolean(ConfigValue.VELOCITY_SUPPORT))
+            refreshBridge.unregister();
+
+        getServer().getMessenger().unregisterOutgoingPluginChannel(this, CHANNEL);
         getServer().getMessenger().unregisterIncomingPluginChannel(this, CHANNEL, pluginMessageRefresh);
     }
 
@@ -56,14 +67,18 @@ public final class MurmelEssentials extends JavaPlugin {
         if (isFolia()) ranks.updatePlayersFolia(this, getServer());
         else ranks.updatePlayers(this, getServer());
         getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, pluginMessageRefresh);
+        getServer().getMessenger().registerOutgoingPluginChannel(this, CHANNEL);
 
-        Config config = ConfigProvider.load(getSettingsService());
-        if (config.autoUpdate())
-            getRefreshProvider().fireAll(); // Get all cached data from the database
+        if (!pluginConfig.getBoolean(ConfigValue.VELOCITY_SUPPORT))
+            refreshBridge.register();
     }
 
     public MurmelEssentials getInstance() {
         return getPlugin(MurmelEssentials.class);
+    }
+
+    public PluginConfig getPluginConfig() {
+        return pluginConfig;
     }
 
     public GroupProvider getGroupProvider() {
