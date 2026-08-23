@@ -102,6 +102,7 @@ public enum Message {
     PERMISSION_GROUP_COLOR_INFO_MESSAGE("murmel.permission.group.color.info.message"),
     PERMISSION_GROUP_COLOR_ADD_FAILED("murmel.permission.group.color.add.failed"),
     PERMISSION_GROUP_COLOR_ADD_SUCCESS("murmel.permission.group.color.add.success"),
+    PERMISSION_GROUP_COLOR_REMOVE_SUCCESS("murmel.permission.group.color.remove.success"),
     PERMISSION_GROUP_COLOR_TYPE_INVALID("murmel.permission.group.color.type.invalid"),
     PERMISSION_GROUP_COLOR_UPDATE_FAILED("murmel.permission.group.color.update.failed"),
     PERMISSION_GROUP_COLOR_UPDATE_SUCCESS("murmel.permission.group.color.update.success"),

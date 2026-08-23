@@ -13,121 +13,118 @@ import de.murmelmeister.essentials.manager.command.CommandException;
 import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.essentials.utils.PermissionUtil;
+import de.murmelmeister.library.utils.StringUtil;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.GroupProvider;
-import de.murmelmeister.murmelapi.group.parent.GroupParent;
-import de.murmelmeister.murmelapi.group.parent.GroupParentProvider;
+import de.murmelmeister.murmelapi.permission.PermissionTarget;
+import de.murmelmeister.murmelapi.permission.parent.Parent;
+import de.murmelmeister.murmelapi.permission.parent.ParentProvider;
 import de.murmelmeister.murmelapi.user.User;
-import de.murmelmeister.murmelapi.user.parent.UserParent;
-import de.murmelmeister.murmelapi.user.parent.UserParentProvider;
-import de.murmelmeister.library.utils.StringUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import org.jetbrains.annotations.NotNull;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static de.murmelmeister.murmelapi.MurmelAPI.CONSOLE_USER_ID;
 
 public final class ParentSubCommand extends PermissionUtil {
     private final GroupProvider groupProvider;
-    private final GroupParentProvider groupParentProvider;
-    private final UserParentProvider userParentProvider;
+    private final ParentProvider parentProvider;
 
     public ParentSubCommand(MurmelEssentials plugin) {
         super(plugin);
         this.groupProvider = plugin.getGroupProvider();
-        this.groupParentProvider = plugin.getGroupParentProvider();
-        this.userParentProvider = plugin.getUserParentProvider();
+        this.parentProvider = plugin.getParentProvider();
     }
 
     @Override
-    public BrigadierCommand createCommand() {
+    public LiteralArgumentBuilder<CommandSource> createCommand(String commandName) {
         return null;
     }
 
-    public int getParents(CommandContext<CommandSource> context, boolean isUser) {
+    public int executeGetParents(CommandContext<CommandSource> context, boolean isUser, int page) {
         return runWithTiming(context, (source, executor) -> {
+            int languageId = executor.languageId();
+            PermissionTarget target;
+            String commandBase;
+            int targetId;
+            String targetName;
+
             if (isUser) {
                 // -/permission user <username> parent
                 String inputUser = StringArgumentType.getString(context, "username");
-                int languageId = executor.languageId();
                 User user = getUser(inputUser);
-
-                List<UserParent> parents = userParentProvider.getParents(user.id());
-                if (parents.isEmpty())
-                    throw new CommandException(Message.PERMISSION_USER_PARENT_LIST_EMPTY, tagParsed("username", user.username()));
-
-                Message headerName = parents.size() == 1
-                        ? Message.PERMISSION_LIST_SINGULAR_PARENT
-                        : Message.PERMISSION_LIST_PLURAL_PARENT;
-                sendMessage(source, languageId, Message.PERMISSION_USER_LIST_HEADER,
-                        tagParsed("header_name", languageId, headerName),
-                        tagParsed("username", user.username()),
-                        tagParsed("user_id", user.id())
-                );
-
-                String clickMessage = "/permission user " + user.username() + " parent remove ";
-                parents.forEach(parent -> sendParentsMessage(source, clickMessage, executor.languageId(), parent.parentId(), parent.expiresAt()));
-                return CommandResult.of(Command.SINGLE_SUCCESS);
+                target = PermissionTarget.user(user.id());
+                commandBase = "permission user " + user.username() + " parent";
+                targetId = user.id();
+                targetName = user.username();
             } else {
                 // -/permission group <groupName> parent
                 String inputGroup = StringArgumentType.getString(context, "groupName");
-                int languageId = executor.languageId();
                 Group group = getGroup(inputGroup);
+                target = PermissionTarget.group(group.id());
+                commandBase = "permission group " + group.groupName() + " parent";
+                targetId = group.id();
+                targetName = group.groupName();
+            }
 
-                List<GroupParent> parents = groupParentProvider.getParents(group.id());
-                if (parents.isEmpty())
-                    throw new CommandException(Message.PERMISSION_GROUP_PARENT_LIST_EMPTY, tagParsed("group_name", group.groupName()));
-
-                Message headerName = parents.size() == 1
-                        ? Message.PERMISSION_LIST_SINGULAR_PARENT
-                        : Message.PERMISSION_LIST_PLURAL_PARENT;
-                sendMessage(source, languageId, Message.PERMISSION_GROUP_LIST_HEADER,
-                        tagParsed("header_name", languageId, headerName),
-                        tagParsed("group_name", group.groupName()),
-                        tagParsed("group_id", group.id())
+            List<Parent> parents = parentProvider.findParents(target);
+            if (parents.isEmpty())
+                throw new CommandException(isUser ? Message.PERMISSION_USER_PARENT_LIST_EMPTY : Message.PERMISSION_GROUP_PARENT_LIST_EMPTY,
+                        tagParsed(isUser ? "username" : "group_name", getTargetName(target, isUser))
                 );
 
-                String clickMessage = "/permission group " + group.groupName() + " parent remove ";
-                parents.forEach(parent -> sendParentsMessage(source, clickMessage, executor.languageId(), parent.parentId(), parent.expiresAt()));
-                return CommandResult.of(Command.SINGLE_SUCCESS);
-            }
+            Message headerName = parents.size() == 1
+                    ? Message.PERMISSION_LIST_SINGULAR_PARENT
+                    : Message.PERMISSION_LIST_PLURAL_PARENT;
+            sendMessage(source, languageId,
+                    isUser ? Message.PERMISSION_USER_LIST_HEADER : Message.PERMISSION_GROUP_LIST_HEADER,
+                    tagParsed("header_name", languageId, headerName),
+                    tagParsed(isUser ? "username" : "group_name", targetName),
+                    tagParsed(isUser ? "user_id" : "group_id", targetId)
+            );
+
+            List<Component> parentComponents = parents.stream()
+                    .map(parent -> {
+                        Group group = groupProvider.findById(parent.parentId()).orElse(null);
+                        if (group == null) return Component.empty();
+                        String name = group.groupName();
+
+                        if (parent.parentId() == getDefaultGroup().id())
+                            return component(
+                                    languageId,
+                                    Message.PERMISSION_DEFAULT_LIST_PARENT,
+                                    tagParsed("default_parent", name)
+                            );
+
+                        String clickMessage = "/permission " + (isUser ? "user" : "group") + " " + targetName + " parent remove " + name;
+                        return component(
+                                languageId,
+                                Message.PERMISSION_LIST_PARENT_MESSAGE,
+                                tagParsed("parent", name),
+                                tagParsed("click_command", clickMessage),
+                                Placeholder.component("expired", formatExpiredMessage(languageId, parent.expiresAt()))
+                        );
+                    })
+                    .toList();
+
+            sendPagedMessage(source, parentComponents, commandBase, page);
+            return CommandResult.of(Command.SINGLE_SUCCESS);
         });
-    }
-
-    private void sendParentsMessage(CommandSource source, String clickMessage, int executorLang, int parentId, LocalDateTime expiresAt) {
-        Group parentGroup = groupProvider.findById(parentId);
-        String parentName = parentGroup.groupName();
-
-        if (parentId == getDefaultGroup().id()) {
-            sendMessage(source, executorLang, Message.PERMISSION_DEFAULT_LIST_PARENT, tagParsed("default_parent", parentName));
-            return;
-        }
-
-        sendMessage(source, executorLang, Message.PERMISSION_LIST_PARENT_MESSAGE,
-                tagParsed("parent", parentName),
-                tagParsed("click_command", clickMessage + parentName),
-                Placeholder.component("expired", formatExpiredMessage(executorLang, expiresAt))
-        ); // .trim()
     }
 
     public LiteralArgumentBuilder<CommandSource> getParentAdd(boolean isUser) {
         return BrigadierCommand.literalArgumentBuilder("add")
-                .executes(context -> {
-                    sendRawMessage(context.getSource(), syntaxParent(isUser));
-                    return Command.SINGLE_SUCCESS;
-                })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
                         .suggests((context, builder) -> {
                             String prefix = builder.getRemaining();
-                            int id = getId(context, isUser);
-                            List<Integer> haveParents = isUser ? userParentProvider.getParents(id)
-                                    .stream().map(UserParent::parentId).toList()
-                                    : groupParentProvider.getParents(id)
-                                    .stream().map(GroupParent::parentId).toList();
+                            PermissionTarget target = getTarget(context, isUser);
+                            List<Integer> haveParents = parentProvider.findParents(target).stream()
+                                    .map(Parent::parentId).toList();
                             groupProvider.findAll().stream()
-                                    .filter(group -> isUser || group.id() != id)
+                                    .filter(group -> isUser || group.id() != target.id())
                                     .filter(group -> !haveParents.contains(group.id()))
                                     .filter(group -> StringUtil.startsWithIgnoreCase(group.groupName(), prefix))
                                     .forEach(group -> builder.suggest(group.groupName()));
@@ -140,11 +137,12 @@ public final class ParentSubCommand extends PermissionUtil {
                                         String inputUser = StringArgumentType.getString(context, "username");
                                         int languageId = executor.languageId();
                                         User user = getUser(inputUser);
+                                        PermissionTarget target = PermissionTarget.user(user.id());
 
                                         String inputParent = StringArgumentType.getString(context, "parent");
                                         Group parent = getGroup(inputParent);
 
-                                        UserParent existing = userParentProvider.getParent(user.id(), parent.id());
+                                        Parent existing = parentProvider.findParent(target, parent.id()).orElse(null);
                                         if (existing != null)
                                             throw new CommandException(Message.PERMISSION_USER_PARENT_EXISTS,
                                                     tagParsed("parent", parent.groupName()),
@@ -154,12 +152,14 @@ public final class ParentSubCommand extends PermissionUtil {
                                         if (parent.id() == getDefaultGroup().id())
                                             throw new CommandException(Message.PERMISSION_DEFAULT_GROUP_ADD);
 
-                                        UserParent success = userParentProvider.add(user.id(), parent.id(), -1, executor.id());
-                                        if (success == null)
-                                            throw new CommandException(Message.PERMISSION_USER_PARENT_ADD_FAILED,
-                                                    tagParsed("parent", parent.groupName()),
-                                                    tagParsed("user", user.username())
-                                            );
+                                        Parent success = parentProvider.upsert(target, parent.id(), -1, executor.id())
+                                                .orElseThrow(() ->
+                                                        new CommandException(Message.PERMISSION_USER_PARENT_ADD_FAILED,
+                                                                tagParsed("parent", parent.groupName()),
+                                                                tagParsed("user", user.username())
+                                                        )
+                                                );
+
                                         sendMessage(source, languageId, Message.PERMISSION_USER_PARENT_ADD_SUCCESS,
                                                 tagParsed("parent", parent.groupName()),
                                                 tagParsed("user", user.username()),
@@ -171,11 +171,12 @@ public final class ParentSubCommand extends PermissionUtil {
                                         String inputGroup = StringArgumentType.getString(context, "groupName");
                                         int languageId = executor.languageId();
                                         Group group = getGroup(inputGroup);
+                                        PermissionTarget target = PermissionTarget.group(group.id());
 
                                         String inputParent = StringArgumentType.getString(context, "parent");
                                         Group parent = getGroup(inputParent);
 
-                                        GroupParent existing = groupParentProvider.getParent(group.id(), parent.id());
+                                        Parent existing = parentProvider.findParent(target, parent.id()).orElse(null);
                                         if (existing != null)
                                             throw new CommandException(Message.PERMISSION_GROUP_PARENT_EXISTS,
                                                     tagParsed("parent", parent.groupName()),
@@ -185,12 +186,14 @@ public final class ParentSubCommand extends PermissionUtil {
                                         if (parent.id() == getDefaultGroup().id())
                                             throw new CommandException(Message.PERMISSION_DEFAULT_GROUP_ADD);
 
-                                        GroupParent success = groupParentProvider.add(group.id(), parent.id(), -1, executor.id());
-                                        if (success == null)
-                                            throw new CommandException(Message.PERMISSION_GROUP_PARENT_ADD_FAILED,
-                                                    tagParsed("parent", parent.groupName()),
-                                                    tagParsed("group", group.groupName())
-                                            );
+                                        Parent success = parentProvider.upsert(target, parent.id(), -1, executor.id())
+                                                .orElseThrow(() ->
+                                                        new CommandException(Message.PERMISSION_GROUP_PARENT_ADD_FAILED,
+                                                                tagParsed("parent", parent.groupName()),
+                                                                tagParsed("group", group.groupName())
+                                                        )
+                                                );
+
                                         sendMessage(source, languageId, Message.PERMISSION_GROUP_PARENT_ADD_SUCCESS,
                                                 tagParsed("parent", parent.groupName()),
                                                 tagParsed("group", group.groupName()),
@@ -209,11 +212,12 @@ public final class ParentSubCommand extends PermissionUtil {
                                                 String inputUser = StringArgumentType.getString(context, "username");
                                                 int languageId = executor.languageId();
                                                 User user = getUser(inputUser);
+                                                PermissionTarget target = PermissionTarget.user(user.id());
 
                                                 String inputParent = StringArgumentType.getString(context, "parent");
                                                 Group parent = getGroup(inputParent);
 
-                                                UserParent existing = userParentProvider.getParent(user.id(), parent.id());
+                                                Parent existing = parentProvider.findParent(target, parent.id()).orElse(null);
                                                 if (existing != null)
                                                     throw new CommandException(Message.PERMISSION_USER_PARENT_EXISTS,
                                                             tagParsed("parent", parent.groupName()),
@@ -226,12 +230,14 @@ public final class ParentSubCommand extends PermissionUtil {
                                                 String inputTime = StringArgumentType.getString(context, "time");
                                                 long duration = parseTime(inputTime);
 
-                                                UserParent success = userParentProvider.add(user.id(), parent.id(), duration, executor.id());
-                                                if (success == null)
-                                                    throw new CommandException(Message.PERMISSION_USER_PARENT_ADD_FAILED,
-                                                            tagParsed("parent", parent.groupName()),
-                                                            tagParsed("user", user.username())
-                                                    );
+                                                Parent success = parentProvider.upsert(target, parent.id(), duration, executor.id())
+                                                        .orElseThrow(() ->
+                                                                new CommandException(Message.PERMISSION_USER_PARENT_ADD_FAILED,
+                                                                        tagParsed("parent", parent.groupName()),
+                                                                        tagParsed("user", user.username())
+                                                                )
+                                                        );
+
                                                 sendMessage(source, languageId, Message.PERMISSION_USER_PARENT_ADD_SUCCESS,
                                                         tagParsed("parent", parent.groupName()),
                                                         tagParsed("user", user.username()),
@@ -243,11 +249,12 @@ public final class ParentSubCommand extends PermissionUtil {
                                                 String inputGroup = StringArgumentType.getString(context, "groupName");
                                                 int languageId = executor.languageId();
                                                 Group group = getGroup(inputGroup);
+                                                PermissionTarget target = PermissionTarget.group(group.id());
 
                                                 String inputParent = StringArgumentType.getString(context, "parent");
                                                 Group parent = getGroup(inputParent);
 
-                                                GroupParent existing = groupParentProvider.getParent(group.id(), parent.id());
+                                                Parent existing = parentProvider.findParent(target, parent.id()).orElse(null);
                                                 if (existing != null)
                                                     throw new CommandException(Message.PERMISSION_GROUP_PARENT_EXISTS,
                                                             tagParsed("parent", parent.groupName()),
@@ -260,12 +267,14 @@ public final class ParentSubCommand extends PermissionUtil {
                                                 String inputTime = StringArgumentType.getString(context, "time");
                                                 long duration = parseTime(inputTime);
 
-                                                GroupParent success = groupParentProvider.add(group.id(), parent.id(), duration, executor.id());
-                                                if (success == null)
-                                                    throw new CommandException(Message.PERMISSION_GROUP_PARENT_ADD_FAILED,
-                                                            tagParsed("parent", parent.groupName()),
-                                                            tagParsed("group", group.groupName())
-                                                    );
+                                                Parent success = parentProvider.upsert(target, parent.id(), duration, executor.id())
+                                                        .orElseThrow(() ->
+                                                                new CommandException(Message.PERMISSION_GROUP_PARENT_ADD_FAILED,
+                                                                        tagParsed("parent", parent.groupName()),
+                                                                        tagParsed("group", group.groupName())
+                                                                )
+                                                        );
+
                                                 sendMessage(source, languageId, Message.PERMISSION_GROUP_PARENT_ADD_SUCCESS,
                                                         tagParsed("parent", parent.groupName()),
                                                         tagParsed("group", group.groupName()),
@@ -281,10 +290,6 @@ public final class ParentSubCommand extends PermissionUtil {
 
     public LiteralArgumentBuilder<CommandSource> getParentRemove(boolean isUser) {
         return BrigadierCommand.literalArgumentBuilder("remove")
-                .executes(context -> {
-                    sendRawMessage(context.getSource(), syntaxParent(isUser));
-                    return Command.SINGLE_SUCCESS;
-                })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
                         .suggests(getSuggestionParent(isUser, false))
                         .executes(context ->
@@ -294,20 +299,22 @@ public final class ParentSubCommand extends PermissionUtil {
                                         String inputUser = StringArgumentType.getString(context, "username");
                                         int languageId = executor.languageId();
                                         User user = getUser(inputUser);
+                                        PermissionTarget target = PermissionTarget.user(user.id());
 
                                         String inputParent = StringArgumentType.getString(context, "parent");
                                         Group parent = getGroup(inputParent);
 
-                                        UserParent userParent = getUserParent(user, parent);
+                                        Parent userParent = getUserParent(user, parent);
                                         if (userParent.parentId() == getDefaultGroup().id())
                                             throw new CommandException(Message.PERMISSION_DEFAULT_GROUP_REMOVE);
 
-                                        int result = userParentProvider.remove(userParent.userId(), userParent.parentId());
+                                        int result = parentProvider.remove(target, userParent.parentId());
                                         if (result < 1)
                                             throw new CommandException(Message.PERMISSION_USER_PARENT_REMOVE_FAILED,
                                                     tagParsed("parent", parent.groupName()),
                                                     tagParsed("user", user.username())
                                             );
+
                                         sendMessage(source, languageId, Message.PERMISSION_USER_PARENT_REMOVE_SUCCESS,
                                                 tagParsed("parent", parent.groupName()),
                                                 tagParsed("user", user.username())
@@ -318,18 +325,20 @@ public final class ParentSubCommand extends PermissionUtil {
                                         String inputGroup = StringArgumentType.getString(context, "groupName");
                                         int languageId = executor.languageId();
                                         Group group = getGroup(inputGroup);
+                                        PermissionTarget target = PermissionTarget.group(group.id());
 
                                         String inputParent = StringArgumentType.getString(context, "parent");
                                         Group parent = getGroup(inputParent);
 
-                                        GroupParent groupParent = getGroupParent(group, parent);
+                                        Parent groupParent = getGroupParent(group, parent);
 
-                                        int result = groupParentProvider.remove(groupParent.groupId(), groupParent.parentId());
+                                        int result = parentProvider.remove(target, groupParent.parentId());
                                         if (result < 1)
                                             throw new CommandException(Message.PERMISSION_GROUP_PARENT_REMOVE_FAILED,
                                                     tagParsed("parent", parent.groupName()),
                                                     tagParsed("group", group.groupName())
                                             );
+
                                         sendMessage(source, languageId, Message.PERMISSION_GROUP_PARENT_REMOVE_SUCCESS,
                                                 tagParsed("parent", parent.groupName()),
                                                 tagParsed("group", group.groupName())
@@ -350,13 +359,14 @@ public final class ParentSubCommand extends PermissionUtil {
                                 String inputUser = StringArgumentType.getString(context, "username");
                                 int languageId = executor.languageId();
                                 User user = getUser(inputUser);
+                                PermissionTarget target = PermissionTarget.user(user.id());
 
-                                int result = userParentProvider.clear(user.id());
+                                int result = parentProvider.clear(target);
                                 if (result < 1)
                                     throw new CommandException(Message.PERMISSION_USER_PARENT_CLEAR_FAILED, tagParsed("user", user.username()));
 
                                 Group defaultGroup = getDefaultGroup();
-                                UserParent success = userParentProvider.add(user.id(), defaultGroup.id(), -1, CONSOLE_USER_ID); // Add default parent back
+                                Parent success = parentProvider.upsert(target, defaultGroup.id(), -1, CONSOLE_USER_ID).orElse(null); // Add default parent back
                                 result += success != null ? 1 : 0;
                                 if (result < 2)
                                     throw new CommandException(Message.PERMISSION_USER_PARENT_ADD_FAILED,
@@ -371,10 +381,12 @@ public final class ParentSubCommand extends PermissionUtil {
                                 String inputGroup = StringArgumentType.getString(context, "groupName");
                                 int languageId = executor.languageId();
                                 Group group = getGroup(inputGroup);
+                                PermissionTarget target = PermissionTarget.group(group.id());
 
-                                int result = groupParentProvider.clear(group.id());
+                                int result = parentProvider.clear(target);
                                 if (result < 1)
                                     throw new CommandException(Message.PERMISSION_GROUP_PARENT_CLEAR_FAILED, tagParsed("group", group.groupName()));
+
                                 sendMessage(source, languageId, Message.PERMISSION_GROUP_PARENT_CLEAR_SUCCESS, tagParsed("group", group.groupName()));
                                 return CommandResult.of(Command.SINGLE_SUCCESS, result);
                             }
@@ -384,10 +396,6 @@ public final class ParentSubCommand extends PermissionUtil {
 
     public LiteralArgumentBuilder<CommandSource> getParentInfo(boolean isUser) {
         return BrigadierCommand.literalArgumentBuilder("info")
-                .executes(context -> {
-                    sendRawMessage(context.getSource(), syntaxParent(isUser));
-                    return Command.SINGLE_SUCCESS;
-                })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
                         .suggests(getSuggestionParent(isUser, true))
                         .executes(context ->
@@ -401,7 +409,7 @@ public final class ParentSubCommand extends PermissionUtil {
                                         String inputParent = StringArgumentType.getString(context, "parent");
                                         Group parent = getGroup(inputParent);
 
-                                        UserParent userParent = getUserParent(user, parent);
+                                        Parent userParent = getUserParent(user, parent);
 
                                         User creator = getUser(userParent.createdBy());
                                         User changer = userParent.changedBy() == null ? null : getUser(userParent.changedBy());
@@ -426,7 +434,7 @@ public final class ParentSubCommand extends PermissionUtil {
                                                 tagParsed("created_id", creator.id()),
                                                 tagParsed("created_at", createdDate),
                                                 Placeholder.component("changed", changedText)
-                                        ); // .trim()
+                                        );
 
                                         return CommandResult.of(Command.SINGLE_SUCCESS);
                                     } else {
@@ -438,7 +446,7 @@ public final class ParentSubCommand extends PermissionUtil {
                                         String inputParent = StringArgumentType.getString(context, "parent");
                                         Group parent = getGroup(inputParent);
 
-                                        GroupParent groupParent = getGroupParent(group, parent);
+                                        Parent groupParent = getGroupParent(group, parent);
 
                                         User creator = getUser(groupParent.createdBy());
                                         User changer = groupParent.changedBy() == null ? null : getUser(groupParent.changedBy());
@@ -463,7 +471,7 @@ public final class ParentSubCommand extends PermissionUtil {
                                                 tagParsed("created_id", creator.id()),
                                                 tagParsed("created_at", createdDate),
                                                 Placeholder.component("changed", changedText)
-                                        ); // .trim()
+                                        );
                                         return CommandResult.of(Command.SINGLE_SUCCESS);
                                     }
                                 })
@@ -473,16 +481,8 @@ public final class ParentSubCommand extends PermissionUtil {
 
     public LiteralArgumentBuilder<CommandSource> getParentTime(boolean isUser) {
         return BrigadierCommand.literalArgumentBuilder("time")
-                .executes(context -> {
-                    sendRawMessage(context.getSource(), syntaxParent(isUser));
-                    return Command.SINGLE_SUCCESS;
-                })
                 .then(BrigadierCommand.requiredArgumentBuilder("parent", StringArgumentType.word())
                         .suggests(getSuggestionParent(isUser, false))
-                        .executes(context -> {
-                            sendRawMessage(context.getSource(), syntaxParent(isUser));
-                            return Command.SINGLE_SUCCESS;
-                        })
                         .then(BrigadierCommand.requiredArgumentBuilder("time", StringArgumentType.word())
                                 .suggests(getSuggestionTime())
                                 .executes(context ->
@@ -492,22 +492,25 @@ public final class ParentSubCommand extends PermissionUtil {
                                                 String inputUser = StringArgumentType.getString(context, "username");
                                                 int languageId = executor.languageId();
                                                 User user = getUser(inputUser);
+                                                PermissionTarget target = PermissionTarget.user(user.id());
 
                                                 String inputParent = StringArgumentType.getString(context, "parent");
                                                 Group parent = getGroup(inputParent);
 
-                                                UserParent userParent = getUserParent(user, parent);
+                                                Parent userParent = getUserParent(user, parent);
                                                 if (userParent.parentId() == getDefaultGroup().id())
                                                     throw new CommandException(Message.PERMISSION_DEFAULT_GROUP_TIME);
 
                                                 String inputTime = StringArgumentType.getString(context, "time");
                                                 long duration = parseTime(inputTime);
 
-                                                UserParent success = userParentProvider.update(userParent.userId(), userParent.parentId(), duration, executor.id());
-                                                if (success == null)
-                                                    throw new CommandException(Message.PERMISSION_USER_PARENT_TIME_FAILED,
-                                                            tagParsed("parent", parent.groupName()), tagParsed("user", user.username())
-                                                    );
+                                                Parent success = parentProvider.upsert(target, userParent.parentId(), duration, executor.id())
+                                                        .orElseThrow(() ->
+                                                                new CommandException(Message.PERMISSION_USER_PARENT_TIME_FAILED,
+                                                                        tagParsed("parent", parent.groupName()), tagParsed("user", user.username())
+                                                                )
+                                                        );
+
                                                 sendMessage(source, languageId, Message.PERMISSION_USER_PARENT_TIME_SUCCESS,
                                                         tagParsed("parent", parent.groupName()),
                                                         tagParsed("user", user.username()),
@@ -519,21 +522,24 @@ public final class ParentSubCommand extends PermissionUtil {
                                                 String inputGroup = StringArgumentType.getString(context, "groupName");
                                                 int languageId = executor.languageId();
                                                 Group group = getGroup(inputGroup);
+                                                PermissionTarget target = PermissionTarget.group(group.id());
 
                                                 String inputParent = StringArgumentType.getString(context, "parent");
                                                 Group parent = getGroup(inputParent);
 
-                                                GroupParent groupParent = getGroupParent(group, parent);
+                                                Parent groupParent = getGroupParent(group, parent);
 
                                                 String inputTime = StringArgumentType.getString(context, "time");
                                                 long duration = parseTime(inputTime);
 
-                                                GroupParent success = groupParentProvider.update(groupParent.groupId(), groupParent.parentId(), duration, executor.id());
-                                                if (success == null)
-                                                    throw new CommandException(Message.PERMISSION_GROUP_PARENT_TIME_FAILED,
-                                                            tagParsed("parent", parent.groupName()),
-                                                            tagParsed("group", group.groupName())
-                                                    );
+                                                Parent success = parentProvider.upsert(target, groupParent.parentId(), duration, executor.id())
+                                                        .orElseThrow(() ->
+                                                                new CommandException(Message.PERMISSION_GROUP_PARENT_TIME_FAILED,
+                                                                        tagParsed("parent", parent.groupName()),
+                                                                        tagParsed("group", group.groupName())
+                                                                )
+                                                        );
+
                                                 sendMessage(source, languageId, Message.PERMISSION_GROUP_PARENT_TIME_SUCCESS,
                                                         tagParsed("parent", parent.groupName()),
                                                         tagParsed("group", group.groupName()),
@@ -547,14 +553,17 @@ public final class ParentSubCommand extends PermissionUtil {
                 );
     }
 
-    private SuggestionProvider<CommandSource> getSuggestionParent(boolean isUser, boolean isDefaultAllowed) {
+    private @NotNull SuggestionProvider<CommandSource> getSuggestionParent(boolean isUser, boolean isDefaultAllowed) {
         return (context, builder) -> {
             String prefix = builder.getRemaining();
-            int id = getId(context, isUser);
-            List<Group> parents = isUser ? userParentProvider.getParents(id)
-                    .stream().map(UserParent::parentId).map(groupProvider::findById).toList()
-                    : groupParentProvider.getParents(id)
-                    .stream().map(GroupParent::parentId).map(groupProvider::findById).toList();
+            PermissionTarget target = getTarget(context, isUser);
+            List<Group> parents = parentProvider.findParents(target)
+                    .stream()
+                    .map(Parent::parentId)
+                    .map(groupProvider::findById)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .toList();
 
             if (parents.isEmpty())
                 return Suggestions.empty();
@@ -568,28 +577,30 @@ public final class ParentSubCommand extends PermissionUtil {
         };
     }
 
-    private int getId(CommandContext<CommandSource> context, boolean isUser) {
+    private @NotNull PermissionTarget getTarget(CommandContext<CommandSource> context, boolean isUser) {
         String name = isUser ? StringArgumentType.getString(context, "username") : StringArgumentType.getString(context, "groupName");
-        return isUser ? getUser(name).id() : getGroup(name).id();
+        return isUser ? PermissionTarget.user(getUser(name).id()) : PermissionTarget.group(getGroup(name).id());
     }
 
-    private UserParent getUserParent(User user, Group parent) {
-        UserParent userParent = userParentProvider.getParent(user.id(), parent.id());
-        if (userParent == null)
-            throw new CommandException(Message.PERMISSION_USER_PARENT_NOT_EXISTS,
-                    tagParsed("parent", parent.groupName()),
-                    tagParsed("user", user.username())
-            );
-        return userParent;
+    private String getTargetName(PermissionTarget target, boolean isUser) {
+        return isUser ? getUser(target.id()).username() : getGroup(target.id()).groupName();
     }
 
-    private GroupParent getGroupParent(Group group, Group parent) {
-        GroupParent groupParent = groupParentProvider.getParent(group.id(), parent.id());
-        if (groupParent == null)
-            throw new CommandException(Message.PERMISSION_GROUP_PARENT_NOT_EXISTS,
-                    tagParsed("parent", parent.groupName()),
-                    tagParsed("group", group.groupName())
-            );
-        return groupParent;
+    private @NotNull Parent getUserParent(User user, Group parent) {
+        return parentProvider.findParent(PermissionTarget.user(user.id()), parent.id()).orElseThrow(() ->
+                new CommandException(Message.PERMISSION_USER_PARENT_NOT_EXISTS,
+                        tagParsed("parent", parent.groupName()),
+                        tagParsed("user", user.username())
+                )
+        );
+    }
+
+    private @NotNull Parent getGroupParent(Group group, Group parent) {
+        return parentProvider.findParent(PermissionTarget.group(group.id()), parent.id()).orElseThrow(() ->
+                new CommandException(Message.PERMISSION_GROUP_PARENT_NOT_EXISTS,
+                        tagParsed("parent", parent.groupName()),
+                        tagParsed("group", group.groupName())
+                )
+        );
     }
 }

@@ -4,41 +4,44 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
-import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.commands.subcommand.GroupEditSubCommand;
 import de.murmelmeister.essentials.commands.subcommand.ParentSubCommand;
 import de.murmelmeister.essentials.commands.subcommand.PermissionSubCommand;
+import de.murmelmeister.essentials.manager.command.CommandConfig;
 import de.murmelmeister.essentials.manager.command.CommandException;
 import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.essentials.utils.PermissionUtil;
+import de.murmelmeister.library.utils.StringUtil;
 import de.murmelmeister.murmelapi.group.Group;
 import de.murmelmeister.murmelapi.group.GroupProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColor;
 import de.murmelmeister.murmelapi.group.color.GroupColorProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
-import de.murmelmeister.murmelapi.group.parent.GroupParentProvider;
-import de.murmelmeister.murmelapi.group.permission.GroupPermissionProvider;
 import de.murmelmeister.murmelapi.language.message.MessageService;
+import de.murmelmeister.murmelapi.permission.PermissionProvider;
+import de.murmelmeister.murmelapi.permission.PermissionTarget;
+import de.murmelmeister.murmelapi.permission.parent.ParentProvider;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
-import de.murmelmeister.library.utils.StringUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 
 import java.util.List;
 
+@CommandConfig(id = "permission", name = "permission", aliases = {"perms"})
 public final class PermissionCommand extends PermissionUtil {
     private final UserProvider userProvider;
     private final GroupProvider groupProvider;
     private final GroupColorProvider groupColorProvider;
-    private final GroupParentProvider groupParentProvider;
-    private final GroupPermissionProvider groupPermissionProvider;
+    private final ParentProvider parentProvider;
+    private final PermissionProvider permissionProvider;
     private final MessageService messageService;
     private final GroupEditSubCommand groupEditSub;
     private final ParentSubCommand parentSub;
@@ -49,8 +52,8 @@ public final class PermissionCommand extends PermissionUtil {
         this.userProvider = plugin.getUserProvider();
         this.groupProvider = plugin.getGroupProvider();
         this.groupColorProvider = plugin.getGroupColorProvider();
-        this.groupParentProvider = plugin.getGroupParentProvider();
-        this.groupPermissionProvider = plugin.getGroupPermissionProvider();
+        this.parentProvider = plugin.getParentProvider();
+        this.permissionProvider = plugin.getPermissionProvider();
         this.messageService = plugin.getMessageService();
         this.groupEditSub = new GroupEditSubCommand(plugin);
         this.parentSub = new ParentSubCommand(plugin);
@@ -58,61 +61,62 @@ public final class PermissionCommand extends PermissionUtil {
     }
 
     @Override
-    public BrigadierCommand createCommand() {
-        LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("permission")
-                .requires(source -> source.hasPermission("murmel.command.permission"))
-                .executes(context -> {
-                    sendRawMessage(context.getSource(), syntax());
-                    return Command.SINGLE_SUCCESS;
-                })
+    public LiteralArgumentBuilder<CommandSource> createCommand(String commandName) {
+        return BrigadierCommand.literalArgumentBuilder(commandName)
+                .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "permission"))
                 .then(getGroupsCommand())
                 .then(getGroupCommand())
                 .then(getUsersCommand())
-                .then(getUserCommand())
-                .build();
-        return new BrigadierCommand(node);
+                .then(getUserCommand());
     }
 
     private LiteralArgumentBuilder<CommandSource> getGroupsCommand() {
         // -/permission groups
         return BrigadierCommand.literalArgumentBuilder("groups")
                 .executes(context ->
-                        runWithTiming(context, (source, executor) -> {
-                            int languageId = executor.languageId();
-                            List<String> groupNames = groupProvider.findAllGroupNames();
-
-                            if (groupNames.isEmpty())
-                                throw new CommandException(Message.PERMISSION_LIST_GROUP_EMPTY);
-
-                            Message headerName = groupNames.size() == 1
-                                    ? Message.PERMISSION_LIST_SINGULAR_GROUP
-                                    : Message.PERMISSION_LIST_PLURAL_GROUP;
-                            sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_HEADER, tagParsed("header_name", languageId, headerName));
-                            groupNames.forEach(name -> {
-                                String clickMessage = "/permission group " + name + " info";
-                                sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_MESSAGE,
-                                        tagParsed("click_command", clickMessage),
-                                        tagParsed("group_name", name)
-                                ); // .trim()
-                            });
-                            return CommandResult.of(Command.SINGLE_SUCCESS);
-                        })
+                        executeGroups(context, 1)
+                )
+                .then(BrigadierCommand.requiredArgumentBuilder("page", IntegerArgumentType.integer(1))
+                        .executes(context ->
+                                executeGroups(context, IntegerArgumentType.getInteger(context, "page")
+                                )
+                        )
                 );
+    }
+
+    private int executeGroups(CommandContext<CommandSource> context, int page) {
+        return runWithTiming(context, (source, executor) -> {
+            int languageId = executor.languageId();
+            List<String> groupNames = groupProvider.findAllGroupNames();
+
+            if (groupNames.isEmpty())
+                throw new CommandException(Message.PERMISSION_LIST_GROUP_EMPTY);
+
+            Message headerName = groupNames.size() == 1
+                    ? Message.PERMISSION_LIST_SINGULAR_GROUP
+                    : Message.PERMISSION_LIST_PLURAL_GROUP;
+            sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_HEADER, tagParsed("header_name", languageId, headerName));
+
+            List<Component> groupComponents = groupNames.stream()
+                    .map(groupName -> {
+                        String clickMessage = "/permission group " + groupName + " info";
+                        return component(languageId, Message.PERMISSION_LIST_GROUP_MESSAGE,
+                                tagParsed("click_command", clickMessage),
+                                tagParsed("group_name", groupName)
+                        );
+                    })
+                    .toList();
+
+            sendPagedMessage(source, groupComponents, "permission groups", page);
+            return CommandResult.of(Command.SINGLE_SUCCESS);
+        });
     }
 
     private LiteralArgumentBuilder<CommandSource> getGroupCommand() {
         // -/permission group <groupName> ...
         return BrigadierCommand.literalArgumentBuilder("group")
-                .executes(context -> {
-                    sendRawMessage(context.getSource(), syntaxGroup());
-                    return Command.SINGLE_SUCCESS;
-                })
                 .then(BrigadierCommand.requiredArgumentBuilder("groupName", StringArgumentType.word())
                         .suggests(getGroupNames())
-                        .executes(context -> {
-                            sendRawMessage(context.getSource(), syntaxGroup());
-                            return Command.SINGLE_SUCCESS;
-                        })
                         .then(getGroupInfoCommand())
                         .then(getGroupCreateCommand())
                         .then(getGroupDeleteCommand())
@@ -139,18 +143,18 @@ public final class PermissionCommand extends PermissionUtil {
                             String changedDate = group.changedAt() == null ? null : group.changedAt().format(getDateTimeFormatter(languageId));
 
                             String executorName = executor.username();
-                            GroupColor chatPrefix = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_PREFIX.getId());
-                            GroupColor chatSuffix = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_SUFFIX.getId());
-                            GroupColor chatColor = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_COLOR.getId());
-                            GroupColor chatMessage = groupColorProvider.getGroupColor(groupId, GroupColorType.CHAT_MESSAGE.getId());
+                            GroupColor chatPrefix = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_PREFIX.getId()).orElse(null);
+                            GroupColor chatSuffix = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_SUFFIX.getId()).orElse(null);
+                            GroupColor chatColor = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_COLOR.getId()).orElse(null);
+                            GroupColor chatMessage = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_MESSAGE.getId()).orElse(null);
 
-                            GroupColor tabPrefix = groupColorProvider.getGroupColor(groupId, GroupColorType.TAB_PREFIX.getId());
-                            GroupColor tabSuffix = groupColorProvider.getGroupColor(groupId, GroupColorType.TAB_SUFFIX.getId());
-                            GroupColor tabColor = groupColorProvider.getGroupColor(groupId, GroupColorType.TAB_COLOR.getId());
+                            GroupColor tabPrefix = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_PREFIX.getId()).orElse(null);
+                            GroupColor tabSuffix = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_SUFFIX.getId()).orElse(null);
+                            GroupColor tabColor = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_COLOR.getId()).orElse(null);
 
-                            GroupColor teamPrefix = groupColorProvider.getGroupColor(groupId, GroupColorType.TEAM_PREFIX.getId());
-                            GroupColor teamSuffix = groupColorProvider.getGroupColor(groupId, GroupColorType.TEAM_SUFFIX.getId());
-                            GroupColor teamColor = groupColorProvider.getGroupColor(groupId, GroupColorType.TEAM_COLOR.getId());
+                            GroupColor teamPrefix = groupColorProvider.findGroupColor(groupId, GroupColorType.TEAM_PREFIX.getId()).orElse(null);
+                            GroupColor teamSuffix = groupColorProvider.findGroupColor(groupId, GroupColorType.TEAM_SUFFIX.getId()).orElse(null);
+                            GroupColor teamColor = groupColorProvider.findGroupColor(groupId, GroupColorType.TEAM_COLOR.getId()).orElse(null);
                             NamedTextColor textColor = teamColor != null ? NamedTextColor.NAMES.value(teamColor.value().toLowerCase()) : null;
 
                             Component chatFormat = component(languageId, Message.PERMISSION_GROUP_INFO_FORMAT_CHAT,
@@ -218,10 +222,6 @@ public final class PermissionCommand extends PermissionUtil {
     private LiteralArgumentBuilder<CommandSource> getGroupCreateCommand() {
         // -/permission group <groupName> create <priority>
         return BrigadierCommand.literalArgumentBuilder("create")
-                .executes(context -> {
-                    sendRawMessage(context.getSource(), syntaxGroup());
-                    return Command.SINGLE_SUCCESS;
-                })
                 .then(BrigadierCommand.requiredArgumentBuilder("priority", IntegerArgumentType.integer(1))
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
@@ -229,16 +229,17 @@ public final class PermissionCommand extends PermissionUtil {
                                     String inputGroup = StringArgumentType.getString(context, "groupName");
                                     int inputPriority = IntegerArgumentType.getInteger(context, "priority");
 
-                                    Group group = groupProvider.findByName(inputGroup);
+                                    Group group = groupProvider.findByName(inputGroup).orElse(null);
                                     if (group != null)
                                         throw new CommandException(Message.PERMISSION_GROUP_EXISTS, tagParsed("group_name", group.groupName()));
 
-                                    Group success = groupProvider.create(inputGroup, inputPriority, executor.id());
-                                    if (success == null)
-                                        throw new CommandException(Message.PERMISSION_GROUP_CREATE_FAILED,
-                                                tagUnparsed("group_name", inputGroup),
-                                                tagUnparsed("priority", inputPriority)
-                                        );
+                                    Group success = groupProvider.create(inputGroup, inputPriority, executor.id()).orElseThrow(() ->
+                                            new CommandException(Message.PERMISSION_GROUP_CREATE_FAILED,
+                                                    tagUnparsed("group_name", inputGroup),
+                                                    tagUnparsed("priority", inputPriority)
+                                            )
+                                    );
+
                                     sendMessage(source, languageId, Message.PERMISSION_GROUP_CREATE_SUCCESS,
                                             tagParsed("group_name", success.groupName()),
                                             tagParsed("group_id", success.id()),
@@ -265,8 +266,8 @@ public final class PermissionCommand extends PermissionUtil {
                                 throw new CommandException(Message.PERMISSION_DEFAULT_GROUP_DELETE);
 
                             int result = 0;
-                            result += groupPermissionProvider.clear(groupId);
-                            result += groupParentProvider.clear(groupId);
+                            result += permissionProvider.clear(PermissionTarget.group(groupId));
+                            result += parentProvider.clear(PermissionTarget.group(groupId));
                             result += groupColorProvider.clear(groupId);
                             result += groupProvider.delete(groupId);
                             sendMessage(source, languageId, Message.PERMISSION_GROUP_DELETE, tagUnparsed("group_name", inputGroup));
@@ -278,10 +279,6 @@ public final class PermissionCommand extends PermissionUtil {
     private LiteralArgumentBuilder<CommandSource> getGroupRenameCommand() {
         // -/permission group <groupName> rename <newName>
         return BrigadierCommand.literalArgumentBuilder("rename")
-                .executes(context -> {
-                    sendRawMessage(context.getSource(), syntaxGroup());
-                    return Command.SINGLE_SUCCESS;
-                })
                 .then(BrigadierCommand.requiredArgumentBuilder("newName", StringArgumentType.word())
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
@@ -293,15 +290,16 @@ public final class PermissionCommand extends PermissionUtil {
                                         throw new CommandException(Message.PERMISSION_DEFAULT_GROUP_RENAME);
 
                                     String inputNewGroup = StringArgumentType.getString(context, "newName");
-                                    if (group.groupName().equals(inputNewGroup) || groupProvider.findByName(inputNewGroup) != null)
+                                    if (group.groupName().equals(inputNewGroup) || groupProvider.findByName(inputNewGroup).orElse(null) != null)
                                         throw new CommandException(Message.PERMISSION_GROUP_EXISTS, tagParsed("group_name", group.groupName()));
 
-                                    Group success = groupProvider.update(group.id(), inputNewGroup, group.priority(), executor.id());
-                                    if (success == null)
-                                        throw new CommandException(Message.PERMISSION_GROUP_RENAME_FAILED,
-                                                tagUnparsed("group_name", inputGroup),
-                                                tagUnparsed("new_group_name", inputNewGroup)
-                                        );
+                                    Group success = groupProvider.update(group.id(), inputNewGroup, group.priority(), executor.id()).orElseThrow(() ->
+                                            new CommandException(Message.PERMISSION_GROUP_RENAME_FAILED,
+                                                    tagUnparsed("group_name", inputGroup),
+                                                    tagUnparsed("new_group_name", inputNewGroup)
+                                            )
+                                    );
+
                                     sendMessage(source, languageId, Message.PERMISSION_GROUP_RENAME_SUCCESS,
                                             tagParsed("group_name", group.groupName()),
                                             tagParsed("new_group_name", success.groupName())
@@ -315,7 +313,14 @@ public final class PermissionCommand extends PermissionUtil {
     private LiteralArgumentBuilder<CommandSource> getGroupParentCommand() {
         // -/permission group <groupName> parent ...
         return BrigadierCommand.literalArgumentBuilder("parent")
-                .executes(context -> parentSub.getParents(context, false))
+                .executes(context ->
+                        parentSub.executeGetParents(context, false, 1)
+                )
+                .then(BrigadierCommand.requiredArgumentBuilder("page", IntegerArgumentType.integer(1))
+                        .executes(context ->
+                                parentSub.executeGetParents(context, false, IntegerArgumentType.getInteger(context, "page"))
+                        )
+                )
                 .then(parentSub.getParentAdd(false))
                 .then(parentSub.getParentRemove(false))
                 .then(parentSub.getParentClear(false))
@@ -326,7 +331,14 @@ public final class PermissionCommand extends PermissionUtil {
     private LiteralArgumentBuilder<CommandSource> getGroupPermissionCommand() {
         // -/permission group <groupName> permission ...
         return BrigadierCommand.literalArgumentBuilder("permission")
-                .executes(context -> permissionSub.getPermissions(context, false))
+                .executes(context ->
+                        permissionSub.executeGetPermissions(context, false, 1, false)
+                )
+                .then(BrigadierCommand.requiredArgumentBuilder("page", IntegerArgumentType.integer(1))
+                        .executes(context ->
+                                permissionSub.executeGetPermissions(context, false, IntegerArgumentType.getInteger(context, "page"), false)
+                        )
+                )
                 .then(permissionSub.getPermissionAll(false))
                 .then(permissionSub.getPermissionAdd(false))
                 .then(permissionSub.getPermissionRemove(false))
@@ -338,10 +350,6 @@ public final class PermissionCommand extends PermissionUtil {
     private LiteralArgumentBuilder<CommandSource> getGroupEditCommand() {
         // -/permission group <groupName> edit ...
         return BrigadierCommand.literalArgumentBuilder("edit")
-                .executes(context -> {
-                    sendRawMessage(context.getSource(), syntaxGroupEdit());
-                    return Command.SINGLE_SUCCESS;
-                })
                 .then(groupEditSub.getEditedChatCommand())
                 .then(groupEditSub.getEditedTabCommand())
                 .then(groupEditSub.getEditedTeamCommand())
@@ -352,82 +360,64 @@ public final class PermissionCommand extends PermissionUtil {
         // -/permission users
         return BrigadierCommand.literalArgumentBuilder("users")
                 .executes(context ->
-                        runWithTiming(context, (source, executor) -> {
-                            int languageId = executor.languageId();
-                            List<String> usernames = userProvider.findUsernames(); // You can also use userProvider.findAll() to get User objects
-
-                            if (usernames.isEmpty())
-                                throw new CommandException(Message.PERMISSION_LIST_USER_EMPTY);
-
-                            Message headerName = usernames.size() == 1
-                                    ? Message.PERMISSION_LIST_SINGULAR_USER
-                                    : Message.PERMISSION_LIST_PLURAL_USER;
-                            sendMessage(source, languageId, Message.PERMISSION_LIST_USER_HEADER, tagParsed("header_name", languageId, headerName));
-                            usernames.forEach(username -> {
-                                String clickMessage = "/permission user " + username + " info";
-                                sendMessage(source, languageId, Message.PERMISSION_LIST_USER_MESSAGE,
-                                        tagParsed("click_command", clickMessage),
-                                        tagParsed("username", username)
-                                );
-                            });
-                            return CommandResult.of(Command.SINGLE_SUCCESS);
-                        })
+                        executeUsers(context, 1)
+                )
+                .then(BrigadierCommand.requiredArgumentBuilder("page", IntegerArgumentType.integer(1))
+                        .executes(context ->
+                                executeUsers(context, IntegerArgumentType.getInteger(context, "page"))
+                        )
                 );
+    }
+
+    private int executeUsers(CommandContext<CommandSource> context, int page) {
+        return runWithTiming(context, (source, executor) -> {
+            int languageId = executor.languageId();
+            List<String> usernames = userProvider.findUsernames();
+
+            if (usernames.isEmpty())
+                throw new CommandException(Message.PERMISSION_LIST_USER_EMPTY);
+
+            Message headerName = usernames.size() == 1
+                    ? Message.PERMISSION_LIST_SINGULAR_USER
+                    : Message.PERMISSION_LIST_PLURAL_USER;
+            sendMessage(source, languageId, Message.PERMISSION_LIST_USER_HEADER, tagParsed("header_name", languageId, headerName));
+
+            List<Component> userComponents = usernames.stream()
+                    .map(username -> {
+                        String clickMessage = "/userinfo " + username;
+                        return component(languageId, Message.PERMISSION_LIST_USER_MESSAGE,
+                                tagParsed("click_command", clickMessage),
+                                tagParsed("username", username)
+                        );
+                    })
+                    .toList();
+
+            sendPagedMessage(source, userComponents, "permission users", page);
+            return CommandResult.of(Command.SINGLE_SUCCESS);
+        });
     }
 
     private LiteralArgumentBuilder<CommandSource> getUserCommand() {
         // -/permission user <username> ...
         return BrigadierCommand.literalArgumentBuilder("user")
-                .executes(context -> {
-                    sendRawMessage(context.getSource(), syntaxUser());
-                    return Command.SINGLE_SUCCESS;
-                })
                 .then(BrigadierCommand.requiredArgumentBuilder("username", StringArgumentType.word())
                         .suggests(getUsernames())
-                        .executes(context -> {
-                            sendRawMessage(context.getSource(), syntaxUser());
-                            return Command.SINGLE_SUCCESS;
-                        })
-                        .then(getUserInfoCommand())
                         .then(getUserParentCommand())
                         .then(getUserPermissionCommand())
-                );
-    }
-
-    private LiteralArgumentBuilder<CommandSource> getUserInfoCommand() {
-        // -/permission user <username> info
-        return BrigadierCommand.literalArgumentBuilder("info")
-                .executes(context ->
-                        runWithTiming(context, (source, executor) -> {
-                            int languageId = executor.languageId();
-                            String inputUser = StringArgumentType.getString(context, "username");
-                            User user = getUser(inputUser);
-
-                            String firstJoinDate = user.firstLogin().format(getDateTimeFormatter(languageId));
-
-                            Message yes = Message.MESSAGE_YES,
-                                    no = Message.MESSAGE_NO;
-
-                            Message isDebugUser = user.debugUser() ? yes : no;
-                            Message isDebugMode = user.debugEnabled() ? yes : no;
-
-                            sendMessage(source, languageId, Message.PERMISSION_USER_INFO,
-                                    tagParsed("username", user.username()),
-                                    tagParsed("user_id", user.id()),
-                                    tagParsed("mojang_id", user.mojangId().toString()),
-                                    tagParsed("first_join", firstJoinDate),
-                                    tagParsed("debug_user", languageId, isDebugUser),
-                                    tagParsed("debug_mode", languageId, isDebugMode)
-                            );
-                            return CommandResult.of(Command.SINGLE_SUCCESS);
-                        })
                 );
     }
 
     private LiteralArgumentBuilder<CommandSource> getUserParentCommand() {
         // -/permission user <username> parent ...
         return BrigadierCommand.literalArgumentBuilder("parent")
-                .executes(context -> parentSub.getParents(context, true))
+                .executes(context ->
+                        parentSub.executeGetParents(context, true, 1)
+                )
+                .then(BrigadierCommand.requiredArgumentBuilder("page", IntegerArgumentType.integer(1))
+                        .executes(context ->
+                                parentSub.executeGetParents(context, true, IntegerArgumentType.getInteger(context, "page"))
+                        )
+                )
                 .then(parentSub.getParentAdd(true))
                 .then(parentSub.getParentRemove(true))
                 .then(parentSub.getParentClear(true))
@@ -438,7 +428,14 @@ public final class PermissionCommand extends PermissionUtil {
     private LiteralArgumentBuilder<CommandSource> getUserPermissionCommand() {
         // -/permission user <username> permission ...
         return BrigadierCommand.literalArgumentBuilder("permission")
-                .executes(context -> permissionSub.getPermissions(context, true))
+                .executes(context ->
+                        permissionSub.executeGetPermissions(context, true, 1, false)
+                )
+                .then(BrigadierCommand.requiredArgumentBuilder("page", IntegerArgumentType.integer(1))
+                        .executes(context ->
+                                permissionSub.executeGetPermissions(context, true, IntegerArgumentType.getInteger(context, "page"), false)
+                        )
+                )
                 .then(permissionSub.getPermissionAll(true))
                 .then(permissionSub.getPermissionAdd(true))
                 .then(permissionSub.getPermissionRemove(true))
@@ -448,7 +445,7 @@ public final class PermissionCommand extends PermissionUtil {
     }
 
     private SuggestionProvider<CommandSource> getGroupNames() {
-        return (context, builder) -> {
+        return (_, builder) -> {
             String prefix = builder.getRemaining();
             groupProvider.findAllGroupNames().stream()
                     .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
@@ -459,7 +456,7 @@ public final class PermissionCommand extends PermissionUtil {
     }
 
     private SuggestionProvider<CommandSource> getUsernames() {
-        return (context, builder) -> {
+        return (_, builder) -> {
             String prefix = builder.getRemaining();
             userProvider.findUsernames().stream()
                     .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
