@@ -2,6 +2,8 @@ package de.murmelmeister.essentials.listeners;
 
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.api.Ranks;
+import de.murmelmeister.essentials.configs.PluginConfig;
+import de.murmelmeister.essentials.utils.ConfigValue;
 import de.murmelmeister.murmelapi.punishment.PunishmentService;
 import de.murmelmeister.murmelapi.punishment.audit.PunishmentAudit;
 import de.murmelmeister.murmelapi.punishment.type.PunishmentType;
@@ -21,6 +23,7 @@ import java.util.UUID;
 
 public final class PlayerChatListener implements Listener {
     private final MurmelEssentials plugin;
+    private final PluginConfig config;
     private final Ranks ranks;
     private final UserProvider userProvider;
     private final PunishmentService punishmentService;
@@ -32,6 +35,7 @@ public final class PlayerChatListener implements Listener {
 
     public PlayerChatListener(@NotNull MurmelEssentials instance) {
         this.plugin = instance;
+        this.config = instance.getPluginConfig();
         this.ranks = instance.getRanks();
         this.userProvider = instance.getUserProvider();
         this.punishmentService = instance.getPunishmentService();
@@ -40,7 +44,8 @@ public final class PlayerChatListener implements Listener {
     @EventHandler
     public void handlePlayerChat(@NotNull AsyncChatEvent event) {
         checkPunishment(event.getPlayer(), event);
-        ranks.setChatFormat(event);
+        if (config.getBoolean(ConfigValue.PERMISSION_RANK_CHAT_ENABLE))
+            ranks.setChatFormat(event);
     }
 
     private void checkPunishment(@NotNull Player player, @NotNull AsyncChatEvent event) {

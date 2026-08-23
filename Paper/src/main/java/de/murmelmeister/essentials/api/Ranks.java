@@ -1,9 +1,9 @@
 package de.murmelmeister.essentials.api;
 
 import de.murmelmeister.essentials.MurmelEssentials;
-import de.murmelmeister.essentials.configs.ConfigProvider;
-import de.murmelmeister.essentials.configs.settings.Permission;
+import de.murmelmeister.essentials.configs.PluginConfig;
 import de.murmelmeister.essentials.utils.ChatFormatter;
+import de.murmelmeister.essentials.utils.ConfigValue;
 import de.murmelmeister.library.utils.AnimationUtils;
 import de.murmelmeister.murmelapi.clan.Clan;
 import de.murmelmeister.murmelapi.clan.ClanProvider;
@@ -18,7 +18,6 @@ import de.murmelmeister.murmelapi.group.color.GroupColorProvider;
 import de.murmelmeister.murmelapi.group.color.GroupColorType;
 import de.murmelmeister.murmelapi.permission.PermissionService;
 import de.murmelmeister.murmelapi.permission.PermissionTarget;
-import de.murmelmeister.murmelapi.settings.SettingsService;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.user.color.UserPrefixColor;
@@ -36,6 +35,7 @@ import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.kyori.adventure.text.object.ObjectContents;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
@@ -55,11 +55,12 @@ public final class Ranks implements MurmelCache {
     private BukkitTask task;
     private ScheduledTask foliaTask; // Folia support
 
+    private final PluginConfig config;
+
     private final RefreshProvider refreshProvider;
     private final GroupProvider groupProvider;
     private final GroupColorProvider groupColorProvider;
     private final UserProvider userProvider;
-    private final SettingsService settingsService;
 
     private final PermissionService permissionService;
 
@@ -69,11 +70,11 @@ public final class Ranks implements MurmelCache {
     private final ClanMemberProvider clanMemberProvider;
 
     public Ranks(@NotNull MurmelEssentials plugin) {
+        this.config = plugin.getPluginConfig();
         this.refreshProvider = plugin.getRefreshProvider();
         this.groupProvider = plugin.getGroupProvider();
         this.groupColorProvider = plugin.getGroupColorProvider();
         this.userProvider = plugin.getUserProvider();
-        this.settingsService = plugin.getSettingsService();
         this.permissionService = plugin.getPermissionService();
         this.colorProvider = plugin.getPrefixColorProvider();
         this.userColorProvider = plugin.getUserPrefixColorProvider();
@@ -95,27 +96,29 @@ public final class Ranks implements MurmelCache {
                 scheduledTask -> {
                     List<Player> players = new ArrayList<>(server.getOnlinePlayers());
 
-                    for (Player player : players) {
-                        server.getAsyncScheduler().runNow(plugin, asyncTask -> {
-                            User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
-                            if (user == null) return;
-                            int userId = user.id();
+                    if (config.getBoolean(ConfigValue.PERMISSION_RANK_TAB_ENABLE))
+                        for (Player player : players) {
+                            server.getAsyncScheduler().runNow(plugin, asyncTask -> {
+                                User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
+                                if (user == null) return;
+                                int userId = user.id();
 
-                            UserPrefixColor userColor = userColorProvider.findActiveById(userId).orElse(null);
-                            if (userColor == null) return;
+                                UserPrefixColor userColor = userColorProvider.findActiveById(userId).orElse(null);
+                                if (userColor == null) return;
 
-                            PrefixColor prefixColor = colorProvider.findById(userColor.colorId()).orElse(null);
-                            if (prefixColor == null) return;
-                            if (!prefixColor.animated()) return;
-                            player.getScheduler().run(plugin, entityTask -> setPlayerListName(player), null);
-                        });
-                    }
+                                PrefixColor prefixColor = colorProvider.findById(userColor.colorId()).orElse(null);
+                                if (prefixColor == null) return;
+                                if (!prefixColor.animated()) return;
+                                player.getScheduler().run(plugin, entityTask -> setPlayerListName(player), null);
+                            });
+                        }
 
                     if (hasUpdated.get()) {
                         for (Player player : players) {
                             player.getScheduler().run(plugin, entityTask -> {
-                                setPlayerTeams(player);
-                                setPlayerListName(player);
+                                if (config.getBoolean(ConfigValue.PERMISSION_RANK_TAG_ENABLE)) setPlayerTeams(player);
+                                if (config.getBoolean(ConfigValue.PERMISSION_RANK_TAB_ENABLE))
+                                    setPlayerListName(player);
                                 player.updateCommands();
                             }, null);
                         }
@@ -130,23 +133,25 @@ public final class Ranks implements MurmelCache {
     public void updatePlayers(@NotNull MurmelEssentials plugin, @NotNull Server server) {
         // Recommended to use Scoreboard/Player-API in the main thread
         task = server.getScheduler().runTaskTimer(plugin, () -> {
-            server.getOnlinePlayers().forEach(player -> {
-                User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
-                if (user == null) return;
-                int userId = user.id();
+            if (config.getBoolean(ConfigValue.PERMISSION_RANK_TAB_ENABLE))
+                server.getOnlinePlayers().forEach(player -> {
+                    User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
+                    if (user == null) return;
+                    int userId = user.id();
 
-                UserPrefixColor userColor = userColorProvider.findActiveById(userId).orElse(null);
-                if (userColor == null) return;
+                    UserPrefixColor userColor = userColorProvider.findActiveById(userId).orElse(null);
+                    if (userColor == null) return;
 
-                PrefixColor prefixColor = colorProvider.findById(userColor.colorId()).orElse(null);
-                if (prefixColor == null) return;
-                if (!prefixColor.animated()) return;
-                setPlayerListName(player);
-            });
+                    PrefixColor prefixColor = colorProvider.findById(userColor.colorId()).orElse(null);
+                    if (prefixColor == null) return;
+                    if (!prefixColor.animated()) return;
+                    setPlayerListName(player);
+                });
+
             if (hasUpdated.get()) {
                 server.getOnlinePlayers().forEach(player -> {
-                    setPlayerTeams(player);
-                    setPlayerListName(player);
+                    if (config.getBoolean(ConfigValue.PERMISSION_RANK_TAG_ENABLE)) setPlayerTeams(player);
+                    if (config.getBoolean(ConfigValue.PERMISSION_RANK_TAB_ENABLE)) setPlayerListName(player);
                     player.updateCommands();
                 });
                 hasUpdated.set(false);
@@ -166,9 +171,6 @@ public final class Ranks implements MurmelCache {
         if (group == null) return;
         int groupId = group.id();
 
-        // Load the config
-        Permission permission = ConfigProvider.loadPermissions(settingsService);
-
         // Get the group colors
         GroupColor prefix = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_PREFIX.getId()).orElse(null);
         GroupColor suffix = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_SUFFIX.getId()).orElse(null);
@@ -176,10 +178,10 @@ public final class Ranks implements MurmelCache {
         GroupColor chatMessage = groupColorProvider.findGroupColor(groupId, GroupColorType.CHAT_MESSAGE.getId()).orElse(null);
 
         // Format the chat message
-        String formattedPrefix = prefix != null ? prefix.value() : permission.defaultChatPrefix();
-        String formattedSuffix = suffix != null ? suffix.value() : permission.defaultChatSuffix();
-        String formattedColor = color != null ? color.value() : permission.defaultChatColor();
-        String formattedColorMessage = chatMessage != null ? chatMessage.value() : permission.defaultChatColorMessage();
+        String formattedPrefix = prefix != null ? prefix.value() : config.getString(ConfigValue.PERMISSION_RANK_CHAT_DEFAULT_PREFIX);
+        String formattedSuffix = suffix != null ? suffix.value() : config.getString(ConfigValue.PERMISSION_RANK_CHAT_DEFAULT_SUFFIX);
+        String formattedColor = color != null ? color.value() : config.getString(ConfigValue.PERMISSION_RANK_CHAT_DEFAULT_COLOR);
+        String formattedColorMessage = chatMessage != null ? chatMessage.value() : config.getString(ConfigValue.PERMISSION_RANK_CHAT_DEFAULT_MESSAGE_FORMAT);
 
         // Get Clan
         ClanMember member = clanMemberProvider.findClan(userId)
@@ -205,7 +207,7 @@ public final class Ranks implements MurmelCache {
 
                     if (colors.isEmpty()) {
                         // If the color string is empty, use the default formatting
-                        baseComponent = miniMessage.deserialize(permission.chatFormat(),
+                        baseComponent = miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_CHAT_FORMAT),
                                 Placeholder.parsed("color", formattedColor),
                                 clanSign,
                                 Placeholder.parsed("prefix", formattedPrefix),
@@ -215,7 +217,7 @@ public final class Ranks implements MurmelCache {
                         );
                     } else {
                         // If the color string is not empty, animate the prefix color
-                        Component chatFormat = miniMessage.deserialize(permission.chatFormat(),
+                        Component chatFormat = miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_CHAT_FORMAT),
                                 Placeholder.parsed("color", ""),
                                 clanSign,
                                 Placeholder.parsed("prefix", formattedPrefix),
@@ -233,7 +235,7 @@ public final class Ranks implements MurmelCache {
                     }
                 } else {
                     // If the prefix color is not animated, use it directly
-                    baseComponent = miniMessage.deserialize(permission.chatFormat(),
+                    baseComponent = miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_CHAT_FORMAT),
                             Placeholder.parsed("color", prefixColor.color()),
                             clanSign,
                             Placeholder.parsed("prefix", formattedPrefix),
@@ -244,7 +246,7 @@ public final class Ranks implements MurmelCache {
                 }
             } else {
                 // If the prefix color is not found, use the default formatting
-                baseComponent = miniMessage.deserialize(permission.chatFormat(),
+                baseComponent = miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_CHAT_FORMAT),
                         Placeholder.parsed("color", formattedColor),
                         clanSign,
                         Placeholder.parsed("prefix", formattedPrefix),
@@ -255,7 +257,7 @@ public final class Ranks implements MurmelCache {
             }
         } else {
             // If the user color is not found, use the default formatting
-            baseComponent = miniMessage.deserialize(permission.chatFormat(),
+            baseComponent = miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_CHAT_FORMAT),
                     Placeholder.parsed("color", formattedColor),
                     clanSign,
                     Placeholder.parsed("prefix", formattedPrefix),
@@ -265,10 +267,25 @@ public final class Ranks implements MurmelCache {
             );
         }
 
+        String rawMessage = PlainTextComponentSerializer.plainText().serialize(event.message());
+        Component formattedMessage = ChatFormatter.format(player, rawMessage, formattedColorMessage);
+        event.message(formattedMessage);
+
+        Component playerIcon = config.getBoolean(ConfigValue.CHAT_PLAYER_HEAD_ENABLE) ? Component.object(
+                        ObjectContents.playerHead(player.getUniqueId())
+                )
+                .fallback(Component.empty())
+                .appendSpace()
+                : Component.empty();
+
+        Component playerBase = playerIcon
+                .append(baseComponent);
+
+        Component finalComponent = baseComponent;
         event.renderer((source, sourceDisplayName, message, viewer) -> {
-            String finalMessage = PlainTextComponentSerializer.plainText().serialize(message);
-            Component messageComponent = ChatFormatter.format(player, finalMessage, formattedColorMessage);
-            return baseComponent.append(messageComponent);
+            if (viewer instanceof Player)
+                return playerBase.append(message);
+            return finalComponent.append(message);
         });
     }
 
@@ -283,18 +300,15 @@ public final class Ranks implements MurmelCache {
         if (group == null) return;
         int groupId = group.id();
 
-        // Load the config
-        Permission permission = ConfigProvider.loadPermissions(settingsService);
-
         // Get the group colors
         GroupColor prefix = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_PREFIX.getId()).orElse(null);
         GroupColor suffix = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_SUFFIX.getId()).orElse(null);
         GroupColor color = groupColorProvider.findGroupColor(groupId, GroupColorType.TAB_COLOR.getId()).orElse(null);
 
         // Format the player list name
-        String formattedPrefix = prefix != null ? prefix.value() : permission.defaultTabPrefix();
-        String formattedSuffix = suffix != null ? suffix.value() : permission.defaultTabSuffix();
-        String formattedColor = color != null ? color.value() : permission.defaultTabColor();
+        String formattedPrefix = prefix != null ? prefix.value() : config.getString(ConfigValue.PERMISSION_RANK_TAB_DEFAULT_PREFIX);
+        String formattedSuffix = suffix != null ? suffix.value() : config.getString(ConfigValue.PERMISSION_RANK_TAB_DEFAULT_SUFFIX);
+        String formattedColor = color != null ? color.value() : config.getString(ConfigValue.PERMISSION_RANK_TAB_DEFAULT_COLOR);
 
         // Get Clan
         ClanMember member = clanMemberProvider.findClan(userId)
@@ -320,7 +334,7 @@ public final class Ranks implements MurmelCache {
 
                     if (colors.isEmpty()) {
                         // If the color string is empty, use the default formatting
-                        baseComponent = miniMessage.deserialize(permission.tabFormat(),
+                        baseComponent = miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_TAB_FORMAT),
                                 Placeholder.parsed("color", formattedColor),
                                 clanSign,
                                 Placeholder.parsed("prefix", formattedPrefix),
@@ -330,7 +344,7 @@ public final class Ranks implements MurmelCache {
                         );
                     } else {
                         // If the color string is not empty, animate the prefix color
-                        Component tabFormat = miniMessage.deserialize(permission.tabFormat(),
+                        Component tabFormat = miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_TAB_FORMAT),
                                 Placeholder.parsed("color", ""),
                                 clanSign,
                                 Placeholder.parsed("prefix", formattedPrefix),
@@ -348,7 +362,7 @@ public final class Ranks implements MurmelCache {
                     }
                 } else {
                     // If the prefix color is not animated, use it directly
-                    baseComponent = miniMessage.deserialize(permission.tabFormat(),
+                    baseComponent = miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_TAB_FORMAT),
                             Placeholder.parsed("color", prefixColor.color()),
                             clanSign,
                             Placeholder.parsed("prefix", formattedPrefix),
@@ -359,7 +373,7 @@ public final class Ranks implements MurmelCache {
                 }
             } else {
                 // If the prefix color is not found, use the default formatting
-                baseComponent = miniMessage.deserialize(permission.tabFormat(),
+                baseComponent = miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_TAB_FORMAT),
                         Placeholder.parsed("color", formattedColor),
                         clanSign,
                         Placeholder.parsed("prefix", formattedPrefix),
@@ -370,7 +384,7 @@ public final class Ranks implements MurmelCache {
             }
         } else {
             // If the user color is not found, use the default formatting
-            baseComponent = miniMessage.deserialize(permission.tabFormat(),
+            baseComponent = miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_TAB_FORMAT),
                     Placeholder.parsed("color", formattedColor),
                     clanSign,
                     Placeholder.parsed("prefix", formattedPrefix),
@@ -385,8 +399,6 @@ public final class Ranks implements MurmelCache {
     }
 
     private void setPlayerTeams(@NotNull Player player) {
-        Permission permission = ConfigProvider.loadPermissions(settingsService);
-
         User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
         if (user == null) return;
         Scoreboard scoreboard = player.getScoreboard();
@@ -441,16 +453,16 @@ public final class Ranks implements MurmelCache {
             GroupColor suffix = groupColorProvider.findGroupColor(groupId, GroupColorType.TEAM_SUFFIX.getId()).orElse(null);
             GroupColor color = groupColorProvider.findGroupColor(groupId, GroupColorType.TEAM_COLOR.getId()).orElse(null);
 
-            String formattedPrefix = prefix != null ? prefix.value() : permission.defaultTagPrefix();
-            String formattedSuffix = suffix != null ? suffix.value() : permission.defaultTagSuffix();
-            String formattedColor = color != null ? color.value() : permission.defaultTagColor();
+            String formattedPrefix = prefix != null ? prefix.value() : config.getString(ConfigValue.PERMISSION_RANK_TAG_DEFAULT_PREFIX);
+            String formattedSuffix = suffix != null ? suffix.value() : config.getString(ConfigValue.PERMISSION_RANK_TAG_DEFAULT_SUFFIX);
+            String formattedColor = color != null ? color.value() : config.getString(ConfigValue.PERMISSION_RANK_TAG_DEFAULT_COLOR);
             NamedTextColor textColor = NamedTextColor.NAMES.value(formattedColor.toLowerCase());
 
             if (!formattedPrefix.equals(miniMessage.serialize(team.prefix())))
-                team.prefix(miniMessage.deserialize(permission.tagPrefixFormat(),
+                team.prefix(miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_TAG_FORMAT_PREFIX),
                         Placeholder.parsed("prefix", formattedPrefix)));
             if (!formattedSuffix.equals(miniMessage.serialize(team.suffix())))
-                team.suffix(miniMessage.deserialize(permission.tagSuffixFormat(),
+                team.suffix(miniMessage.deserialize(config.getString(ConfigValue.PERMISSION_RANK_TAG_FORMAT_SUFFIX),
                         Placeholder.parsed("suffix", formattedSuffix)));
             if (textColor != null)
                 team.color(textColor);
