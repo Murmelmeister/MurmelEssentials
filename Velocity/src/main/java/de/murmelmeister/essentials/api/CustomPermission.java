@@ -40,13 +40,18 @@ public final class CustomPermission implements PermissionProvider, PermissionFun
     }
 
     public static void updatePermission(MurmelEssentials plugin, ProxyServer server) {
-        if (task != null && task.status() != TaskStatus.CANCELLED)
-            task.cancel();
+        stopPermissionUpdater();
         task = server.getScheduler().buildTask(plugin, () -> {
                     int updatedRows = plugin.getPermissionService().loadExpired();
                     if (updatedRows > 0)
                         plugin.getLogger().info("Updated {} expired permissions.", updatedRows);
                 })
                 .repeat(1, TimeUnit.MINUTES).schedule();
+    }
+
+    public static void stopPermissionUpdater() {
+        if (task != null && task.status() != TaskStatus.CANCELLED)
+            task.cancel();
+        task = null;
     }
 }

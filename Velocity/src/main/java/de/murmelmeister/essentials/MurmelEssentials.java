@@ -76,10 +76,12 @@ public final class MurmelEssentials {
     private final MurmelAPI murmelAPI;
     private final DatabaseConfig databaseConfig;
     private final MessageConfig messageConfig;
-    private PluginConfig pluginConfig;
+    private final PluginConfig pluginConfig;
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from("murmel:main");
     private final PunishmentUtil punishmentUtil;
     private RefreshBridge refreshBridge;
+    private MurmelMessageTranslator messageTranslator;
+    private boolean databaseConnected;
 
     public static final String BASE_PERMISSION_COMMAND = "murmel.command.";
     public static final String TEAM_MEMBER_PERMISSION = "murmel.member.team";
@@ -103,22 +105,7 @@ public final class MurmelEssentials {
         this.murmelAPI = new MurmelAPI();
         this.databaseConfig = new DatabaseConfig(dataDirectory, murmelAPI);
         this.messageConfig = new MessageConfig(dataDirectory);
-        databaseConfig.connect();
-        murmelAPI.setupTables();
-
         this.pluginConfig = new PluginConfig(dataDirectory);
-
-        murmelAPI.loadMessages();
-        final MessageProvider messageProvider = getMessageProvider();
-        int messages = 0;
-        messages += messageConfig.loadToDatabase(messageProvider,
-                List.of("lang/message_en.properties", "lang/message_de.properties")
-        ).length;
-
-        MurmelMessageTranslator translator = new MurmelMessageTranslator(getMessageService());
-        GlobalTranslator.translator().addSource(translator);
-        logger.info("Updated {} messages.", messages);
-
         this.punishmentUtil = new PunishmentUtil(this);
         this.tablistUtil = new TablistUtil(this, logger, server);
         this.maintenanceScheduler = new MaintenanceScheduler(this, server, logger);
@@ -126,6 +113,19 @@ public final class MurmelEssentials {
 
     @Subscribe
     public void onEnable(ProxyInitializeEvent event) {
+        databaseConfig.connect();
+        databaseConnected = true;
+        murmelAPI.setupTables();
+        murmelAPI.loadMessages();
+
+        MessageProvider messageProvider = getMessageProvider();
+        int messages = messageConfig.loadToDatabase(messageProvider,
+                List.of("lang/message_en.properties", "lang/message_de.properties")
+        ).length;
+        messageTranslator = new MurmelMessageTranslator(getMessageService());
+        GlobalTranslator.translator().addSource(messageTranslator);
+        logger.info("Updated {} messages.", messages);
+
         server.getChannelRegistrar().register(channel); // Note: Channel registration only works at the ProxyInitializeEvent not in the constructor
         refreshBridge = new RefreshBridge(server, channel, getRefreshProvider(), logger, getGson());
         refreshBridge.register();
@@ -139,20 +139,35 @@ public final class MurmelEssentials {
 
     @Subscribe
     public void onDisable(ProxyShutdownEvent event) {
+        CustomPermission.stopPermissionUpdater();
         maintenanceScheduler.stop();
         tablistUtil.stop();
         CommandManager.unregister(server);
-        refreshBridge.unregister();
+        if (refreshBridge != null)
+            refreshBridge.unregister();
         server.getChannelRegistrar().unregister(channel);
+        if (messageTranslator != null) {
+            GlobalTranslator.translator().removeSource(messageTranslator);
+            messageTranslator = null;
+        }
+
         databaseExecutor.shutdown();
         try {
-            if (!databaseExecutor.awaitTermination(10, TimeUnit.SECONDS))
-                logger.warn("Database tasks did not finish before shutdown.");
+            if (!databaseExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+                int cancelledTasks = databaseExecutor.shutdownNow().size();
+                logger.warn("Cancelled {} queued database tasks during shutdown.", cancelledTasks);
+                if (!databaseExecutor.awaitTermination(5, TimeUnit.SECONDS))
+                    logger.warn("Some database tasks did not stop before disconnecting the database.");
+            }
         } catch (InterruptedException exception) {
+            databaseExecutor.shutdownNow();
             Thread.currentThread().interrupt();
             logger.warn("Interrupted while waiting for database tasks to finish.", exception);
         }
-        databaseConfig.disconnect();
+        if (databaseConnected) {
+            databaseConfig.disconnect();
+            databaseConnected = false;
+        }
     }
 
     public Logger getLogger() {
