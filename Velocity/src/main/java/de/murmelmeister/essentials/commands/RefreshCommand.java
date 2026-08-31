@@ -3,6 +3,7 @@ package de.murmelmeister.essentials.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import de.murmelmeister.essentials.MurmelEssentials;
@@ -17,6 +18,11 @@ import java.util.List;
 
 @CommandConfig(id = "refresh", name = "refresh", bypass = true)
 public final class RefreshCommand extends CommandManager {
+    private static final List<String> MESSAGE_FILES = List.of(
+            "lang/message_en.properties",
+            "lang/message_de.properties"
+    );
+
     private final MurmelEssentials plugin;
     private final RefreshProvider refreshProvider;
 
@@ -30,16 +36,7 @@ public final class RefreshCommand extends CommandManager {
     public LiteralArgumentBuilder<CommandSource> createCommand(String commandName) {
         return BrigadierCommand.literalArgumentBuilder(commandName)
                 .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "refresh"))
-                .executes(context ->
-                        runWithTiming(context, (source, executor) -> {
-                            refreshProvider.fireAll();
-                            plugin.getPluginConfig().reload();
-                            reload(plugin);
-                            plugin.reloadTablist();
-                            sendRawMessage(source, executor.languageId(), "<#00cc88>All caches refreshed.");
-                            return CommandResult.of(Command.SINGLE_SUCCESS);
-                        })
-                )
+                .executes(this::executeAll)
                 .then(BrigadierCommand.literalArgumentBuilder("languages")
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
@@ -50,20 +47,7 @@ public final class RefreshCommand extends CommandManager {
                         )
                 )
                 .then(BrigadierCommand.literalArgumentBuilder("messages")
-                        .executes(context ->
-                                runWithTiming(context, (source, executor) -> {
-                                    final MessageProvider messageProvider = plugin.getMessageProvider();
-                                    int result = 0;
-                                    result += plugin.getMessageConfig().loadToDatabase(messageProvider,
-                                            List.of("lang/message_en.properties", "lang/message_de.properties")
-                                    ).length;
-
-                                    if (result == 0)
-                                        refreshProvider.fireCache(RefreshType.MESSAGES);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded messages. Updated messages: <messages>", tagParsed("messages", result));
-                                    return CommandResult.of(Command.SINGLE_SUCCESS);
-                                })
-                        )
+                        .executes(this::executeMessages)
                 )
                 .then(BrigadierCommand.literalArgumentBuilder("punishment_reasons")
                         .executes(context ->
@@ -165,13 +149,7 @@ public final class RefreshCommand extends CommandManager {
                         )
                 )
                 .then(BrigadierCommand.literalArgumentBuilder("all")
-                        .executes(context ->
-                                runWithTiming(context, (source, executor) -> {
-                                    refreshProvider.fireCache(RefreshType.ALL);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded all caches.");
-                                    return CommandResult.of(Command.SINGLE_SUCCESS);
-                                })
-                        )
+                        .executes(this::executeAll)
                 )
                 .then(BrigadierCommand.literalArgumentBuilder("send")
                         .then(BrigadierCommand.requiredArgumentBuilder("message", StringArgumentType.word())
@@ -188,7 +166,7 @@ public final class RefreshCommand extends CommandManager {
                 .then(BrigadierCommand.literalArgumentBuilder("tablist")
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
-                                    refreshProvider.fireCache(RefreshType.SETTINGS);
+                                    plugin.getPluginConfig().reload();
                                     plugin.reloadTablist();
                                     sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded tablist.");
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
@@ -204,5 +182,37 @@ public final class RefreshCommand extends CommandManager {
                                 })
                         )
                 );
+    }
+
+    private int executeMessages(CommandContext<CommandSource> context) {
+        return runWithTiming(context, (source, executor) -> {
+            MessageProvider messageProvider = plugin.getMessageProvider();
+            refreshProvider.fireCache(RefreshType.MESSAGES);
+            int updatedMessages = plugin.getMessageConfig()
+                    .loadToDatabase(messageProvider, MESSAGE_FILES)
+                    .length;
+
+            sendRawMessage(source, executor.languageId(),
+                    "<#00cc88>Reloaded messages. Updated messages: <messages>",
+                    tagParsed("messages", updatedMessages));
+            return CommandResult.of(Command.SINGLE_SUCCESS);
+        });
+    }
+
+    private int executeAll(CommandContext<CommandSource> context) {
+        return runWithTiming(context, (source, executor) -> {
+            plugin.getPluginConfig().reload();
+            refreshProvider.fireAll();
+            int updatedMessages = plugin.getMessageConfig()
+                    .loadToDatabase(plugin.getMessageProvider(), MESSAGE_FILES)
+                    .length;
+            reload(plugin);
+            plugin.reloadTablist();
+
+            sendRawMessage(source, executor.languageId(),
+                    "<#00cc88>Reloaded configuration and all caches. Updated messages: <messages>",
+                    tagParsed("messages", updatedMessages));
+            return CommandResult.of(Command.SINGLE_SUCCESS);
+        });
     }
 }
