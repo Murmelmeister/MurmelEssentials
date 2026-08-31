@@ -16,6 +16,7 @@ import de.murmelmeister.essentials.configurations.PluginConfig;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.ListenerManager;
 import de.murmelmeister.essentials.utils.MurmelMessageTranslator;
+import de.murmelmeister.essentials.utils.MaintenanceScheduler;
 import de.murmelmeister.essentials.utils.PunishmentUtil;
 import de.murmelmeister.essentials.utils.RefreshBridge;
 import de.murmelmeister.essentials.utils.TablistUtil;
@@ -87,6 +88,7 @@ public final class MurmelEssentials {
     public static final String PUNISHMENT_NOTIFY_PERMISSION = "murmel.punishment.notify";
 
     private final TablistUtil tablistUtil;
+    private final MaintenanceScheduler maintenanceScheduler;
 
     @Inject
     public MurmelEssentials(Logger logger, ProxyServer server, @DataDirectory Path dataDirectory) {
@@ -119,6 +121,7 @@ public final class MurmelEssentials {
 
         this.punishmentUtil = new PunishmentUtil(this);
         this.tablistUtil = new TablistUtil(this, logger, server);
+        this.maintenanceScheduler = new MaintenanceScheduler(this, server, logger);
     }
 
     @Subscribe
@@ -131,10 +134,12 @@ public final class MurmelEssentials {
         ListenerManager.register(this, server);
         CommandManager.register(this, logger);
         tablistUtil.start(pluginConfig);
+        maintenanceScheduler.start();
     }
 
     @Subscribe
     public void onDisable(ProxyShutdownEvent event) {
+        maintenanceScheduler.stop();
         tablistUtil.stop();
         CommandManager.unregister(server);
         refreshBridge.unregister();
