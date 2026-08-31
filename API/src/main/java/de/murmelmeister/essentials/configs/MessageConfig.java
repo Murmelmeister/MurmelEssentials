@@ -6,32 +6,35 @@ import de.murmelmeister.murmelapi.language.message.MessageProvider;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 
-public class MessageConfig {
+public final class MessageConfig {
     private final Path dataDirectory;
 
     public MessageConfig(Path dataDirectory) {
-        this.dataDirectory = dataDirectory;
+        this.dataDirectory = Objects.requireNonNull(dataDirectory, "dataDirectory must not be null")
+                .toAbsolutePath()
+                .normalize();
         createFile("lang/message_en.properties");
         createFile("lang/message_de.properties");
     }
 
     public MessageConfig(String pluginName) {
-        this.dataDirectory = Path.of("./plugins/" + pluginName + "/");
-        createFile("lang/message_en.properties");
-        createFile("lang/message_de.properties");
+        this(pluginDirectory(pluginName));
     }
 
     // TODO: Version check in the files ( => maybe delete old messages or something)
 
     public void createFile(String file) {
+        Path target = resolveFile(file);
+
         if (Files.notExists(dataDirectory)) {
             try {
                 Files.createDirectories(dataDirectory);
@@ -40,16 +43,17 @@ public class MessageConfig {
             }
         }
 
-        if (Files.notExists(dataDirectory.resolve(file))) {
+        if (Files.notExists(target)) {
             try {
-                Files.createDirectories(dataDirectory.resolve(file).getParent());
+                Files.createDirectories(target.getParent());
             } catch (IOException e) {
                 throw new RuntimeException("Could not create directory for " + file + " file.", e);
             }
 
-            try (InputStream in = getClass().getClassLoader().getResourceAsStream(file)) {
+            String resourceName = file.replace('\\', '/');
+            try (InputStream in = getClass().getClassLoader().getResourceAsStream(resourceName)) {
                 if (in == null) throw new IllegalStateException("Could not find " + file + " file.");
-                Files.copy(in, dataDirectory.resolve(file));
+                Files.copy(in, target);
             } catch (Exception e) {
                 throw new RuntimeException("Could not create " + file + " file.", e);
             }
@@ -57,34 +61,69 @@ public class MessageConfig {
     }
 
     public int[] loadToDatabase(MessageProvider provider, String file) {
+        Objects.requireNonNull(provider, "provider must not be null");
+        createFile(file);
+
         Properties properties = loadProperties(file);
         Collection<Message> messages = new ArrayList<>();
 
-        int language = Integer.parseInt(properties.getProperty("language.id", "1"));
+        String languageValue = properties.getProperty("language.id");
+        if (languageValue == null || languageValue.isBlank())
+            throw new IllegalArgumentException("Missing language.id in " + file + ".");
+
+        int language;
+        try {
+            language = Integer.parseInt(languageValue.trim());
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Invalid language.id in " + file + ": " + languageValue, exception);
+        }
+        if (language < 1)
+            throw new IllegalArgumentException("language.id must be greater than zero in " + file + ".");
 
         for (String key : properties.stringPropertyNames()) {
             if ("language.id".equals(key)) continue;
 
             String value = properties.getProperty(key);
-            messages.add(Message.of(0, key, language, value));
+            if (key.isBlank() || value == null || value.isBlank())
+                throw new IllegalArgumentException("Message " + key + " must not be blank in " + file + ".");
+
+            boolean unchanged = provider.findMessage(key, language)
+                    .map(existing -> existing.message().equals(value))
+                    .orElse(false);
+            if (!unchanged)
+                messages.add(Message.of(0, key, language, value));
         }
 
+        if (messages.isEmpty()) return new int[0];
         return provider.upsertAll(messages);
     }
 
     public int[] loadToDatabase(MessageProvider provider, List<String> files) {
-        if (files == null || files.isEmpty()) return new int[0];
+        Objects.requireNonNull(provider, "provider must not be null");
+        Objects.requireNonNull(files, "files must not be null");
+        if (files.isEmpty()) return new int[0];
 
-        int[] result = new int[files.size()];
-        for (String file : files)
-            result = loadToDatabase(provider, file);
-        return result;
+        List<int[]> results = new ArrayList<>(files.size());
+        int resultSize = 0;
+        for (String file : files) {
+            int[] fileResult = loadToDatabase(provider, file);
+            results.add(fileResult);
+            resultSize += fileResult.length;
+        }
+
+        int[] combinedResult = new int[resultSize];
+        int offset = 0;
+        for (int[] result : results) {
+            System.arraycopy(result, 0, combinedResult, offset, result.length);
+            offset += result.length;
+        }
+        return combinedResult;
     }
 
     private Properties loadProperties(String file) {
         Properties properties = new Properties();
 
-        Path path = dataDirectory.resolve(file);
+        Path path = resolveFile(file);
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.ISO_8859_1)) {
             properties.load(reader);
         } catch (IOException e) {
@@ -92,5 +131,23 @@ public class MessageConfig {
         }
 
         return properties;
+    }
+
+    private Path resolveFile(String file) {
+        if (file == null || file.isBlank())
+            throw new IllegalArgumentException("file must not be blank");
+
+        Path path = dataDirectory.resolve(file).toAbsolutePath().normalize();
+        if (!path.startsWith(dataDirectory))
+            throw new IllegalArgumentException("File must be inside the plugin data directory: " + file);
+        return path;
+    }
+
+    private static Path pluginDirectory(String pluginName) {
+        if (pluginName == null || pluginName.isBlank())
+            throw new IllegalArgumentException("pluginName must not be blank");
+        if (pluginName.contains("/") || pluginName.contains("\\") || ".".equals(pluginName) || "..".equals(pluginName))
+            throw new IllegalArgumentException("pluginName must be a single directory name");
+        return Path.of("plugins", pluginName);
     }
 }
