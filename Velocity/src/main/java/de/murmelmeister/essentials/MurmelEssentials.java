@@ -81,7 +81,6 @@ public final class MurmelEssentials {
     private final PunishmentUtil punishmentUtil;
     private RefreshBridge refreshBridge;
     private MurmelMessageTranslator messageTranslator;
-    private boolean databaseConnected;
 
     public static final String BASE_PERMISSION_COMMAND = "murmel.command.";
     public static final String TEAM_MEMBER_PERMISSION = "murmel.member.team";
@@ -114,7 +113,6 @@ public final class MurmelEssentials {
     @Subscribe
     public void onEnable(ProxyInitializeEvent event) {
         databaseConfig.connect();
-        databaseConnected = true;
         murmelAPI.setupTables();
         murmelAPI.loadMessages();
 
@@ -164,10 +162,8 @@ public final class MurmelEssentials {
             Thread.currentThread().interrupt();
             logger.warn("Interrupted while waiting for database tasks to finish.", exception);
         }
-        if (databaseConnected) {
+        if (databaseConfig.isConnected())
             databaseConfig.disconnect();
-            databaseConnected = false;
-        }
     }
 
     public Logger getLogger() {

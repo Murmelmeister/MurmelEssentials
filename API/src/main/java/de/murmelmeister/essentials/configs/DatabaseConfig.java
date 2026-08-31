@@ -1,79 +1,97 @@
 package de.murmelmeister.essentials.configs;
 
-import com.zaxxer.hikari.HikariConfig;
 import de.murmelmeister.murmelapi.MurmelAPI;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 import java.util.Properties;
 
-public class DatabaseConfig {
+public final class DatabaseConfig {
+    private static final String CONFIG_FILE = "database.properties";
+    private static final String MARIADB_DRIVER = "org.mariadb.jdbc.Driver";
+
     private final Path dataDirectory;
-    private final String file = "database.properties";
+    private final Path configPath;
     private final MurmelAPI murmelAPI;
+    private boolean connected;
 
     public DatabaseConfig(Path dataDirectory, MurmelAPI murmelAPI) {
-        this.dataDirectory = dataDirectory;
-        this.murmelAPI = murmelAPI;
+        this.dataDirectory = Objects.requireNonNull(dataDirectory, "dataDirectory must not be null")
+                .toAbsolutePath()
+                .normalize();
+        this.configPath = this.dataDirectory.resolve(CONFIG_FILE);
+        this.murmelAPI = Objects.requireNonNull(murmelAPI, "murmelAPI must not be null");
         createFile();
     }
 
     public DatabaseConfig(String pluginName, MurmelAPI murmelAPI) {
-        this.dataDirectory = Path.of("./plugins/" + pluginName + "/");
-        this.murmelAPI = murmelAPI;
-        createFile();
+        this(pluginDirectory(pluginName), murmelAPI);
     }
 
     public void createFile() {
-        if (Files.notExists(dataDirectory)) {
-            try {
-                Files.createDirectories(dataDirectory);
-            } catch (IOException e) {
-                throw new RuntimeException("Could not create data directory for plugin.", e);
-            }
+        try {
+            Files.createDirectories(dataDirectory);
+        } catch (IOException exception) {
+            throw new RuntimeException("Could not create plugin data directory: " + dataDirectory, exception);
         }
 
-        if (Files.notExists(dataDirectory.resolve(file))) {
-            try (InputStream in = getClass().getClassLoader().getResourceAsStream(file)) {
-                if (in == null) throw new IllegalStateException("Could not find database.properties file.");
-                Files.copy(in, dataDirectory.resolve(file));
-            } catch (IOException e) {
-                throw new RuntimeException("Could not create database.properties file.", e);
-            }
+        if (Files.exists(configPath)) return;
+
+        try (InputStream input = getClass().getClassLoader().getResourceAsStream(CONFIG_FILE)) {
+            if (input == null)
+                throw new IllegalStateException("Could not find bundled " + CONFIG_FILE + ".");
+            Files.copy(input, configPath);
+        } catch (IOException exception) {
+            throw new RuntimeException("Could not create " + configPath + ".", exception);
         }
     }
 
-    public void connect() {
-        // Load properties
+    public synchronized void connect() {
+        if (connected) return;
+
         Properties properties = new Properties();
-        try (InputStream in = Files.newInputStream(dataDirectory.resolve(file))) {
-            properties.load(in);
-        } catch (IOException e) {
-            throw new RuntimeException("Could not load database.properties file.", e);
+        try (InputStream input = Files.newInputStream(configPath)) {
+            properties.load(input);
+        } catch (IOException exception) {
+            throw new RuntimeException("Could not load " + configPath + ".", exception);
         }
 
-        // Get properties
         String url = properties.getProperty("jdbcUrl");
         String username = properties.getProperty("username");
         String password = properties.getProperty("password");
-        if (url == null || username == null || password == null
-                || url.isEmpty() || username.isEmpty() || password.isEmpty()
-                || url.isBlank() || username.isBlank() || password.isBlank())
-            throw new IllegalArgumentException("Database configuration is incomplete or contains placeholder. Please check your database.properties file.");
+        if (url == null || url.isBlank())
+            throw new IllegalArgumentException("Missing jdbcUrl in " + configPath + ".");
+        if (username == null || username.isBlank())
+            throw new IllegalArgumentException("Missing username in " + configPath + ".");
+        if (password == null || password.isBlank())
+            throw new IllegalArgumentException("Missing password in " + configPath + ".");
 
-        // Connect to database
-        HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(url);
-        config.setUsername(username);
-        config.setPassword(password);
+        properties.setProperty("jdbcUrl", url.trim());
+        properties.setProperty("username", username.trim());
+        properties.putIfAbsent("driverClassName", MARIADB_DRIVER);
 
-        config.setDriverClassName("org.mariadb.jdbc.Driver");
-        murmelAPI.connect(config);
+        murmelAPI.connect(properties);
+        connected = true;
     }
 
-    public void disconnect() {
+    public synchronized void disconnect() {
+        if (!connected) return;
         murmelAPI.disconnect();
+        connected = false;
+    }
+
+    public synchronized boolean isConnected() {
+        return connected;
+    }
+
+    private static Path pluginDirectory(String pluginName) {
+        if (pluginName == null || pluginName.isBlank())
+            throw new IllegalArgumentException("pluginName must not be blank");
+        if (pluginName.contains("/") || pluginName.contains("\\") || ".".equals(pluginName) || "..".equals(pluginName))
+            throw new IllegalArgumentException("pluginName must be a single directory name");
+        return Path.of("plugins", pluginName);
     }
 }
