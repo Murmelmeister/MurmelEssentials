@@ -10,8 +10,6 @@ import com.velocitypowered.api.event.proxy.ProxyPingEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.server.ServerPing;
 import de.murmelmeister.essentials.MurmelEssentials;
-import de.murmelmeister.essentials.configs.ConfigProvider;
-import de.murmelmeister.essentials.configs.settings.Maintenance;
 import de.murmelmeister.essentials.configurations.PluginConfig;
 import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.essentials.utils.ConfigValue;
@@ -19,6 +17,9 @@ import de.murmelmeister.essentials.utils.PunishmentUtil;
 import de.murmelmeister.murmelapi.language.LanguageType;
 import de.murmelmeister.murmelapi.language.LanguageTypeProvider;
 import de.murmelmeister.murmelapi.language.message.MessageService;
+import de.murmelmeister.murmelapi.maintenance.Maintenance;
+import de.murmelmeister.murmelapi.maintenance.MaintenanceProvider;
+import de.murmelmeister.murmelapi.maintenance.whitelist.MaintenanceWhitelistProvider;
 import de.murmelmeister.murmelapi.permission.PermissionTarget;
 import de.murmelmeister.murmelapi.permission.parent.Parent;
 import de.murmelmeister.murmelapi.permission.parent.ParentProvider;
@@ -35,6 +36,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 import java.net.InetAddress;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -62,6 +64,9 @@ public final class ConnectionListener {
     private final MessageService messageService;
     private final UserStatsProvider userStatsProvider;
 
+    private final MaintenanceProvider maintenanceProvider;
+    private final MaintenanceWhitelistProvider whitelistProvider;
+
     public ConnectionListener(@NotNull MurmelEssentials plugin) {
         this.logger = plugin.getLogger();
         this.databaseExecutor = plugin.getDatabaseExecutor();
@@ -75,6 +80,8 @@ public final class ConnectionListener {
         this.settingsService = plugin.getSettingsService();
         this.messageService = plugin.getMessageService();
         this.userStatsProvider = plugin.getUserStatsProvider();
+        this.maintenanceProvider = plugin.getMaintenanceProvider();
+        this.whitelistProvider = plugin.getMaintenanceWhitelistProvider();
     }
 
     private @NotNull User processUserJoin(@NotNull Player player) {
@@ -109,17 +116,30 @@ public final class ConnectionListener {
                 User user = userProvider.findByMojangId(player.getUniqueId())
                         .orElseGet(() -> userService.join(player.getUniqueId(), player.getUsername()));
 
-                Maintenance maintenance = ConfigProvider.loadMaintenance(settingsService); // TODO: Remove this and use the MurmelAPI maintenance service
-                if (config.getBoolean(ConfigValue.MAINTENANCE_ENABLE) && !maintenance.whitelist().contains(user.id())) {
-                    event.setResult(ResultedEvent.ComponentResult.denied(
-                            MINI_MESSAGE.deserialize(
-                                    messageService.getMessage(
-                                            Message.MAINTENANCE_KICK_MESSAGE.getTag(),
-                                            user.languageId()
-                                    )
-                            )
-                    ));
-                    return;
+                Optional<Maintenance> maintenanceOpt = maintenanceProvider.findActive();
+                if (config.getBoolean(ConfigValue.MAINTENANCE_ENABLE) &&
+                        maintenanceOpt.isPresent()) {
+                    Maintenance maintenance = maintenanceOpt.get();
+                    LocalDateTime now = LocalDateTime.now();
+
+                    boolean whitelisted = whitelistProvider.findByMaintenanceId(maintenance.id()).stream()
+                            .filter(whitelist -> whitelist.userId() == user.id())
+                            .anyMatch(whitelist ->
+                                    (whitelist.startAt() == null || !now.isBefore(whitelist.startAt()))
+                                            && (whitelist.endAt() == null || now.isBefore(whitelist.endAt()))
+                            );
+
+                    if (!whitelisted) {
+                        event.setResult(ResultedEvent.ComponentResult.denied(
+                                MINI_MESSAGE.deserialize(
+                                        messageService.getMessage(
+                                                Message.MAINTENANCE_KICK_MESSAGE.getTag(),
+                                                user.languageId()
+                                        )
+                                )
+                        ));
+                        return;
+                    }
                 }
 
                 checkPunishment(event, user);
