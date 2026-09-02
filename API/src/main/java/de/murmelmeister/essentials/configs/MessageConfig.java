@@ -6,6 +6,8 @@ import de.murmelmeister.murmelapi.language.message.MessageProvider;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -121,15 +123,26 @@ public final class MessageConfig {
     }
 
     private Properties loadProperties(String file) {
-        Properties properties = new Properties();
-
         Path path = resolveFile(file);
-        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.ISO_8859_1)) {
-            properties.load(reader);
+        try {
+            return loadProperties(path, StandardCharsets.UTF_8);
+        } catch (MalformedInputException exception) {
+            try {
+                return loadProperties(path, StandardCharsets.ISO_8859_1);
+            } catch (IOException fallbackException) {
+                fallbackException.addSuppressed(exception);
+                throw new RuntimeException("Could not load " + file + " file.", fallbackException);
+            }
         } catch (IOException e) {
             throw new RuntimeException("Could not load " + file + " file.", e);
         }
+    }
 
+    private Properties loadProperties(Path path, Charset charset) throws IOException {
+        Properties properties = new Properties();
+        try (BufferedReader reader = Files.newBufferedReader(path, charset)) {
+            properties.load(reader);
+        }
         return properties;
     }
 
