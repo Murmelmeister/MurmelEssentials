@@ -5,7 +5,7 @@ public enum ConfigValue {
     TABLIST_REFRESH("tablist.refresh", 1000L),
     PLUGIN_PREFIX("plugin.prefix", true),
     COMMAND_PAGED_SIZE("command.paged.size", 10),
-    MAINTENANCE_ENABLE("maintenance.enable", false),
+    MAINTENANCE_ENABLE("maintenance.enable", true),
     MAINTENANCE_MOTD("maintenance.motd", "<#00ffFF>MurmelAPI <#454545>| <#ff0000>Maintenance\n<#ff00bb>Please try again later."),
     MAINTENANCE_PROTOCOL_VERSION("maintenance.protocol.version", 0),
     MAINTENANCE_PROTOCOL_NAME("maintenance.protocol.name", "Maintenance"),

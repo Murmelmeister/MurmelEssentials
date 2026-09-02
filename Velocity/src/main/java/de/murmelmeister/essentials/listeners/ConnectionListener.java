@@ -184,7 +184,8 @@ public final class ConnectionListener {
 
     @Subscribe
     public void handlePing(@NotNull ProxyPingEvent event) {
-        if (!config.getBoolean(ConfigValue.MAINTENANCE_ENABLE))
+        Optional<Maintenance> maintenanceOpt = maintenanceProvider.findActive();
+        if (!config.getBoolean(ConfigValue.MAINTENANCE_ENABLE) || maintenanceOpt.isEmpty())
             return;
 
         ServerPing ping = event.getPing();
