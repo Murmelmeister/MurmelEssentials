@@ -14,6 +14,7 @@ import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.command.CommandConfig;
 import de.murmelmeister.essentials.manager.command.CommandException;
 import de.murmelmeister.essentials.manager.command.CommandResult;
+import de.murmelmeister.library.utils.StringUtil;
 import de.murmelmeister.murmelapi.maintenance.Maintenance;
 import de.murmelmeister.murmelapi.maintenance.MaintenanceProvider;
 import de.murmelmeister.murmelapi.maintenance.MaintenanceType;
@@ -591,7 +592,11 @@ public final class MaintenanceCommand extends CommandManager {
     }
 
     private CompletableFuture<Suggestions> suggestionUsername(CommandContext<CommandSource> context, SuggestionsBuilder builder) {
-        userProvider.findUsernames().forEach(builder::suggest);
+        String prefix = builder.getRemaining();
+        userProvider.findUsernames().stream()
+                .filter(name -> StringUtil.startsWithIgnoreCase(name, prefix))
+                .sorted()
+                .forEach(builder::suggest);
         return builder.buildFuture();
     }
 }
