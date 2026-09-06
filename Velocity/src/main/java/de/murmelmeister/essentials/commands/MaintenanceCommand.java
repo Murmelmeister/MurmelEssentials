@@ -331,6 +331,9 @@ public final class MaintenanceCommand extends CommandManager {
     private int executeShow(CommandContext<CommandSource> context, int page) {
         return runWithTiming(context, (source, executor) -> {
             List<Maintenance> maintenances = maintenanceProvider.findAll();
+            if (maintenances.isEmpty())
+                throw new CommandException("No maintenances found.");
+
             String message = "<#999999>- <#99cc00><hover:show_text:'" +
                     "<#999999>Title: <#0099cc><title></#0099cc></#999999> <br>" +
                     "<#999999>Reason: <#0099cc><reason></#0099cc></#999999> <br>" +
@@ -389,6 +392,9 @@ public final class MaintenanceCommand extends CommandManager {
                     .orElseThrow(() -> new CommandException("Invalid maintenance: " + inputId));
 
             List<MaintenanceWhitelist> whitelists = whitelistProvider.findByMaintenanceId(maintenance.id());
+            if (whitelists.isEmpty())
+                throw new CommandException("User does not have any maintenance whitelist");
+
             sendRawMessage(source, executor.languageId(),
                     (whitelists.size() == 1 ? "<#999999>Maintenance Whitelist <id>:" : "<#999999>Maintenance Whitelists <#99cc00><id></#99cc00>: <#999999>"),
                     tagParsed("id", maintenance.id())
