@@ -55,8 +55,13 @@ public class TablistUtil {
         String time = TimeUtil.formatDuration(plugin.getMessageService(), user.languageId(), playTime, TimeFilterUtil.SECONDS);
         player.sendPlayerListHeaderAndFooter(
                 //miniMessage.deserialize(test + " » " + config.geTablistHeader()),
-                miniMessage.deserialize(messageService.getMessage(Message.CONFIG_TABLIST_HEADER.getTag(), user.languageId())),
-                miniMessage.deserialize(messageService.getMessage(Message.CONFIG_TABLIST_FOOTER.getTag(), user.languageId()), Placeholder.parsed("time", time))
+                miniMessage.deserialize(messageService.getMessage(Message.CONFIG_TABLIST_HEADER.getTag(), user.languageId()),
+                        Placeholder.parsed("username", user.username())
+                ),
+                miniMessage.deserialize(messageService.getMessage(Message.CONFIG_TABLIST_FOOTER.getTag(), user.languageId()),
+                        Placeholder.parsed("time", time),
+                        Placeholder.parsed("username", user.username())
+                )
         );
     }
 
