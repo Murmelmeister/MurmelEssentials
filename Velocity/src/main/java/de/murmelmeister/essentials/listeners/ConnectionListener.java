@@ -26,7 +26,6 @@ import de.murmelmeister.murmelapi.permission.parent.ParentProvider;
 import de.murmelmeister.murmelapi.punishment.PunishmentService;
 import de.murmelmeister.murmelapi.punishment.audit.PunishmentAudit;
 import de.murmelmeister.murmelapi.punishment.type.PunishmentType;
-import de.murmelmeister.murmelapi.settings.SettingsService;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.user.UserService;
@@ -60,7 +59,6 @@ public final class ConnectionListener {
     private final PunishmentUtil punishmentUtil;
 
     private final PluginConfig config;
-    private final SettingsService settingsService;
     private final MessageService messageService;
     private final UserStatsProvider userStatsProvider;
 
@@ -77,7 +75,6 @@ public final class ConnectionListener {
         this.punishmentService = plugin.getPunishmentService();
         this.punishmentUtil = plugin.getPunishmentUtil();
         this.config = plugin.getPluginConfig();
-        this.settingsService = plugin.getSettingsService();
         this.messageService = plugin.getMessageService();
         this.userStatsProvider = plugin.getUserStatsProvider();
         this.maintenanceProvider = plugin.getMaintenanceProvider();
@@ -93,7 +90,7 @@ public final class ConnectionListener {
             parentProvider.upsert(target, DEFAULT_GROUP_ID, -1, -1);
 
         String code = player.getPlayerSettings().getLocale().toLanguageTag();
-        LanguageType language = languageProvider.findByCode(code).orElse(
+        LanguageType language = languageProvider.findByCode(code).orElseGet(() ->
                 languageProvider.findByCode(ENGLISH_CODE).orElseThrow(() -> new IllegalStateException("Default language not found"))
         );
 
@@ -113,9 +110,19 @@ public final class ConnectionListener {
         Player player = event.getPlayer();
         runDatabaseTask(() -> {
             try {
+                // Register the user
                 User user = userProvider.findByMojangId(player.getUniqueId())
                         .orElseGet(() -> userService.join(player.getUniqueId(), player.getUsername()));
 
+                // Record every login attempt, including banned and non-whitelisted users.
+                processSessionStart(player, user.id());
+
+                // Check if the user is banned
+                checkPunishment(event, user);
+                if (!event.getResult().isAllowed())
+                    return;
+
+                // Check whether maintenance is active and the user is whitelisted.
                 Optional<Maintenance> maintenanceOpt = maintenanceProvider.findActive();
                 if (config.getBoolean(ConfigValue.MAINTENANCE_ENABLE) &&
                         maintenanceOpt.isPresent()) {
@@ -138,11 +145,8 @@ public final class ConnectionListener {
                                         )
                                 )
                         ));
-                        return;
                     }
                 }
-
-                checkPunishment(event, user);
             } catch (Exception e) {
                 logger.error("Error during login event processing for player {}", player.getUsername(), e);
                 event.setResult(ResultedEvent.ComponentResult.denied(
@@ -163,12 +167,9 @@ public final class ConnectionListener {
     @Subscribe
     public void handlePostLogin(@NotNull PostLoginEvent event, @NotNull Continuation continuation) {
         Player player = event.getPlayer();
-        runDatabaseTask(() -> {
-            User user = processUserJoin(player);
-            processSessionStart(player, user.id());
-        }).whenComplete((ignored, throwable) -> {
+        runDatabaseTask(() -> processUserJoin(player)).whenComplete((ignored, throwable) -> {
             if (throwable != null)
-                logger.error("Failed to start session for player {}", player.getUsername(), throwable);
+                logger.error("Failed to process post-login for player {}", player.getUsername(), throwable);
             continuation.resume();
         });
     }
