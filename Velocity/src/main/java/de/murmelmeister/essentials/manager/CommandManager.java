@@ -307,6 +307,10 @@ public abstract class CommandManager {
         return plugin.getDateTimeFormatter(languageId);
     }
 
+    public DateTimeFormatter getDateFormatter(int languageId) {
+        return plugin.getDateFormatter(languageId);
+    }
+
     public @Nullable Player getPlayer(@NotNull CommandSource source) {
         return source instanceof Player ? (Player) source : null;
     }

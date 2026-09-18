@@ -186,6 +186,10 @@ public final class MurmelEssentials {
         return murmelAPI.getDateTimeFormatter(languageId);
     }
 
+    public DateTimeFormatter getDateFormatter(int languageId) {
+        return murmelAPI.getDateFormatter(languageId);
+    }
+
     public Gson getGson() {
         return murmelAPI.getGson();
     }

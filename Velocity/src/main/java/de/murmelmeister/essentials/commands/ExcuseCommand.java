@@ -25,7 +25,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -111,7 +110,7 @@ public final class ExcuseCommand extends CommandManager {
             User user = getUser(inputUser);
 
             String inputStart = StringArgumentType.getString(context, "start");
-            LocalDate startDate = parseStartDate(inputStart);
+            LocalDate startDate = parseStartDate(inputStart, executor.languageId());
             int amount = getOptionalInt(context, "amount");
             String reason = getOptionalString(context, "reason");
 
@@ -121,8 +120,8 @@ public final class ExcuseCommand extends CommandManager {
             sendRawMessage(source, executor.languageId(),
                     "<#999999>Created excuse for <#00cc99><username></#00cc99> start at <#99cc00><start></#99cc00> and end at <#99cc00><end></#99cc00>.",
                     tagParsed("username", user.username()),
-                    tagParsed("start", excuse.startDate()),
-                    tagParsed("end", excuse.startDate().plusDays(excuse.extraDays()).format(DateTimeFormatter.ofPattern("dd.MM.yyyy")))
+                    tagParsed("start", excuse.startDate().format(getDateFormatter(executor.languageId()))),
+                    tagParsed("end", excuse.startDate().plusDays(excuse.extraDays()).format(getDateFormatter(executor.languageId())))
             );
             return CommandResult.of(Command.SINGLE_SUCCESS, 1);
         });
@@ -138,7 +137,7 @@ public final class ExcuseCommand extends CommandManager {
             int amount = excuse.extraDays();
             String reason = excuse.reason();
             switch (field) {
-                case "start" -> startDate = parseStartDate(StringArgumentType.getString(context, "value"));
+                case "start" -> startDate = parseStartDate(StringArgumentType.getString(context, "value"), executor.languageId());
                 case "amount" -> amount = IntegerArgumentType.getInteger(context, "value");
                 case "reason" -> reason = StringArgumentType.getString(context, "value");
                 default -> throw new CommandException("Unknown field: " + field);
@@ -153,9 +152,9 @@ public final class ExcuseCommand extends CommandManager {
         });
     }
 
-    private LocalDate parseStartDate(String input) {
+    private LocalDate parseStartDate(String input, int languageId) {
         try {
-            return LocalDate.parse(input, DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+            return LocalDate.parse(input, getDateFormatter(languageId));
         } catch (DateTimeParseException e) {
             throw new CommandException("Invalid start date: " + input);
         }
@@ -167,6 +166,9 @@ public final class ExcuseCommand extends CommandManager {
             User user = getUser(inputUser);
 
             List<UserExcuse> excuses = excuseProvider.findByUserId(user.id());
+            if (excuses.isEmpty())
+                throw new CommandException("No excuse found with user: " + user.username());
+
             sendRawMessage(source, executor.languageId(),
                     "<#999999><username> <excuse>:</#999999>",
                     tagParsed("username", user.username()),
@@ -204,9 +206,9 @@ public final class ExcuseCommand extends CommandManager {
                                 .orElseThrow(() -> new CommandException("Invalid creator: " + excuse.createdBy()));
 
                         return component(message,
-                                tagParsed("start", excuse.startDate().format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))), // TODO: lang support
+                                tagParsed("start", excuse.startDate().format(getDateFormatter(executor.languageId()))),
                                 tagParsed("extra", excuse.extraDays()),
-                                tagParsed("end", excuse.startDate().plusDays(excuse.extraDays()).format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))),
+                                tagParsed("end", excuse.startDate().plusDays(excuse.extraDays()).format(getDateFormatter(executor.languageId()))),
                                 tagParsed("reason", excuse.reason()),
                                 tagParsed("created_name", creator.username()),
                                 tagParsed("created_id", creator.id()),
@@ -248,7 +250,8 @@ public final class ExcuseCommand extends CommandManager {
     }
 
     private CompletableFuture<Suggestions> suggestStartDate(CommandContext<CommandSource> context, SuggestionsBuilder builder) {
-        builder.suggest(LocalDate.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
+        User executor = getExecutor(context.getSource());
+        builder.suggest(LocalDate.now().format(getDateFormatter(executor.languageId())));
         return builder.buildFuture();
     }
 }
