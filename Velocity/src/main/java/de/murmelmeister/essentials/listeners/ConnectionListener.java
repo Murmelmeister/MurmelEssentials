@@ -42,7 +42,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static de.murmelmeister.murmelapi.MurmelAPI.DEFAULT_GROUP_ID;
-import static de.murmelmeister.murmelapi.MurmelAPI.ENGLISH_CODE;
 
 public final class ConnectionListener {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
@@ -89,10 +88,18 @@ public final class ConnectionListener {
         if (parent.isEmpty())
             parentProvider.upsert(target, DEFAULT_GROUP_ID, -1, -1);
 
-        String code = player.getPlayerSettings().getLocale().toLanguageTag();
-        LanguageType language = languageProvider.findByCode(code).orElseGet(() ->
-                languageProvider.findByCode(ENGLISH_CODE).orElseThrow(() -> new IllegalStateException("Default language not found"))
+        String defaultCode = config.getString(ConfigValue.LANGUAGE_DEFAULT_SELECTED);
+        LanguageType language = languageProvider.findById(user.languageId()).orElseGet(
+                () -> languageProvider.findByCode(defaultCode)
+                        .orElseThrow(() -> new RuntimeException("Language not found"))
         );
+
+        if (config.getBoolean(ConfigValue.LANGUAGE_CLIENT_FETCH)) {
+            String code = player.getPlayerSettings().getLocale().toLanguageTag();
+            language = languageProvider.findByCode(code).orElseGet(() ->
+                    languageProvider.findByCode(defaultCode).orElseThrow(() -> new IllegalStateException("Default language not found"))
+            );
+        }
 
         return userProvider.update(user.id(), user.username(), user.firstLogin(),
                 user.debugUser(), user.debugEnabled(), language.id()).orElse(user);

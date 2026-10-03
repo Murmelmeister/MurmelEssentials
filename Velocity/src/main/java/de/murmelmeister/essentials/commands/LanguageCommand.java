@@ -8,6 +8,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.essentials.manager.command.CommandConfig;
 import de.murmelmeister.essentials.manager.command.CommandException;
 import de.murmelmeister.essentials.manager.command.CommandResult;
 import de.murmelmeister.murmelapi.language.LanguageType;
@@ -18,11 +19,10 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 
 import java.util.List;
 
+@CommandConfig(id = "language", name = "language")
 public final class LanguageCommand extends CommandManager {
     private final LanguageTypeProvider languageProvider;
     private final UserProvider userProvider;
-
-    // TODO: Remove the class, because it is not used anymore
 
     public LanguageCommand(MurmelEssentials plugin) {
         super(plugin);

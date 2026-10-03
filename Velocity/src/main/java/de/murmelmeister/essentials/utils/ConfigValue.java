@@ -1,5 +1,7 @@
 package de.murmelmeister.essentials.utils;
 
+import static de.murmelmeister.murmelapi.MurmelAPI.ENGLISH_CODE;
+
 public enum ConfigValue {
     TABLIST_ENABLE("tablist.enable", true),
     TABLIST_REFRESH("tablist.refresh", 1000L),
@@ -10,6 +12,8 @@ public enum ConfigValue {
     MAINTENANCE_PROTOCOL_VERSION("maintenance.protocol.version", 0),
     MAINTENANCE_PROTOCOL_NAME("maintenance.protocol.name", "Maintenance"),
     COMMAND_LOGGER_ENABLE("command.logger.enable", true),
+    LANGUAGE_DEFAULT_SELECTED("language.default.selected", ENGLISH_CODE),
+    LANGUAGE_CLIENT_FETCH("language.client.fetch", false),
     ;
     public static final ConfigValue[] VALUES = values();
 
