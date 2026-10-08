@@ -21,10 +21,9 @@ import de.murmelmeister.murmelapi.punishment.type.PunishmentType;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.jetbrains.annotations.NotNull;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,58 +43,12 @@ public final class ReasonCommand extends CommandManager {
         return BrigadierCommand.literalArgumentBuilder(commandName)
                 .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "reason"))
                 .executes(context ->
-                        runWithTiming(context, (source, executor) -> {
-                            int languageId = executor.languageId();
-                            List<PunishmentReason> reasons = reasonProvider.findAll();
-
-                            if (reasons.isEmpty()) {
-                                sendRawMessage(source, languageId, "<#990000>No punishment reasons available.");
-                                return CommandResult.of(Command.SINGLE_SUCCESS);
-                            }
-
-                            sendRawMessage(source, languageId, "<#999999>===- <header_name>:", tagUnparsed("header_name", reasons.size() == 1 ? "Reason" : "Reasons"));
-                            reasons.forEach(reason -> {
-                                int reasonId = reason.id();
-                                PunishmentType type = PunishmentType.fromId(reason.typeId()).orElse(null);
-                                if (type == null) return;
-                                String reasonText = reason.reasonText();
-                                Long duration = reason.durationSecs();
-                                boolean isAutoIpFlag = reason.autoFlagIp();
-                                User creator = getUser(reason.createdBy());
-                                String createdDate = reason.createdAt().format(getDateTimeFormatter(languageId));
-                                User changer = reason.changedBy() == null ? null : getUser(reason.changedBy());
-                                String changedDate = reason.changedAt() == null ? null : reason.changedAt().format(getDateTimeFormatter(languageId));
-
-                                Component changedText = (changer == null || changedDate == null) ? Component.empty() :
-                                        MiniMessage.miniMessage().deserialize(messageService.getMessage(Message.PERMISSION_INFO_CHANGE_STUFF.getTag(), languageId),
-                                                tagUnparsed("changed_name", changer.username()),
-                                                tagUnparsed("changed_id", String.valueOf(changer.id())),
-                                                tagUnparsed("changed_at", changedDate));
-
-                                Component hoverText = MiniMessage.miniMessage().deserialize("""
-                                                <#999999>ID: <#999900><reason_id>
-                                                <#999999>Type: <#999900><type_name> (<type_id>)
-                                                <#999999>Reason: <#999900><text>
-                                                <#999999>Duration: <#999900><duration>
-                                                <#999999>Auto IP Flag: <#999900><auto_ip_flag>
-                                                <#999999>Created by <#999900><created_name> (<created_id>)</#999900> on <#999900><created_at>
-                                                <changed>""",
-                                        tagUnparsed("reason_id", String.valueOf(reasonId)),
-                                        tagUnparsed("type_name", type.getName()), tagUnparsed("type_id", String.valueOf(type.getId())),
-                                        tagUnparsed("text", reasonText),
-                                        tagUnparsed("duration", duration != null ? TimeUtil.formatDuration(messageService, languageId, duration) : "Permanent"),
-                                        tagParsed("auto_ip_flag", isAutoIpFlag ? "<#00cc88>Yes" : "<#cc0088>No"),
-                                        tagUnparsed("created_name", creator.username()), Placeholder.unparsed("created_id", String.valueOf(creator.id())),
-                                        tagUnparsed("created_at", createdDate),
-                                        Placeholder.component("changed", changedText)
-                                );
-                                sendRawMessage(source, languageId, "<#999999>- <#00cc88><hover:show_text:'<hover_text>'><reason_id> (<reason_text>)</hover>",
-                                        Placeholder.component("hover_text", hoverText),
-                                        tagUnparsed("reason_id", String.valueOf(reasonId)),
-                                        tagUnparsed("reason_text", reasonText));
-                            });
-                            return CommandResult.of(Command.SINGLE_SUCCESS);
-                        })
+                        executeList(context, 1)
+                )
+                .then(BrigadierCommand.requiredArgumentBuilder("page", IntegerArgumentType.integer(1))
+                        .executes(context ->
+                                executeList(context, IntegerArgumentType.getInteger(context, "page"))
+                        )
                 )
                 .then(getCommandAdd())
                 .then(getCommandRemove())
@@ -105,6 +58,72 @@ public final class ReasonCommand extends CommandManager {
                         .executes(this::executeHelp)
                 )
                 ;
+    }
+
+    private int executeList(CommandContext<CommandSource> context, int page) {
+        return runWithTiming(context, (source, executor) -> {
+            int languageId = executor.languageId();
+            List<PunishmentReason> reasons = reasonProvider.findAll();
+
+            if (reasons.isEmpty())
+                throw new CommandException(Message.COMMAND_REASON_LIST_EMPTY);
+
+            Message headerName = reasons.size() == 1
+                    ? Message.COMMAND_REASON_LIST_SINGULAR
+                    : Message.COMMAND_REASON_LIST_PLURAL;
+            sendMessage(source, languageId,
+                    Message.COMMAND_REASON_LIST_HEADER,
+                    tagParsed("header_name", languageId, headerName),
+                    tagParsed("register", reasons.size())
+            );
+
+            List<Component> messages = reasons.stream()
+                    .map(entry -> {
+                        Integer changerId = entry.changedBy();
+                        LocalDateTime changedAt = entry.changedAt();
+                        Component changedText;
+                        if (changerId != null && changedAt != null) {
+                            User changer = getUser(changerId);
+                            changedText = component(languageId, Message.COMMAND_REASON_USE_HOVER_CHANGED,
+                                    tagParsed("changer_name", changer.username()),
+                                    tagParsed("changer_id", changer.id()),
+                                    tagParsed("changed_at", changedAt.format(getDateTimeFormatter(languageId)))
+                            );
+                        } else changedText = Component.empty();
+
+                        PunishmentType type = PunishmentType.fromId(entry.typeId())
+                                .orElseThrow(() -> new CommandException(Message.PUNISHMENT_TYPE_NOT_FOUND, tagParsed("type_id", entry.typeId())));
+                        User creator = getUser(entry.createdBy());
+                        LocalDateTime createdAt = entry.createdAt();
+                        Long duration = entry.durationSecs();
+                        Component durationText = duration != null
+                                ? component(TimeUtil.formatDuration(messageService, languageId, duration))
+                                : component(languageId, Message.COMMAND_REASON_DURATION);
+
+                        Component hoverText = component(languageId, Message.COMMAND_REASON_USE_HOVER_TEXT,
+                                tagParsed("reason_id", entry.id()),
+                                tagParsed("type_name", type.getName()),
+                                tagParsed("type_id", type.getId()),
+                                tagParsed("text", entry.reasonText()),
+                                tagComponent("duration", durationText),
+                                tagParsed("auto_ip_flag", languageId, entry.autoFlagIp() ? Message.MESSAGE_YES : Message.MESSAGE_NO),
+                                tagParsed("creator_name", creator.username()),
+                                tagParsed("creator_id", creator.id()),
+                                tagParsed("created_at", createdAt.format(getDateTimeFormatter(languageId))),
+                                tagComponent("changed", changedText)
+                        );
+
+                        return component(languageId, Message.COMMAND_REASON_USE_MESSAGE,
+                                tagComponent("hover_text", hoverText),
+                                tagParsed("reason_id", entry.id()),
+                                tagParsed("reason_text", entry.reasonText())
+                        );
+                    })
+                    .toList();
+
+            sendPagedMessage(source, messages, "reason", page);
+            return CommandResult.of(Command.SINGLE_SUCCESS);
+        });
     }
 
     private LiteralArgumentBuilder<CommandSource> getCommandAdd() {

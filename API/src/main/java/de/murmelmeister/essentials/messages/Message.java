@@ -148,6 +148,15 @@ public enum Message {
     USER_UNKNOWN("murmel.user.unknown"),
     TIME_STATUS("murmel.time.status"),
     TIME_AGO("murmel.time.ago"),
+    COMMAND_REASON_LIST_EMPTY("murmel.command.reason.list.empty"),
+    COMMAND_REASON_LIST_HEADER("murmel.command.reason.list.header"),
+    COMMAND_REASON_LIST_SINGULAR("murmel.command.reason.list.singular"),
+    COMMAND_REASON_LIST_PLURAL("murmel.command.reason.list.plural"),
+    COMMAND_REASON_DURATION("murmel.command.reason.duration"),
+    COMMAND_REASON_USE_HOVER_CHANGED("murmel.command.reason.use.hover.changed"),
+    COMMAND_REASON_USE_HOVER_TEXT("murmel.command.reason.use.hover.text"),
+    COMMAND_REASON_USE_MESSAGE("murmel.command.reason.use.message"),
+    PUNISHMENT_TYPE_NOT_FOUND("murmel.punishment.type.not.found"),
     ;
 
     private final String tag;
