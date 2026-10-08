@@ -17,6 +17,7 @@ import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.user.stats.UserStats;
 import de.murmelmeister.murmelapi.utils.TimeFilterUtil;
 import de.murmelmeister.murmelapi.utils.TimeUtil;
+import net.kyori.adventure.text.Component;
 
 import java.time.LocalDateTime;
 
@@ -61,17 +62,17 @@ public final class PlayTimeCommand extends CommandManager {
                                     int userId = user.id();
                                     UserStats userStats = getUserStats(userId);
 
-                                    String online = getOnlineStatus(languageId, userId);
+                                    Component online = getOnlineStatus(languageId, userId);
                                     long playTime = userStats.currentPlayTime();
                                     String time = TimeUtil.formatDuration(messageService, languageId, playTime);
-                                    String ago = getOnlineAgo(languageId, userId, TimeFilterUtil.SECONDS);
+                                    Component ago = getOnlineAgo(languageId, userId, TimeFilterUtil.SECONDS);
                                     String now = LocalDateTime.now().format(getDateTimeFormatter(languageId));
 
                                     sendMessage(source, languageId, Message.COMMAND_PLAY_TIME_OTHER,
                                             tagParsed("username", user.username()),
-                                            tagParsed("online", online),
+                                            tagComponent("online", online),
                                             tagParsed("time", time),
-                                            tagParsed("ago", ago),
+                                            tagComponent("ago", ago),
                                             tagParsed("now", now)
                                     );
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
