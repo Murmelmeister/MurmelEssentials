@@ -6,11 +6,14 @@ import de.murmelmeister.murmelapi.language.message.MessageProvider;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -31,8 +34,6 @@ public final class MessageConfig {
     public MessageConfig(String pluginName) {
         this(pluginDirectory(pluginName));
     }
-
-    // TODO: Version check in the files ( => maybe delete old messages or something)
 
     public void createFile(String file) {
         Path target = resolveFile(file);
@@ -59,6 +60,40 @@ public final class MessageConfig {
             } catch (Exception e) {
                 throw new RuntimeException("Could not create " + file + " file.", e);
             }
+        } else {
+            addMissingDefaults(file, target);
+        }
+    }
+
+    private void addMissingDefaults(String file, Path target) {
+        String resourceName = file.replace('\\', '/');
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream(resourceName)) {
+            if (in == null) throw new IllegalStateException("Could not find " + file + " file.");
+
+            Properties defaults = new Properties();
+            defaults.load(new InputStreamReader(in, StandardCharsets.UTF_8));
+
+            Charset charset = StandardCharsets.UTF_8;
+            Properties existing;
+            try {
+                existing = loadProperties(target, charset);
+            } catch (MalformedInputException exception) {
+                charset = StandardCharsets.ISO_8859_1;
+                existing = loadProperties(target, charset);
+            }
+
+            Properties missing = new Properties();
+            for (String key : defaults.stringPropertyNames()) {
+                if (!existing.containsKey(key))
+                    missing.setProperty(key, defaults.getProperty(key));
+            }
+            if (missing.isEmpty()) return;
+
+            StringWriter additions = new StringWriter();
+            missing.store(additions, "Added missing default messages");
+            Files.writeString(target, System.lineSeparator() + additions, charset, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            throw new RuntimeException("Could not update " + file + " file.", e);
         }
     }
 
