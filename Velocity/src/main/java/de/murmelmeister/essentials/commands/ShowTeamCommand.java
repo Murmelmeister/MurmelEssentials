@@ -1,91 +1,146 @@
 package de.murmelmeister.essentials.commands;
 
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.tree.LiteralCommandNode;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.ServerConnection;
+import com.velocitypowered.api.proxy.server.ServerInfo;
 import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
+import de.murmelmeister.essentials.manager.command.CommandConfig;
+import de.murmelmeister.essentials.manager.command.CommandException;
 import de.murmelmeister.essentials.manager.command.CommandResult;
-import de.murmelmeister.murmelapi.permission.Permission;
+import de.murmelmeister.essentials.messages.Message;
+import de.murmelmeister.murmelapi.permission.PermissionService;
+import de.murmelmeister.murmelapi.permission.PermissionTarget;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
-import de.murmelmeister.murmelapi.user.login.UserLoginProvider;
-import de.murmelmeister.murmelapi.user.session.UserSessionProvider;
+import de.murmelmeister.murmelapi.user.UserService;
+import de.murmelmeister.murmelapi.user.excuse.UserExcuse;
+import de.murmelmeister.murmelapi.user.excuse.UserExcuseProvider;
+import de.murmelmeister.murmelapi.user.login.UserLogin;
+import de.murmelmeister.murmelapi.utils.TimeFilterUtil;
+import net.kyori.adventure.text.Component;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 
+@CommandConfig(id = "showteam", name = "showteam")
 public final class ShowTeamCommand extends CommandManager {
     private final UserProvider userProvider;
-    private final UserSessionProvider userSessionProvider;
-    private final UserLoginProvider userLoginProvider;
-    private final Permission permission;
+    private final UserService userService;
+    private final PermissionService permissionService;
+    private final UserExcuseProvider userExcuseProvider;
     private final ProxyServer server;
 
     public ShowTeamCommand(MurmelEssentials plugin) {
         super(plugin);
         this.userProvider = plugin.getUserProvider();
-        this.userSessionProvider = plugin.getUserSessionProvider();
-        this.userLoginProvider = plugin.getUserLoginProvider();
-        this.permission = plugin.getPermission();
+        this.userService = plugin.getUserService();
+        this.permissionService = plugin.getPermissionService();
+        this.userExcuseProvider = plugin.getUserExcuseProvider();
         this.server = plugin.getServer();
     }
 
     @Override
-    public BrigadierCommand createCommand() {
-        LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("showteam")
-                .requires(source -> source.hasPermission("murmel.command.showteam"))
+    public LiteralArgumentBuilder<CommandSource> createCommand(String commandName) {
+        return BrigadierCommand.literalArgumentBuilder(commandName)
+                .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "showteam"))
                 .executes(context ->
-                        runWithTiming(context, (source, executor) -> {
-                            String teamPermission = MurmelEssentials.TEAM_MEMBER_PERMISSION;
-                            /*List<UUID> userIds = userProvider.findMojangIds();
-                            List<User> teamUsers = new ArrayList<>();
-                            for (int i = userIds.size() - 1; i >= 0; i--) {
-                                User user = userProvider.findByMojangId(userIds.get(i));
-                                //if (user == -1) continue;
-                                if (permission.hasPermission(user.getId(), teamPermission))
-                                    teamUsers.add(user);
-                            }*/
-                            List<User> teamMembers = userProvider.findAll().stream()
-                                    .filter(user -> permission.hasPermission(user, teamPermission))
-                                    .toList();
-
-                            if (teamMembers.isEmpty()) {
-                                sendMessage(source, "<#990000>No team members found.");
-                                return CommandResult.of(-2);
-                            }
-
-                            sendMessage(source, "<#999999>%s:", teamMembers.size() == 1 ? "Team member" : "Team members");
-                            teamMembers.forEach(user -> {
-                                String targetName = user.username();
-                                int targetId = user.id();
-                                boolean isOnline = userSessionProvider.isOnline(targetId);
-                                String onlineMessage = isOnline ? "<#00cc88>online" : "<#cc0088>offline";
-                                LocalDateTime lastQuitDate = userLoginProvider.getLastLoginTime(targetId);
-                                String lastSeenMessage = formatTimeAgo(executor.languageId(), userLoginProvider.getLastLoginTime(targetId));
-                                String hoverLastSeenMessage = "<#999999>-</#999999> " + (lastQuitDate == null ? "unknown"
-                                        : "<hover:show_text:'<#999999>Last seen: <#00cc88>%s'>%s</hover>"
-                                        .formatted(lastSeenMessage, lastQuitDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss"))));
-
-                                Optional<Player> target = server.getPlayer(targetName);
-                                String serverName = target.flatMap(Player::getCurrentServer)
-                                        .map(server -> server.getServerInfo().getName()).orElse("unknown");
-                                String clickedServer = serverName.equals("unknown") ? serverName : (executor.id() == targetId ? serverName :
-                                        "<hover:show_text:'<#999900>Click to send you to the server'><click:run_command:'/server " + serverName + "'>" + serverName + "</click></hover>");
-
-                                String message = "<#454545>- <#999999>User <#999900>%s</#999900> is %s %s"
-                                        .formatted(targetName, onlineMessage, (isOnline ? "<#999999>- Server: </#999999>" + clickedServer : hoverLastSeenMessage));
-                                sendMessage(source, message);
-                            });
-                            return CommandResult.of(Command.SINGLE_SUCCESS);
-                        })
+                        execute(context, 1)
                 )
-                .build();
-        return new BrigadierCommand(node);
+                .then(BrigadierCommand.requiredArgumentBuilder("page", IntegerArgumentType.integer(1))
+                        .executes(context ->
+                                execute(context, IntegerArgumentType.getInteger(context, "page"))
+                        )
+                );
+    }
+
+    private int execute(CommandContext<CommandSource> context, int page) {
+        return runWithTiming(context, (source, executor) -> {
+            int languageId = executor.languageId();
+            String teamPermission = MurmelEssentials.TEAM_MEMBER_PERMISSION;
+
+            List<User> teamMembers = userProvider.findAll().stream()
+                    .filter(user -> permissionService.hasPermission(PermissionTarget.user(user.id()), teamPermission))
+                    .toList();
+            if (teamMembers.isEmpty())
+                throw new CommandException(Message.COMMAND_SHOW_TEAM_LIST_EMPTY);
+
+            Message headerName = teamMembers.size() == 1
+                    ? Message.COMMAND_SHOW_TEAM_LIST_SINGULAR
+                    : Message.COMMAND_SHOW_TEAM_LIST_PLURAL;
+            sendMessage(source, languageId,
+                    Message.COMMAND_SHOW_TEAM_LIST_HEADER,
+                    tagParsed("header_name", languageId, headerName),
+                    tagParsed("members", teamMembers.size())
+            );
+
+            Player player = server.getPlayer(executor.mojangId()).
+                    orElseThrow(() -> new CommandException(Message.PERMISSION_USER_NOT_FOUND, tagParsed("user", executor.username())));
+            String currentServer = player.getCurrentServer().map(ServerConnection::getServerInfo).map(ServerInfo::getName).orElse(null);
+
+            LocalDate today = LocalDate.now();
+            List<Component> messages = teamMembers.stream()
+                    .map(target -> {
+                        boolean online = userService.isOnline(target.id());
+                        Component status = online ? component(languageId, Message.USER_ONLINE) : component(languageId, Message.USER_OFFLINE);
+
+                        UserExcuse excuse = userExcuseProvider.findByUserId(target.id()).stream()
+                                .filter(entry -> !today.isBefore(entry.startDate())
+                                        && !today.isAfter(entry.startDate().plusDays(entry.extraDays())))
+                                .max(Comparator.comparing(UserExcuse::startDate)
+                                        .thenComparingInt(UserExcuse::id))
+                                .orElse(null);
+                        Component excuseMessage = excuse != null ?
+                                component(languageId, Message.COMMAND_SHOW_TEAM_MESSAGE_EXCUSE,
+                                        tagParsed("start_date", excuse.startDate().format(getDateFormatter(languageId))),
+                                        tagParsed("end_date", excuse.startDate().plusDays(excuse.extraDays()).format(getDateFormatter(languageId)))
+                                ) : Component.empty();
+
+                        if (online) {
+                            String serverName = server.getPlayer(target.mojangId())
+                                    .flatMap(Player::getCurrentServer)
+                                    .map(server -> server.getServerInfo().getName())
+                                    .orElse(null);
+                            Component clickedServer = (currentServer != null && serverName != null && !currentServer.equals(serverName))
+                                    ? component(languageId, Message.COMMAND_SHOW_TEAM_MESSAGE_CLICKED, tagParsed("name", serverName))
+                                    : (serverName != null ? component(serverName) : Component.empty());
+
+                            return component(languageId, Message.COMMAND_SHOW_TEAM_MESSAGE_ONLINE,
+                                    tagParsed("username", target.username()),
+                                    tagComponent("online", status),
+                                    tagComponent("server", clickedServer),
+                                    tagComponent("excuse", excuseMessage)
+                            );
+                        } else {
+                            UserLogin login = userService.getLastLogin(target.id());
+                            Component time = login != null
+                                    ? component(formatTimeAgo(languageId, login.logoutTime(), TimeFilterUtil.SECONDS))
+                                    : component(languageId, Message.USER_UNKNOWN);
+
+                            Component offline = login != null
+                                    ? component(login.logoutTime().format(getDateFormatter(languageId)))
+                                    : status;
+
+                            return component(languageId, Message.COMMAND_SHOW_TEAM_MESSAGE_OFFLINE,
+                                    tagParsed("username", target.username()),
+                                    tagComponent("time", time),
+                                    tagComponent("offline", offline),
+                                    tagComponent("excuse", excuseMessage)
+                            );
+                        }
+                    })
+                    .toList();
+
+            sendPagedMessage(source, messages, "showteam", page);
+            return CommandResult.of(Command.SINGLE_SUCCESS);
+        });
     }
 }
