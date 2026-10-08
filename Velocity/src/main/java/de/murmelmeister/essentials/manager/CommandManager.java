@@ -295,6 +295,10 @@ public abstract class CommandManager {
         return Placeholder.styling(key, style);
     }
 
+    public TagResolver.Single tagComponent(@TagPattern String key, @NotNull Component component) {
+        return Placeholder.component(key, component);
+    }
+
     public TagResolver.Single tagStyling(@TagPattern String key, int languageId, @NotNull Message message) {
         final String color = messageService.getMessage(message.getTag(), languageId);
         TextColor textColor = TextColor.fromHexString(color);
@@ -389,16 +393,20 @@ public abstract class CommandManager {
         }
     }
 
-    public String getOnlineStatus(int languageId, int userId) {
+    public Component getOnlineStatus(int languageId, int userId) {
         UserLogin lastLogin = userService.getLastLogin(userId);
-        return userService.isOnline(userId) ? "<#00cc88>online</#00cc88>" :
-                (lastLogin != null ? "<#cc0099>" + lastLogin.logoutTime().format(getDateTimeFormatter(languageId)) + "</#cc0099>" : "<#cc0099>unknown</#cc0099>"); // TODO: Add language support
+        return userService.isOnline(userId) ? component(languageId, Message.USER_ONLINE) :
+                (lastLogin != null
+                        ? component(languageId, Message.TIME_STATUS, tagParsed("time", lastLogin.logoutTime().format(getDateTimeFormatter(languageId))))
+                        : component(languageId, Message.USER_UNKNOWN));
     }
 
-    public String getOnlineAgo(int languageId, int userId, TimeFilterUtil... filters) {
+    public Component getOnlineAgo(int languageId, int userId, TimeFilterUtil... filters) {
         UserLogin lastLogin = userService.getLastLogin(userId);
-        return userService.isOnline(userId) ? "" :
-                (lastLogin != null ? "           <#454545>(<#cc0099>" + formatTimeAgo(languageId, lastLogin.logoutTime(), filters) + "</#cc0099>)</#454545><br>" : ""); // TODO: Add language support
+        return userService.isOnline(userId) ? Component.empty() :
+                (lastLogin != null
+                        ? component(languageId, Message.TIME_AGO, tagParsed("time", formatTimeAgo(languageId, lastLogin.logoutTime(), filters)))
+                        : Component.empty());
     }
 
     public SuggestionProvider<CommandSource> getSuggestionTime() {

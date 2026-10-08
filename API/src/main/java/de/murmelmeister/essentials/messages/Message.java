@@ -134,7 +134,21 @@ public enum Message {
     MAINTENANCE_KICK_MESSAGE("murmel.maintenance.kick.message"),
     CONFIG_TABLIST_HEADER("murmel.config.tablist.header"),
     CONFIG_TABLIST_FOOTER("murmel.config.tablist.footer"),
-    IP_ADDRESS_INVALID("murmel.invalid.ip");
+    IP_ADDRESS_INVALID("murmel.invalid.ip"),
+    COMMAND_SHOW_TEAM_LIST_EMPTY("murmel.command.showteam.list.empty"),
+    COMMAND_SHOW_TEAM_LIST_HEADER("murmel.command.showteam.list.header"),
+    COMMAND_SHOW_TEAM_LIST_SINGULAR("murmel.command.showteam.list.singular"),
+    COMMAND_SHOW_TEAM_LIST_PLURAL("murmel.command.showteam.list.plural"),
+    COMMAND_SHOW_TEAM_MESSAGE_EXCUSE("murmel.command.showteam.message.excuse"),
+    COMMAND_SHOW_TEAM_MESSAGE_CLICKED("murmel.command.showteam.message.clicked"),
+    COMMAND_SHOW_TEAM_MESSAGE_ONLINE("murmel.command.showteam.message.online"),
+    COMMAND_SHOW_TEAM_MESSAGE_OFFLINE("murmel.command.showteam.message.offline"),
+    USER_ONLINE("murmel.user.online"),
+    USER_OFFLINE("murmel.user.offline"),
+    USER_UNKNOWN("murmel.user.unknown"),
+    TIME_STATUS("murmel.time.status"),
+    TIME_AGO("murmel.time.ago"),
+    ;
 
     private final String tag;
 
