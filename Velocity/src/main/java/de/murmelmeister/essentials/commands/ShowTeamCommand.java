@@ -82,10 +82,6 @@ public final class ShowTeamCommand extends CommandManager {
                     tagParsed("members", teamMembers.size())
             );
 
-            Player player = server.getPlayer(executor.mojangId()).
-                    orElseThrow(() -> new CommandException(Message.PERMISSION_USER_NOT_FOUND, tagParsed("user", executor.username())));
-            String currentServer = player.getCurrentServer().map(ServerConnection::getServerInfo).map(ServerInfo::getName).orElse(null);
-
             LocalDate today = LocalDate.now();
             List<Component> messages = teamMembers.stream()
                     .map(target -> {
@@ -109,9 +105,14 @@ public final class ShowTeamCommand extends CommandManager {
                                     .flatMap(Player::getCurrentServer)
                                     .map(server -> server.getServerInfo().getName())
                                     .orElse(null);
-                            Component clickedServer = (currentServer != null && serverName != null && !currentServer.equals(serverName))
-                                    ? component(languageId, Message.COMMAND_SHOW_TEAM_MESSAGE_CLICKED, tagParsed("name", serverName))
-                                    : (serverName != null ? component(serverName) : Component.empty());
+
+                            Component clickedServer;
+                            if (source instanceof Player player) {
+                               String currentServer = player.getCurrentServer().map(ServerConnection::getServerInfo).map(ServerInfo::getName).orElse(null);
+                                clickedServer = (currentServer != null && serverName != null && !currentServer.equals(serverName))
+                                        ? component(languageId, Message.COMMAND_SHOW_TEAM_MESSAGE_CLICKED, tagParsed("name", serverName))
+                                        : (serverName != null ? component(serverName) : Component.empty());
+                            } else clickedServer = serverName != null ? component(serverName) : Component.empty();
 
                             return component(languageId, Message.COMMAND_SHOW_TEAM_MESSAGE_ONLINE,
                                     tagParsed("username", target.username()),
