@@ -10,7 +10,9 @@ import de.murmelmeister.essentials.MurmelEssentials;
 import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.command.CommandConfig;
 import de.murmelmeister.essentials.manager.command.CommandResult;
+import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.murmelapi.language.message.MessageProvider;
+import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.utils.update.RefreshType;
 import de.murmelmeister.murmelapi.utils.update.RefreshProvider;
 
@@ -41,7 +43,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.LANGUAGES);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded languages.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -53,7 +55,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.PUNISHMENT_REASONS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded punishment reasons.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -62,7 +64,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.PUNISHMENT_AUDITS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded punishment audits.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -71,7 +73,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.PUNISHMENT_USERS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded punishment users.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -80,7 +82,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.PUNISHMENT_IPS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded punishment IPs.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -89,7 +91,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.USERS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded users.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -98,7 +100,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.USER_LOGINS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded user logins.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -107,7 +109,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.USER_SESSIONS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded user sessions.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -116,7 +118,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.PARENTS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded parents.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -125,7 +127,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.PERMISSIONS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded permissions.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -134,7 +136,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.GROUPS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded groups.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -143,7 +145,7 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.GROUP_COLORS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded group colors.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -153,6 +155,10 @@ public final class RefreshCommand extends CommandManager {
                 )
                 .then(BrigadierCommand.literalArgumentBuilder("send")
                         .then(BrigadierCommand.requiredArgumentBuilder("message", StringArgumentType.word())
+                                .requires(source -> {
+                                    User user = getExecutor(source);
+                                    return user.debugMode();
+                                })
                                 .executes(context ->
                                         runWithTiming(context, (source, executor) -> {
                                             String message = StringArgumentType.getString(context, "message");
@@ -168,7 +174,7 @@ public final class RefreshCommand extends CommandManager {
                                 runWithTiming(context, (source, executor) -> {
                                     plugin.getPluginConfig().reload();
                                     plugin.reloadTablist();
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded tablist.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
@@ -177,11 +183,111 @@ public final class RefreshCommand extends CommandManager {
                         .executes(context ->
                                 runWithTiming(context, (source, executor) -> {
                                     refreshProvider.fireCache(RefreshType.SETTINGS);
-                                    sendRawMessage(source, executor.languageId(), "<#00cc88>Reloaded settings.");
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
                                     return CommandResult.of(Command.SINGLE_SUCCESS);
                                 })
                         )
-                );
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("clans")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    refreshProvider.fireCache(RefreshType.CLANS);
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("clan_members")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    refreshProvider.fireCache(RefreshType.CLAN_MEMBERS);
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("clan_groups")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    refreshProvider.fireCache(RefreshType.CLAN_GROUPS);
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("prefix_colors")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    refreshProvider.fireCache(RefreshType.PREFIX_COLORS);
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("user_prefix_colors")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    refreshProvider.fireCache(RefreshType.USER_PREFIX_COLORS);
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("inventory_types")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    refreshProvider.fireCache(RefreshType.INVENTORY_TYPES);
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("user_inventories")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    refreshProvider.fireCache(RefreshType.USER_INVENTORIES);
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("user_stats")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    refreshProvider.fireCache(RefreshType.USER_STATS);
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("maintenances")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    refreshProvider.fireCache(RefreshType.MAINTENANCES);
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("maintenance_whitelists")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    refreshProvider.fireCache(RefreshType.MAINTENANCE_WHITELISTS);
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("user_excuses")
+                        .executes(context ->
+                                runWithTiming(context, (source, executor) -> {
+                                    refreshProvider.fireCache(RefreshType.USER_EXCUSES);
+                                    sendMessage(source, executor.languageId(), Message.COMMAND_REFRESH_ONE);
+                                    return CommandResult.of(Command.SINGLE_SUCCESS);
+                                })
+                        )
+                )
+                ;
     }
 
     private int executeMessages(CommandContext<CommandSource> context) {
@@ -192,8 +298,8 @@ public final class RefreshCommand extends CommandManager {
                     .loadToDatabase(messageProvider, MESSAGE_FILES)
                     .length;
 
-            sendRawMessage(source, executor.languageId(),
-                    "<#00cc88>Reloaded messages. Updated messages: <messages>",
+            sendMessage(source, executor.languageId(),
+                    Message.COMMAND_REFRESH_MESSAGES,
                     tagParsed("messages", updatedMessages));
             return CommandResult.of(Command.SINGLE_SUCCESS);
         });
@@ -209,8 +315,8 @@ public final class RefreshCommand extends CommandManager {
             reload(plugin);
             plugin.reloadTablist();
 
-            sendRawMessage(source, executor.languageId(),
-                    "<#00cc88>Reloaded configuration and all caches. Updated messages: <messages>",
+            sendMessage(source, executor.languageId(),
+                    Message.COMMAND_REFRESH_ALL,
                     tagParsed("messages", updatedMessages));
             return CommandResult.of(Command.SINGLE_SUCCESS);
         });

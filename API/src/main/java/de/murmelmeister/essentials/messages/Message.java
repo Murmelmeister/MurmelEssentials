@@ -166,6 +166,9 @@ public enum Message {
     COMMAND_REASON_UPDATE_INVALID("murmel.command.reason.update.invalid"),
     COMMAND_REASON_UPDATE_FAILED("murmel.command.reason.update.failed"),
     COMMAND_REASON_UPDATE_SUCCESS("murmel.command.reason.update.success"),
+    COMMAND_REFRESH_ONE("murmel.command.refresh.one"),
+    COMMAND_REFRESH_MESSAGES("murmel.command.refresh.messages"),
+    COMMAND_REFRESH_ALL("mrumel.command.refresh.all"),
     ;
 
     private final String tag;
