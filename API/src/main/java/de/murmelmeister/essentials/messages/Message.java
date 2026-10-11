@@ -157,6 +157,15 @@ public enum Message {
     COMMAND_REASON_USE_HOVER_TEXT("murmel.command.reason.use.hover.text"),
     COMMAND_REASON_USE_MESSAGE("murmel.command.reason.use.message"),
     PUNISHMENT_TYPE_NOT_FOUND("murmel.punishment.type.not.found"),
+    PUNISHMENT_REASON_NOT_FOUND("murmel.punishment.reason.not.found"),
+    PUNISHMENT_REASON_EXISTS("murmel.punishment.reason.exists"),
+    COMMAND_REASON_ADD_FAILED("murmel.command.reason.add.failed"),
+    COMMAND_REASON_ADD_SUCCESS("murmel.command.reason.add.success"),
+    COMMAND_REASON_REMOVE_FAILED("murmel.command.reason.remove.failed"),
+    COMMAND_REASON_REMOVE_SUCCESS("murmel.command.reason.remove.success"),
+    COMMAND_REASON_UPDATE_INVALID("murmel.command.reason.update.invalid"),
+    COMMAND_REASON_UPDATE_FAILED("murmel.command.reason.update.failed"),
+    COMMAND_REASON_UPDATE_SUCCESS("murmel.command.reason.update.success"),
     ;
 
     private final String tag;

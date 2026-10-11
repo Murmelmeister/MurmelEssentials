@@ -25,7 +25,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @CommandConfig(id = "reason", name = "reason")
 public final class ReasonCommand extends CommandManager {
@@ -50,12 +49,54 @@ public final class ReasonCommand extends CommandManager {
                                 executeList(context, IntegerArgumentType.getInteger(context, "page"))
                         )
                 )
-                .then(getCommandAdd())
-                .then(getCommandRemove())
-                .then(getCommandUpdate())
-                .then(BrigadierCommand.literalArgumentBuilder("help")
-                        .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "reason.help"))
-                        .executes(this::executeHelp)
+                .then(BrigadierCommand.literalArgumentBuilder("add")
+                        .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "reason.add"))
+                        .then(BrigadierCommand.requiredArgumentBuilder("id", IntegerArgumentType.integer(1))
+                                .then(BrigadierCommand.requiredArgumentBuilder("type", StringArgumentType.word())
+                                        .suggests(getSuggestionTypes())
+                                        .then(BrigadierCommand.requiredArgumentBuilder("duration", StringArgumentType.word())
+                                                .suggests(getSuggestionTime())
+                                                .then(BrigadierCommand.requiredArgumentBuilder("reason", StringArgumentType.string())
+                                                        .executes(this::executeAdd)
+                                                )
+                                        )
+                                )
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("remove")
+                        .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "reason.remove"))
+                        .then(BrigadierCommand.requiredArgumentBuilder("id", IntegerArgumentType.integer(1))
+                                .suggests(getSuggestionReasons())
+                                .executes(this::executeRemove)
+                        )
+                )
+                .then(BrigadierCommand.literalArgumentBuilder("update")
+                        .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "reason.update"))
+                        .then(BrigadierCommand.requiredArgumentBuilder("id", IntegerArgumentType.integer(1))
+                                .suggests(getSuggestionReasons())
+                                .then(BrigadierCommand.literalArgumentBuilder("type")
+                                        .then(BrigadierCommand.requiredArgumentBuilder("value", StringArgumentType.greedyString())
+                                                .suggests(getSuggestionTypes())
+                                                .executes(context -> executeUpdate(context, 0))
+                                        )
+                                )
+                                .then(BrigadierCommand.literalArgumentBuilder("reason")
+                                        .then(BrigadierCommand.requiredArgumentBuilder("value", StringArgumentType.greedyString())
+                                                .executes(context -> executeUpdate(context, 1))
+                                        )
+                                )
+                                .then(BrigadierCommand.literalArgumentBuilder("duration")
+                                        .then(BrigadierCommand.requiredArgumentBuilder("value", StringArgumentType.greedyString())
+                                                .suggests(getSuggestionTime())
+                                                .executes(context -> executeUpdate(context, 2))
+                                        )
+                                )
+                                .then(BrigadierCommand.literalArgumentBuilder("autoFlagIp")
+                                        .then(BrigadierCommand.requiredArgumentBuilder("value", StringArgumentType.greedyString())
+                                                .executes(context -> executeUpdate(context, 3))
+                                        )
+                                )
+                        )
                 )
                 ;
     }
@@ -126,143 +167,84 @@ public final class ReasonCommand extends CommandManager {
         });
     }
 
-    private LiteralArgumentBuilder<CommandSource> getCommandAdd() {
-        return BrigadierCommand.literalArgumentBuilder("add")
-                .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "reason.add"))
-                .then(BrigadierCommand.requiredArgumentBuilder("id", IntegerArgumentType.integer(1))
-                        .then(BrigadierCommand.requiredArgumentBuilder("type", StringArgumentType.word())
-                                .suggests(getSuggestionTypes())
-                                .then(BrigadierCommand.requiredArgumentBuilder("duration", StringArgumentType.word())
-                                        .suggests(getSuggestionTime())
-                                        .then(BrigadierCommand.requiredArgumentBuilder("reason", StringArgumentType.string())
-                                                .executes(context ->
-                                                        runWithTiming(context, (source, executor) -> {
-                                                            int languageId = executor.languageId();
-                                                            int id = IntegerArgumentType.getInteger(context, "id");
-                                                            if (reasonProvider.findReason(id).isPresent()) {
-                                                                sendRawMessage(source, languageId, "<#990000>Reason with ID <reason_id> already exists.", tagUnparsed("reason_id", String.valueOf(id)));
-                                                                return CommandResult.of(Command.SINGLE_SUCCESS);
-                                                            }
-
-                                                            String typeName = StringArgumentType.getString(context, "type");
-                                                            PunishmentType type = getType(typeName);
-
-                                                            String time = StringArgumentType.getString(context, "duration");
-                                                            long duration = parseTime(time);
-                                                            String reasonText = StringArgumentType.getString(context, "reason");
-
-                                                            Optional<PunishmentReason> success = reasonProvider.upsert(id, type.getId(), reasonText, duration == -1 ? null : duration, true, executor.id());
-                                                            sendRawMessage(source, languageId, "<#00cc88>Added new punishment reason: <reason_id> (<reason_text>)",
-                                                                    tagUnparsed("reason_id", String.valueOf(id)),
-                                                                    tagUnparsed("reason_text", reasonText)
-                                                            );
-                                                            return CommandResult.of(Command.SINGLE_SUCCESS, success.isPresent() ? 1 : null);
-                                                        })
-                                                )
-                                        )
-                                )
-                        )
-                );
-    }
-
-    private LiteralArgumentBuilder<CommandSource> getCommandRemove() {
-        return BrigadierCommand.literalArgumentBuilder("remove")
-                .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "reason.remove"))
-                .then(BrigadierCommand.requiredArgumentBuilder("id", IntegerArgumentType.integer(1))
-                        .suggests(getSuggestionReasons())
-                        .executes(context ->
-                                runWithTiming(context, (source, executor) -> {
-                                    int languageId = executor.languageId();
-                                    int id = IntegerArgumentType.getInteger(context, "id");
-                                    PunishmentReason reason = getReason(id);
-
-                                    int result = reasonProvider.delete(reason.id());
-                                    sendRawMessage(source, languageId, "<#00cc88>Removed punishment reason with ID <reason_id>.", tagUnparsed("reason_id", String.valueOf(reason.id())));
-                                    return CommandResult.of(Command.SINGLE_SUCCESS, result < 1 ? null : 1);
-                                })
-                        )
-                );
-    }
-
-    private LiteralArgumentBuilder<CommandSource> getCommandUpdate() {
-        return BrigadierCommand.literalArgumentBuilder("update")
-                .requires(source -> source.hasPermission(MurmelEssentials.BASE_PERMISSION_COMMAND + "reason.update"))
-                .then(BrigadierCommand.requiredArgumentBuilder("id", IntegerArgumentType.integer(1))
-                        .suggests(getSuggestionReasons())
-                        .then(BrigadierCommand.requiredArgumentBuilder("field", StringArgumentType.word())
-                                .suggests((context, builder) -> {
-                                    builder.suggest("typeId", tooltip("<#00cc88>Type ID"));
-                                    builder.suggest("reason", tooltip("<#00cc88>Reason"));
-                                    builder.suggest("duration", tooltip("<#00cc88>Duration"));
-                                    builder.suggest("autoFlagIp", tooltip("<#00cc88>Auto IP Flag"));
-                                    builder.suggest("autoPunish", tooltip("<#00cc88>Auto Punish"));
-                                    return builder.buildFuture();
-                                })
-                                .then(BrigadierCommand.requiredArgumentBuilder("value", StringArgumentType.string())
-                                        .suggests((context, builder) -> {
-                                            String field = StringArgumentType.getString(context, "field");
-                                            if ("typeId".equals(field))
-                                                return getSuggestionTypes().getSuggestions(context, builder);
-                                            else if ("duration".equals(field))
-                                                return getSuggestionTime().getSuggestions(context, builder);
-                                            else
-                                                return builder.buildFuture();
-                                        })
-                                        .executes(context ->
-                                                runWithTiming(context, (source, executor) -> {
-                                                    int languageId = executor.languageId();
-                                                    int id = IntegerArgumentType.getInteger(context, "id");
-                                                    PunishmentReason reason = getReason(id);
-                                                    String field = StringArgumentType.getString(context, "field");
-                                                    String value = StringArgumentType.getString(context, "value");
-
-                                                    int typeId = reason.typeId();
-                                                    String reasonText = reason.reasonText();
-                                                    Long durationSecs = reason.durationSecs();
-                                                    boolean autoFlagIp = reason.autoFlagIp();
-                                                    switch (field) {
-                                                        case "typeId" -> {
-                                                            PunishmentType type = getType(value);
-                                                            typeId = type.getId();
-                                                        }
-                                                        case "reason" -> reasonText = value;
-                                                        case "duration" -> {
-                                                            long duration = parseTime(value);
-                                                            durationSecs = (duration == -1) ? null : duration;
-                                                        }
-                                                        case "autoFlagIp" -> autoFlagIp = Boolean.parseBoolean(value);
-                                                        default -> {
-                                                            sendRawMessage(source, languageId, "<#990000>Unknown field: <field>", tagUnparsed("field", field));
-                                                            return CommandResult.of(Command.SINGLE_SUCCESS);
-                                                        }
-                                                    }
-
-                                                    Optional<PunishmentReason> success = reasonProvider.upsert(reason.id(), typeId, reasonText,
-                                                            durationSecs, autoFlagIp, executor.id());
-                                                    sendRawMessage(source, languageId,
-                                                            "<#00cc88>Updated punishment reason with ID <reason_id>.",
-                                                            tagUnparsed("reason_id", String.valueOf(id))
-                                                    );
-                                                    return CommandResult.of(Command.SINGLE_SUCCESS, success.isPresent() ? 1 : null);
-                                                })
-                                        )
-                                )
-                        )
-                );
-    }
-
-    private int executeHelp(CommandContext<CommandSource> context) {
+    private int executeAdd(CommandContext<CommandSource> context) {
         return runWithTiming(context, (source, executor) -> {
-            sendRawMessage(source, executor.languageId(),
-                    """
-                            <#999999>Syntax:
-                            - <#999999>/reason</#999999> - List all available punishment reasons.
-                            - <#999999>/reason add<#00cc88> <id> <type> <duration> <reason> </#00cc88></#999999>- Add a new punishment reason.
-                            - <#999999>/reason remove<#00cc88> <id> </#00cc88></#999999> - Remove a punishment reason by ID.
-                            - <#999999>/reason update<#00cc88> <id> <typeId|reason|duration|autoFlagIp|autoPunish> <value> </#00cc88></#999999> - Update an existing punishment reason.
-                            - <#999999>/reason help</#999999> - Show this help message."""
+            int languageId = executor.languageId();
+            int id = IntegerArgumentType.getInteger(context, "id");
+            if (reasonProvider.findReason(id).isPresent())
+                throw new CommandException(Message.PUNISHMENT_REASON_EXISTS, tagParsed("reason_id", id));
+
+            String typeName = StringArgumentType.getString(context, "type");
+            PunishmentType type = getType(typeName);
+
+            String time = StringArgumentType.getString(context, "duration");
+            long duration = parseTime(time);
+            String reasonText = StringArgumentType.getString(context, "reason");
+
+            PunishmentReason success = reasonProvider.upsert(id, type.getId(), reasonText, duration == -1 ? null : duration, true, executor.id())
+                    .orElseThrow(() -> new CommandException(Message.COMMAND_REASON_ADD_FAILED, tagParsed("reason_id", id)));
+            sendMessage(source, languageId,
+                    Message.COMMAND_REASON_ADD_SUCCESS,
+                    tagParsed("reason_id", success.id()),
+                    tagParsed("reason_text", success.reasonText())
             );
-            return CommandResult.of(Command.SINGLE_SUCCESS);
+            return CommandResult.of(Command.SINGLE_SUCCESS, 1);
+        });
+    }
+
+    private int executeRemove(CommandContext<CommandSource> context) {
+        return runWithTiming(context, (source, executor) -> {
+            int languageId = executor.languageId();
+            int id = IntegerArgumentType.getInteger(context, "id");
+            PunishmentReason reason = getReason(id);
+
+            int result = reasonProvider.delete(reason.id());
+            if (result != 1)
+                throw new CommandException(Message.COMMAND_REASON_REMOVE_FAILED, tagParsed("reason_id", id));
+
+            sendMessage(source, languageId,
+                    Message.COMMAND_REASON_REMOVE_SUCCESS,
+                    tagParsed("reason_id", id)
+            );
+            return CommandResult.of(Command.SINGLE_SUCCESS, 1);
+        });
+    }
+
+    private int executeUpdate(CommandContext<CommandSource> context, int action) {
+        return runWithTiming(context, (source, executor) -> {
+            int languageId = executor.languageId();
+            int id = IntegerArgumentType.getInteger(context, "id");
+            PunishmentReason reason = getReason(id);
+            String value = StringArgumentType.getString(context, "value");
+
+            int typeId = reason.typeId();
+            String reasonText = reason.reasonText();
+            Long durationSecs = reason.durationSecs();
+            boolean autoFlagIp = reason.autoFlagIp();
+
+            switch (action) {
+                case 0 -> {
+                    PunishmentType type = getType(value);
+                    typeId = type.getId();
+                }
+                case 1 -> reasonText = value;
+                case 2 -> {
+                    long duration = parseTime(value);
+                    durationSecs = (duration == -1) ? null : duration;
+                }
+                case 3 -> autoFlagIp = Boolean.parseBoolean(value);
+                default ->
+                        throw new CommandException(Message.COMMAND_REASON_UPDATE_INVALID, tagUnparsed("action", value));
+            }
+
+            PunishmentReason success = reasonProvider.upsert(reason.id(), typeId, reasonText, durationSecs, autoFlagIp, executor.id())
+                    .orElseThrow(() -> new CommandException(Message.COMMAND_REASON_UPDATE_FAILED, tagParsed("reason_id", reason.id())));
+
+            sendMessage(source, languageId,
+                    Message.COMMAND_REASON_UPDATE_SUCCESS,
+                    tagUnparsed("reason_id", success.id())
+            );
+            return CommandResult.of(Command.SINGLE_SUCCESS, 1);
         });
     }
 
@@ -295,10 +277,10 @@ public final class ReasonCommand extends CommandManager {
     }
 
     private @NotNull PunishmentReason getReason(int id) {
-        return reasonProvider.findReason(id).orElseThrow(() -> new CommandException("No punishment reason found with id: " + id));
+        return reasonProvider.findReason(id).orElseThrow(() -> new CommandException(Message.PUNISHMENT_REASON_NOT_FOUND, tagParsed("reason_id", id)));
     }
 
     private @NotNull PunishmentType getType(@NotNull String name) {
-        return PunishmentType.fromName(name).orElseThrow(() -> new CommandException("Invalid punishment type: " + name));
+        return PunishmentType.fromName(name).orElseThrow(() -> new CommandException(Message.PUNISHMENT_TYPE_NOT_FOUND, tagUnparsed("type", name)));
     }
 }
