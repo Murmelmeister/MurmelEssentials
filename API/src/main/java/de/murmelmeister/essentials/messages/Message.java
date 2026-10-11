@@ -168,7 +168,12 @@ public enum Message {
     COMMAND_REASON_UPDATE_SUCCESS("murmel.command.reason.update.success"),
     COMMAND_REFRESH_ONE("murmel.command.refresh.one"),
     COMMAND_REFRESH_MESSAGES("murmel.command.refresh.messages"),
-    COMMAND_REFRESH_ALL("mrumel.command.refresh.all"),
+    COMMAND_REFRESH_ALL("murmel.command.refresh.all"),
+    COMMAND_DEBUG_PERMISSION("murmel.command.debug.permission"),
+    COMMAND_DEBUG_FAILED("murmel.command.debug.failed"),
+    COMMAND_DEBUG_SUCCESS("murmel.command.debug.success"),
+    MESSAGE_ENABLED("murmel.message.enabled"),
+    MESSAGE_DISABLED("murmel.message.disabled"),
     ;
 
     private final String tag;

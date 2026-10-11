@@ -10,8 +10,10 @@ import de.murmelmeister.essentials.manager.CommandManager;
 import de.murmelmeister.essentials.manager.command.CommandConfig;
 import de.murmelmeister.essentials.manager.command.CommandException;
 import de.murmelmeister.essentials.manager.command.CommandResult;
+import de.murmelmeister.essentials.messages.Message;
 import de.murmelmeister.murmelapi.user.User;
 import de.murmelmeister.murmelapi.user.UserProvider;
+import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.NotNull;
 
 @CommandConfig(id = "debug", name = "debugs")
@@ -37,7 +39,7 @@ public final class DebugCommand extends CommandManager {
     private int execute(CommandContext<CommandSource> context) {
         return runWithTiming(context, (source, executor) -> {
             if (!executor.debugUser())
-                throw new CommandException("You do not have permission to execute this command.");
+                throw new CommandException(Message.COMMAND_DEBUG_PERMISSION);
 
             User updated = userProvider.update(executor.id(),
                     executor.username(),
@@ -45,15 +47,15 @@ public final class DebugCommand extends CommandManager {
                     executor.debugUser(),
                     !executor.debugEnabled(),
                     executor.languageId()
-            ).orElseThrow(() -> new CommandException("Could not update the debug mode."));
+            ).orElseThrow(() -> new CommandException(Message.COMMAND_DEBUG_FAILED));
 
-            String status = updated.debugEnabled()
-                    ? "<#00cc88>enabled</#00cc88>"
-                    : "<#cc0088>disabled</#cc0088>";
+            Component status = updated.debugEnabled()
+                    ? component(executor.languageId(), Message.MESSAGE_ENABLED)
+                    : component(executor.languageId(), Message.MESSAGE_DISABLED);
 
-            sendRawMessage(source, executor.languageId(),
-                    "<#999999>Debug mode has been <status> for user <#0088cc><username></#0088cc>.",
-                    tagParsed("status", status),
+            sendMessage(source, executor.languageId(),
+                    Message.COMMAND_DEBUG_SUCCESS,
+                    tagComponent("status", status),
                     tagParsed("username", updated.username())
             );
             return CommandResult.of(Command.SINGLE_SUCCESS);
