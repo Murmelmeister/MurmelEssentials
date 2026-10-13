@@ -64,6 +64,12 @@
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <minimizeJar>false</minimizeJar>
+                            <relocations>
+                                <relocation><pattern>io.lettuce</pattern><shadedPattern>de.murmelmeister.essentials.libs.lettuce</shadedPattern></relocation>
+                                <relocation><pattern>io.netty</pattern><shadedPattern>de.murmelmeister.essentials.libs.netty</shadedPattern></relocation>
+                                <relocation><pattern>reactor</pattern><shadedPattern>de.murmelmeister.essentials.libs.reactor</shadedPattern></relocation>
+                                <relocation><pattern>org.reactivestreams</pattern><shadedPattern>de.murmelmeister.essentials.libs.reactivestreams</shadedPattern></relocation>
+                            </relocations>
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>

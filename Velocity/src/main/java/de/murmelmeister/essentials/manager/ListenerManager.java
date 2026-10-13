@@ -9,7 +9,7 @@ import de.murmelmeister.essentials.listeners.TranslatorListener;
 
 public final class ListenerManager {
     public static void register(MurmelEssentials plugin, ProxyServer server) {
-        addListener(plugin, server, new RefreshMessageListener(plugin));
+        if (!plugin.isRedisEnabled()) addListener(plugin, server, new RefreshMessageListener(plugin));
         addListener(plugin, server, new PermissionListener(plugin));
         addListener(plugin, server, new ConnectionListener(plugin));
         addListener(plugin, server, new TranslatorListener(plugin));

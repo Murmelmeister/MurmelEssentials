@@ -37,6 +37,10 @@ public class PluginConfig {
         reload();
     }
 
+    public Path getDataDirectory() {
+        return path.getParent();
+    }
+
     public void reload() {
         try {
             config = loader.load();

@@ -20,6 +20,7 @@ public final class RefreshListener implements Listener {
         String cache = event.getType();
         String key = event.getKey();
         Player player = event.getPlayer();
+        if (player == null) return;
         User user = userProvider.findByMojangId(player.getUniqueId()).orElse(null);
         if (user == null) return;
         if (user.debugMode()) {

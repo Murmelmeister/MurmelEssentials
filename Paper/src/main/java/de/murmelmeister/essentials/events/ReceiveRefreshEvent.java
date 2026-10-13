@@ -2,12 +2,14 @@ package de.murmelmeister.essentials.events;
 
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
-import org.bukkit.event.player.PlayerEvent;
+import org.bukkit.event.Event;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.NotNull;
 
-public class ReceiveRefreshEvent extends PlayerEvent {
+public class ReceiveRefreshEvent extends Event {
     private static final HandlerList HANDLER_LIST = new HandlerList();
 
+    private final Player player;
     private final String type;
     private final String key;
 
@@ -16,9 +18,20 @@ public class ReceiveRefreshEvent extends PlayerEvent {
     }
 
     public ReceiveRefreshEvent(@NotNull Player player, String type, String key) {
-        super(player);
+        this.player = player;
         this.type = type;
         this.key = key;
+    }
+
+    /** A Redis refresh belongs to the server and has no carrier player. */
+    public ReceiveRefreshEvent(String type, String key) {
+        this.player = null;
+        this.type = type;
+        this.key = key;
+    }
+
+    public @Nullable Player getPlayer() {
+        return player;
     }
 
     public String getType() {

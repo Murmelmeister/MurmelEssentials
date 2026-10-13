@@ -1,7 +1,11 @@
 package de.murmelmeister.essentials;
 
 import de.murmelmeister.essentials.api.Ranks;
-import de.murmelmeister.essentials.configs.ConfigProvider;
+import de.murmelmeister.essentials.redis.RedisConfig;
+import de.murmelmeister.essentials.redis.RedisRefreshBridge;
+import de.murmelmeister.essentials.events.ReceiveRefreshEvent;
+import de.murmelmeister.essentials.api.menu.MenuProvider;
+import de.murmelmeister.essentials.commands.command.TestCommand;
 import de.murmelmeister.essentials.configs.DatabaseConfig;
 import de.murmelmeister.essentials.configs.PluginConfig;
 import de.murmelmeister.essentials.manager.ListenerManager;
@@ -23,6 +27,8 @@ import de.murmelmeister.murmelapi.settings.SettingsService;
 import de.murmelmeister.murmelapi.user.UserProvider;
 import de.murmelmeister.murmelapi.user.color.UserPrefixColorProvider;
 import de.murmelmeister.murmelapi.utils.update.RefreshProvider;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.format.DateTimeFormatter;
@@ -37,6 +43,8 @@ public final class MurmelEssentials extends JavaPlugin {
     private final RefreshBridge refreshBridge;
     private final DatabaseConfig databaseConfig;
     private final Ranks ranks;
+    private RedisRefreshBridge redisBridge;
+    private boolean redisEnabled;
 
     public MurmelEssentials() {
         this.pluginConfig = new PluginConfig(getDataFolder().toPath());
@@ -49,11 +57,13 @@ public final class MurmelEssentials extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (redisBridge != null) redisBridge.close();
+        MenuProvider.unregisterAll();
         ranks.cancelTask();
         ranks.close();
         databaseConfig.disconnect();
 
-        if (!pluginConfig.getBoolean(ConfigValue.VELOCITY_SUPPORT))
+        if (!redisEnabled && !pluginConfig.getBoolean(ConfigValue.VELOCITY_SUPPORT))
             refreshBridge.unregister();
 
         getServer().getMessenger().unregisterOutgoingPluginChannel(this, CHANNEL);
@@ -66,11 +76,32 @@ public final class MurmelEssentials extends JavaPlugin {
         ListenerManager.register(this);
         if (isFolia()) ranks.updatePlayersFolia(this, getServer());
         else ranks.updatePlayers(this, getServer());
-        getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, pluginMessageRefresh);
-        getServer().getMessenger().registerOutgoingPluginChannel(this, CHANNEL);
+        RedisConfig redisConfig = RedisConfig.load(getDataFolder().toPath());
+        redisEnabled = redisConfig.enabled();
+        if (redisEnabled) {
+            redisBridge = new RedisRefreshBridge(redisConfig, getRefreshProvider(), getSLF4JLogger(),
+                    murmelAPI.getGson(), message -> runServerTask(() -> {
+                    if (isEnabled()) getServer().getPluginManager().callEvent(
+                            new ReceiveRefreshEvent(message.type(), message.keyJson(murmelAPI.getGson())));
+                }));
+            redisBridge.register();
+        } else {
+            getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, pluginMessageRefresh);
+            getServer().getMessenger().registerOutgoingPluginChannel(this, CHANNEL);
+            if (!pluginConfig.getBoolean(ConfigValue.VELOCITY_SUPPORT)) refreshBridge.register();
+        }
 
-        if (!pluginConfig.getBoolean(ConfigValue.VELOCITY_SUPPORT))
-            refreshBridge.register();
+        //MurmelCommand.register(this, getSLF4JLogger());
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            Commands commands = event.registrar();
+            commands.register(new TestCommand(this).command().build());
+        });
+    }
+
+    private void runServerTask(Runnable task) {
+        if (!isEnabled()) return;
+        if (isFolia()) getServer().getGlobalRegionScheduler().execute(this, task);
+        else getServer().getScheduler().runTask(this, task);
     }
 
     public MurmelEssentials getInstance() {
