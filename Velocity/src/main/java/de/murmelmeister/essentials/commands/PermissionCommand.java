@@ -95,7 +95,10 @@ public final class PermissionCommand extends PermissionUtil {
             Message headerName = groupNames.size() == 1
                     ? Message.PERMISSION_LIST_SINGULAR_GROUP
                     : Message.PERMISSION_LIST_PLURAL_GROUP;
-            sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_HEADER, tagParsed("header_name", languageId, headerName));
+            sendMessage(source, languageId, Message.PERMISSION_LIST_GROUP_HEADER,
+                    tagParsed("header_name", languageId, headerName),
+                    tagParsed("register", groupNames.size())
+            );
 
             List<Component> groupComponents = groupNames.stream()
                     .map(groupName -> {
@@ -380,7 +383,10 @@ public final class PermissionCommand extends PermissionUtil {
             Message headerName = usernames.size() == 1
                     ? Message.PERMISSION_LIST_SINGULAR_USER
                     : Message.PERMISSION_LIST_PLURAL_USER;
-            sendMessage(source, languageId, Message.PERMISSION_LIST_USER_HEADER, tagParsed("header_name", languageId, headerName));
+            sendMessage(source, languageId, Message.PERMISSION_LIST_USER_HEADER,
+                    tagParsed("header_name", languageId, headerName),
+                    tagParsed("register", usernames.size())
+            );
 
             List<Component> userComponents = usernames.stream()
                     .map(username -> {
