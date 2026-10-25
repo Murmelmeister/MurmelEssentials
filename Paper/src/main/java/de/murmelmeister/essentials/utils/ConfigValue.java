@@ -1,7 +1,6 @@
 package de.murmelmeister.essentials.utils;
 
 public enum ConfigValue {
-    VELOCITY_SUPPORT("velocity.support", true),
     PERMISSION_RANK_CHAT_ENABLE("permission.rank.chat.enable", true),
     PERMISSION_RANK_TAB_ENABLE("permission.rank.tab.enable", true),
     PERMISSION_RANK_TAG_ENABLE("permission.rank.tag.enable", true),
@@ -20,6 +19,8 @@ public enum ConfigValue {
     PERMISSION_RANK_TAG_DEFAULT_SUFFIX("permission.rank.tag.default.suffix", ""),
     PERMISSION_RANK_TAG_DEFAULT_COLOR("permission.rank.tag.default.color", "gray"),
     CHAT_PLAYER_HEAD_ENABLE("chat.player_head.enable", true),
+    CLAN_FORMAT_TAG("clan.format.tag", " [<tag>]"),
+    CLAN_FORMAT_SIGN("clan.format.sign", "[<sign>] "),
     ;
     public static final ConfigValue[] VALUES = values();
 

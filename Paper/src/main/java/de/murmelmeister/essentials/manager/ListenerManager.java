@@ -12,7 +12,7 @@ public class ListenerManager implements Listener {
     public static void register(@NotNull MurmelEssentials instance) {
         addListener(instance, new CustomPermissionListener(instance.getSLF4JLogger(), instance.getUserProvider(), instance.getPermissionService()));
         addListener(instance, new PlayerChatListener(instance));
-        addListener(instance, new RefreshListener(instance.getUserProvider()));
+        addListener(instance, new RefreshListener(instance.getUserProvider(), instance.getServer()));
         addListener(instance, new ConnectionListener(instance.getRanks()));
     }
 

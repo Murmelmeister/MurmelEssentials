@@ -2,14 +2,12 @@ package de.murmelmeister.essentials.manager;
 
 import com.velocitypowered.api.proxy.ProxyServer;
 import de.murmelmeister.essentials.MurmelEssentials;
-import de.murmelmeister.essentials.listeners.RefreshMessageListener;
 import de.murmelmeister.essentials.listeners.ConnectionListener;
 import de.murmelmeister.essentials.listeners.PermissionListener;
 import de.murmelmeister.essentials.listeners.TranslatorListener;
 
 public final class ListenerManager {
     public static void register(MurmelEssentials plugin, ProxyServer server) {
-        if (!plugin.isRedisEnabled()) addListener(plugin, server, new RefreshMessageListener(plugin));
         addListener(plugin, server, new PermissionListener(plugin));
         addListener(plugin, server, new ConnectionListener(plugin));
         addListener(plugin, server, new TranslatorListener(plugin));

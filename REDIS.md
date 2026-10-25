@@ -1,6 +1,6 @@
 # Redis refresh transport
 
-Paper and Velocity create `redis.properties` in their plugin data directories.
+MurmelAPI owns the Redis transport. Paper and Velocity create `redis.properties` in their plugin data directories.
 Redis distributes cache invalidations independently of player connections; the database
 remains the authoritative source of data.
 
@@ -26,8 +26,8 @@ use an address reachable from every instance. Restrict Redis access to the inten
 An empty password skips explicit authentication; otherwise the configured Redis ACL user
 and password are used. These are Redis credentials, not operating-system accounts.
 
-Changes take effect after restart. With `enabled=false`, the previous plugin-message
-transport is used. All instances must use the same transport.
+Changes take effect after restart. Redis is required: `enabled=false` is rejected;
+there is no plugin-message fallback. New configuration files default to `enabled=true`.
 
 ## TLS
 
@@ -113,10 +113,21 @@ Redis Pub/Sub does not store messages or confirm that remote caches applied them
 that miss messages invalidate their caches after reconnecting. This transport is intended
 for cache invalidation, not durable event delivery.
 
-Paper's `ReceiveRefreshEvent` has no carrier player for Redis messages; `getPlayer()` can
-be `null`. Event callbacks use the Bukkit scheduler on Paper and the global scheduler on
-Folia. Work on individual entities in Folia must use their entity scheduler.
-
 References: [Redis TLS](https://redis.io/docs/latest/operate/oss_and_stack/management/security/encryption/),
 [Redis ACLs](https://redis.io/docs/latest/operate/oss_and_stack/management/security/acl/),
 [Lettuce client options](https://redis.github.io/lettuce/advanced-usage/client-options/).
+
+## MurmelAPI integration
+
+Start Redis after initializing the database and registering cache listeners:
+
+```java
+RedisConfig config = RedisConfig.load(pluginDataDirectory);
+murmelAPI.startRedis(config);
+```
+
+An overload accepts a `Consumer<RefreshMessage>` for platform notifications. Callbacks run
+on the Redis worker; schedule platform work appropriately. Stop application tasks that write
+to the database before calling `murmelAPI.stopRedis()`. `murmelAPI.disconnect()` also stops
+Redis before closing cache listeners and the database. Only one transport can be started
+per MurmelAPI instance. The Lettuce dependency and Redis classes are supplied by MurmelAPI.

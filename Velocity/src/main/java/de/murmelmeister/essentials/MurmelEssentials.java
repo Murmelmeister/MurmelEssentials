@@ -8,10 +8,8 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
-import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import de.murmelmeister.essentials.api.CustomPermission;
-import de.murmelmeister.essentials.redis.RedisConfig;
-import de.murmelmeister.essentials.redis.RedisRefreshBridge;
+import de.murmelmeister.murmelapi.redis.RedisConfig;
 import de.murmelmeister.essentials.configs.DatabaseConfig;
 import de.murmelmeister.essentials.configs.MessageConfig;
 import de.murmelmeister.essentials.configurations.PluginConfig;
@@ -20,7 +18,6 @@ import de.murmelmeister.essentials.manager.ListenerManager;
 import de.murmelmeister.essentials.utils.MurmelMessageTranslator;
 import de.murmelmeister.essentials.utils.MaintenanceScheduler;
 import de.murmelmeister.essentials.utils.PunishmentUtil;
-import de.murmelmeister.essentials.utils.RefreshBridge;
 import de.murmelmeister.essentials.utils.TablistUtil;
 import de.murmelmeister.murmelapi.MurmelAPI;
 import de.murmelmeister.murmelapi.clan.ClanProvider;
@@ -79,11 +76,7 @@ public final class MurmelEssentials {
     private final DatabaseConfig databaseConfig;
     private final MessageConfig messageConfig;
     private final PluginConfig pluginConfig;
-    private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from("murmel:main");
     private final PunishmentUtil punishmentUtil;
-    private RefreshBridge refreshBridge;
-    private RedisRefreshBridge redisBridge;
-    private boolean redisEnabled;
     private MurmelMessageTranslator messageTranslator;
 
     public static final String BASE_PERMISSION_COMMAND = "murmel.command.";
@@ -128,16 +121,8 @@ public final class MurmelEssentials {
         GlobalTranslator.translator().addSource(messageTranslator);
         logger.info("Updated {} messages.", messages);
 
-        server.getChannelRegistrar().register(channel); // Note: Channel registration only works at the ProxyInitializeEvent not in the constructor
         RedisConfig redisConfig = RedisConfig.load(pluginConfig.getDataDirectory());
-        redisEnabled = redisConfig.enabled();
-        if (redisEnabled) {
-            redisBridge = new RedisRefreshBridge(redisConfig, getRefreshProvider(), logger, getGson(), message -> {});
-            redisBridge.register();
-        } else {
-            refreshBridge = new RefreshBridge(server, channel, getRefreshProvider(), logger, getGson());
-            refreshBridge.register();
-        }
+        murmelAPI.startRedis(redisConfig);
 
         CustomPermission.updatePermission(this, server);
         ListenerManager.register(this, server);
@@ -171,9 +156,7 @@ public final class MurmelEssentials {
             logger.warn("Interrupted while waiting for database tasks to finish.", exception);
         }
         // Keep the transport alive until accepted database changes have produced their refresh events.
-        if (refreshBridge != null) refreshBridge.unregister();
-        if (redisBridge != null) redisBridge.close();
-        server.getChannelRegistrar().unregister(channel);
+        murmelAPI.stopRedis();
         if (databaseConfig.isConnected())
             databaseConfig.disconnect();
     }
@@ -330,16 +313,8 @@ public final class MurmelEssentials {
         return murmelAPI.getRefreshProvider();
     }
 
-    public MinecraftChannelIdentifier getChannel() {
-        return channel;
-    }
-
     public PunishmentUtil getPunishmentUtil() {
         return punishmentUtil;
-    }
-
-    public boolean isRedisEnabled() {
-        return redisEnabled;
     }
 
     public PluginConfig getPluginConfig() {
